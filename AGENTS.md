@@ -115,8 +115,8 @@ Escalate. Видение там важнее старых формулирово
 `.ai-orchestration/profiles/vika.md`.
 
 Цикл работы: research → тикеты в Linear (`/to-tickets`) → выполнение тикета
-скиллом `linear-work` (`/linear-work VIK-N | next | status`) → Вика ревьюит
-(статус In Review) и переводит в Done. Параллельно: отдельная сессия в
+скиллом `linear-work` (`/linear-work VIK-N | next | status`) → без открытых вопросов
+агент сам мержит в `main` (Done), иначе In Review для Вики. Параллельно: отдельная сессия в
 worktree на тикет, проверки через `make wt-test` / `make wt-build`.
 
 ## Agent skills

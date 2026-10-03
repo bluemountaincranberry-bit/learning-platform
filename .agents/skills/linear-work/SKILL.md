@@ -54,14 +54,24 @@ one recommendation: what to run next and which tickets can run in parallel
    Every acceptance criterion is checked or explicitly marked not verified.
 9. **Finish.**
    - Commit on the ticket branch: `VIK-N: <what changed>` + attribution trailer.
-   - Push the ticket branch (`git push -u origin <branch>`); open a PR with `gh`
-     if it is installed. Never push to or merge into `main`.
    - Linear comment (the report): what was done, files/areas changed, checks run
      with results, docs updated, assumptions made (link DECISIONS.md), risks,
-     how Vika can try it (URL/steps on the phone).
-   - Tick the acceptance criteria that are verified in the description.
-   - Status → In Review. New work discovered → new tickets (template from the
-     tracker doc), linked as related.
+     how Vika can try it (URL/steps on the phone). Tick the verified acceptance
+     criteria in the description. New work discovered → new tickets (template
+     from the tracker doc), linked as related.
+   - **Merge gate.** Auto-merge only when all hold: no open questions, every
+     acceptance criterion verified, checks green, nothing from `product-owner`
+     § Escalate (e.g. no destructive change to Vika's existing data).
+   - **Gate passes → merge:** `git fetch origin && git rebase origin/main`,
+     re-run the checks, push the branch, then
+     `gh pr create --fill --base main` and `gh pr merge --squash --delete-branch`.
+     Without `gh`: `git push origin HEAD:main` (fast-forward only; never force).
+     Report the merged commit in the Linear comment; status → Done.
+     If this session runs in the main checkout: `git switch main &&
+     git pull --ff-only`, then `make migrate` / `make workers-restart` if the
+     change needs them.
+   - **Gate fails → review:** push the branch, open a PR with `gh` if installed
+     (no merge), say in the comment what blocks the merge; status → In Review.
 10. Reply in chat with the ticket link and a 3-line summary.
 
 ## Parallel sessions
