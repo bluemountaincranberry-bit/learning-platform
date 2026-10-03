@@ -379,8 +379,8 @@ onMounted(() => {
 
                 <!-- VIK-38: labels say what happens; one primary action. -->
                 <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                    <UiButton variant="primary" class="h-11" @click="router.push({ name: 'repetitions', query: { content_id: content?.id } })">Practice these words</UiButton>
-                    <AskAiButton v-if="content" :context="aiContext" label="Explain with AI" variant="secondary" class="h-11" />
+                    <UiButton variant="primary" size="touch" @click="router.push({ name: 'repetitions', query: { content_id: content?.id } })">Practice these words</UiButton>
+                    <AskAiButton v-if="content" :context="aiContext" label="Explain with AI" variant="secondary" size="touch" />
                 </div>
             </UiCard>
 

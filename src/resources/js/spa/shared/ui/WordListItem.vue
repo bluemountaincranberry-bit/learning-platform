@@ -82,8 +82,8 @@ const associationGroups = () => groupAssociationsByType(props.lexeme.association
             <UiButton
                 v-else-if="lexeme.in_review"
                 variant="ghost"
-                size="icon"
-                class="h-11 w-11 shrink-0"
+                size="icon-touch"
+                class="shrink-0"
                 :disabled="startingReview"
                 aria-label="Remove from your learning queue"
                 title="Remove from your spaced-repetition learning queue"
@@ -94,8 +94,8 @@ const associationGroups = () => groupAssociationsByType(props.lexeme.association
             <UiButton
                 v-else
                 variant="ghost"
-                size="icon"
-                class="h-11 w-11 shrink-0"
+                size="icon-touch"
+                class="shrink-0"
                 :disabled="startingReview"
                 aria-label="Add to your learning queue"
                 title="Add to your spaced-repetition learning queue, to practice it later on the Repetitions page"
@@ -107,8 +107,8 @@ const associationGroups = () => groupAssociationsByType(props.lexeme.association
             <UiButton
                 v-if="lexeme.learned"
                 variant="ghost"
-                size="icon"
-                class="h-11 w-11 shrink-0"
+                size="icon-touch"
+                class="shrink-0"
                 :disabled="marking"
                 aria-label="Remove from learned words"
                 title="Remove from learned words"
@@ -119,8 +119,8 @@ const associationGroups = () => groupAssociationsByType(props.lexeme.association
             <UiButton
                 v-else
                 variant="ghost"
-                size="icon"
-                class="h-11 w-11 shrink-0 text-success-fg"
+                size="icon-touch"
+                class="shrink-0 text-success-fg"
                 :disabled="marking"
                 aria-label="I know this word — mark as learned"
                 title="I know this word — mark as learned"
@@ -144,7 +144,7 @@ const associationGroups = () => groupAssociationsByType(props.lexeme.association
                 >
                     Not yet analyzed
                 </UiBadge>
-                <UiBadge v-if="lexeme.skipped" tone="neutral" title="You marked this word as not interested">Not interested</UiBadge>
+                <UiBadge v-if="lexeme.skipped" tone="neutral" title="You hid this word from your list">Hidden</UiBadge>
                 <UiBadge
                     v-if="formatGrammarFeatures(lexeme.grammar_features)"
                     tone="neutral"
@@ -165,16 +165,16 @@ const associationGroups = () => groupAssociationsByType(props.lexeme.association
             </div>
             <WordExamples :examples="lexeme.examples" :fallback-example="lexeme.example" :language="language" />
             <div class="flex flex-wrap items-center gap-1">
-                <UiButton v-if="lexeme.skipped" variant="ghost" class="h-11 px-3" :disabled="marking" @click="emit('unskip', lexeme)">
+                <UiButton v-if="lexeme.skipped" variant="ghost" size="touch" :disabled="marking" @click="emit('unskip', lexeme)">
                     <Eye :size="16" /> Show again
                 </UiButton>
-                <UiButton v-else variant="ghost" class="h-11 px-3" :disabled="marking" title="Hide this word from your list" @click="emit('skip', lexeme)">
-                    <EyeOff :size="16" /> Not interested
+                <UiButton v-else variant="ghost" size="touch" :disabled="marking" title="Hide this word from your list" @click="emit('skip', lexeme)">
+                    <EyeOff :size="16" /> Hide
                 </UiButton>
-                <UiButton v-if="!aiUnavailable" variant="ghost" class="h-11 px-3" :disabled="explaining" @click="emit('explain', lexeme)">
+                <UiButton v-if="!aiUnavailable" variant="ghost" size="touch" :disabled="explaining" @click="emit('explain', lexeme)">
                     <Lightbulb :size="16" :class="{ 'animate-pulse': explaining }" /> Explain
                 </UiButton>
-                <UiButton v-if="!aiUnavailable && lexeme.lexeme_id" variant="ghost" class="h-11 px-3" :disabled="fetchingExamples" @click="emit('moreExamples', lexeme)">
+                <UiButton v-if="!aiUnavailable && lexeme.lexeme_id" variant="ghost" size="touch" :disabled="fetchingExamples" @click="emit('moreExamples', lexeme)">
                     <BookPlus :size="16" :class="{ 'animate-pulse': fetchingExamples }" /> More examples
                 </UiButton>
                 <RouterLink

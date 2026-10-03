@@ -165,7 +165,7 @@ onMounted(async () => {
 
                     <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                         <UiButton class="w-full sm:w-auto" variant="secondary" size="sm" @click="router.push({ name: 'catalog.details', params: { id: contentId } })">Back to content</UiButton>
-                        <AskAiButton v-if="content" class="w-full sm:w-auto" :context="aiContext" size="sm" />
+                        <AskAiButton v-if="content" class="w-full sm:w-auto" :context="aiContext" label="Explain with AI" size="sm" />
                     </div>
                 </div>
 

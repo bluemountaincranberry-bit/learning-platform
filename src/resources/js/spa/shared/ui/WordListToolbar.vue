@@ -70,6 +70,9 @@ const CATEGORY_LABELS: Record<Exclude<CategoryFilter, 'all'>, string> = {
 
 const searchQuery = ref('');
 
+/** The filters that live in the Filter sheet and show up as chips. */
+type FilterKey = 'level' | 'category' | 'search';
+
 // "To learn" means actively in the spaced-repetition queue (in_review) —
 // not merely "not learned yet", which used to include every untouched word
 // and made the tab redundant with "All minus Learned".
@@ -181,14 +184,14 @@ watch(filteredLexemes, (list) => emit('update:filtered', list), { immediate: tru
 
 // Chips for the filters hidden in the sheet, so an active filter is never invisible.
 const activeChips = computed(() => {
-    const chips: { key: 'level' | 'category' | 'search'; label: string }[] = [];
+    const chips: { key: FilterKey; label: string }[] = [];
     if (filterLevel.value !== 'all') chips.push({ key: 'level', label: filterLevel.value === 'none' ? 'No level' : filterLevel.value });
     if (filterCategory.value !== 'all') chips.push({ key: 'category', label: CATEGORY_LABELS[filterCategory.value] });
     if (searchQuery.value.trim()) chips.push({ key: 'search', label: `“${searchQuery.value.trim()}”` });
     return chips;
 });
 
-function clearChip(key: 'level' | 'category' | 'search') {
+function clearChip(key: FilterKey) {
     if (key === 'level') filterLevel.value = 'all';
     else if (key === 'category') filterCategory.value = 'all';
     else searchQuery.value = '';
@@ -270,13 +273,12 @@ const menuItemClass =
 <template>
     <div>
         <div class="space-y-2 px-4 sm:px-0">
-            <div role="tablist" aria-label="Word status" class="flex rounded-lg bg-muted p-0.5">
+            <div role="group" aria-label="Word status" class="flex rounded-lg bg-muted p-0.5">
                 <button
                     v-for="segment in statusSegments"
                     :key="segment.key"
                     type="button"
-                    role="tab"
-                    :aria-selected="filterStatus === segment.key"
+                    :aria-pressed="filterStatus === segment.key"
                     class="flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center rounded-md px-1 text-xs font-medium leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     :class="filterStatus === segment.key ? 'bg-background text-fg shadow-sm' : 'text-muted-foreground'"
                     @click="setStatus(segment.key)"
@@ -287,7 +289,7 @@ const menuItemClass =
             </div>
 
             <div class="flex min-h-11 items-center gap-2">
-                <UiButton variant="secondary" class="h-11 shrink-0 px-3" :aria-label="`Filter words${activeChips.length ? ` (${activeChips.length} active)` : ''}`" @click="filterSheetOpen = true">
+                <UiButton variant="secondary" size="touch" class="shrink-0" :aria-label="`Filter words${activeChips.length ? ` (${activeChips.length} active)` : ''}`" @click="filterSheetOpen = true">
                     <SlidersHorizontal :size="16" />
                     Filter
                     <span v-if="activeChips.length" class="rounded-full bg-primary px-1.5 text-[11px] leading-5 text-primary-foreground">{{ activeChips.length }}</span>
@@ -297,15 +299,17 @@ const menuItemClass =
                         v-for="chip in activeChips"
                         :key="chip.key"
                         type="button"
-                        class="inline-flex h-8 max-w-[10rem] shrink-0 items-center gap-1 rounded-full bg-primary/10 pl-2.5 pr-1.5 text-xs font-medium text-primary"
+                        class="flex h-11 max-w-[10rem] shrink-0 items-center"
                         :aria-label="`Remove filter ${chip.label}`"
                         @click="clearChip(chip.key)"
                     >
-                        <span class="truncate">{{ chip.label }}</span>
-                        <X :size="14" class="shrink-0" />
+                        <span class="inline-flex h-8 min-w-0 items-center gap-1 rounded-full bg-primary/10 pl-2.5 pr-1.5 text-xs font-medium text-primary">
+                            <span class="truncate">{{ chip.label }}</span>
+                            <X :size="14" class="shrink-0" />
+                        </span>
                     </button>
                 </div>
-                <label v-if="filteredLexemes.length > 0" class="flex min-h-11 shrink-0 cursor-pointer items-center gap-2 pl-1 text-sm text-muted-foreground">
+                <label v-if="filteredLexemes.length > 0 && selectedIds.size === 0" class="flex min-h-11 shrink-0 cursor-pointer items-center gap-2 pl-1 text-sm text-muted-foreground">
                     <span>All {{ filteredLexemes.length }}</span>
                     <input
                         type="checkbox"
@@ -337,19 +341,19 @@ const menuItemClass =
                     Select all {{ filteredLexemes.length }}
                 </label>
                 <span class="ml-auto font-medium text-fg">{{ selectedIds.size }} selected</span>
-                <UiButton variant="ghost" size="icon" class="h-11 w-11" aria-label="Clear selection" @click="clearSelection">
+                <UiButton variant="ghost" size="icon-touch" aria-label="Clear selection" @click="clearSelection">
                     <X :size="18" />
                 </UiButton>
             </div>
 
             <div v-if="confirmingBulkMark" class="flex flex-wrap items-center gap-2">
                 <span class="flex-1 text-sm text-warning">Mark all {{ selectedIds.size }} as already known?</span>
-                <UiButton variant="primary" class="h-11" :disabled="bulkActionPending" @click="bulkMark">Confirm</UiButton>
-                <UiButton variant="ghost" class="h-11" :disabled="bulkActionPending" @click="confirmingBulkMark = false">Cancel</UiButton>
+                <UiButton variant="primary" size="touch" :disabled="bulkActionPending" @click="bulkMark">Confirm</UiButton>
+                <UiButton variant="ghost" size="touch" :disabled="bulkActionPending" @click="confirmingBulkMark = false">Cancel</UiButton>
             </div>
             <div v-else class="flex items-center gap-2">
-                <UiButton variant="primary" class="h-11 flex-1" :disabled="bulkActionPending" @click="bulkStart">Add {{ selectedIds.size }} to learning</UiButton>
-                <UiButton variant="secondary" class="h-11" :disabled="bulkActionPending" @click="practiceSelected">Practice</UiButton>
+                <UiButton variant="primary" size="touch" class="flex-1" :disabled="bulkActionPending" @click="bulkStart">Add {{ selectedIds.size }} to learning</UiButton>
+                <UiButton variant="secondary" size="touch" :disabled="bulkActionPending" @click="practiceSelected">Practice</UiButton>
                 <DropdownMenuRoot>
                     <DropdownMenuTrigger
                         class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-border bg-secondary text-secondary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
@@ -380,8 +384,8 @@ const menuItemClass =
                 <SelectField v-model="categoryInput" label="Learning type" :options="categoryOptions" />
             </div>
             <template #footer>
-                <UiButton variant="ghost" class="h-11" :disabled="activeChips.length === 0" @click="resetFilters">Reset</UiButton>
-                <UiButton variant="primary" class="h-11" @click="filterSheetOpen = false">Show {{ filteredLexemes.length }} words</UiButton>
+                <UiButton variant="ghost" size="touch" :disabled="activeChips.length === 0" @click="resetFilters">Reset</UiButton>
+                <UiButton variant="primary" size="touch" @click="filterSheetOpen = false">Show {{ filteredLexemes.length }} words</UiButton>
             </template>
         </UiDialog>
     </div>
