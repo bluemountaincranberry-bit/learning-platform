@@ -18,29 +18,19 @@ Learning App is a language-learning product built around content:
 docker/        Docker configs
 config/        Docker env files
 src/           Laravel application + SPA
-docs/          Technical and domain documentation
-engineering/   Engineering operating docs and skills
+docs/          Architecture, product, operations and agent docs
+engineering/   Coding and naming standards
+.agents/       Agent skills (mattpocock/skills + project skills)
 ```
-
-## Documentation model
-
-- `.ai-orchestration/` — local AI workflow, temporary tasks, and short project docs
-- `repo` — code, technical documentation, and engineering rules
-
-## What is kept here
-
-- engineering skills and lightweight workflow guidance
-- temporary local AI tasks in `.ai-orchestration/local-tasks/`
-- short project docs in `.ai-orchestration/project-docs/`
 
 ## Key docs
 
-- [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)
+- [AGENTS.md](AGENTS.md) — principles, stop-lines and which skill to use
+- [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) — product, modules, where things live
 - [docs/architecture/README.md](docs/architecture/README.md)
 - [docs/architecture/modules-and-events.md](docs/architecture/modules-and-events.md)
-- [docs/architecture/engineering-principles.md](docs/architecture/engineering-principles.md)
-- [engineering/README.md](engineering/README.md)
-- [.ai-orchestration/README.md](.ai-orchestration/README.md)
+- [engineering/coding-standards.md](engineering/coding-standards.md)
+- [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) — Linear workflow
 - [Technical due diligence](docs/operations/technical-due-diligence.md)
 
 ## Local setup

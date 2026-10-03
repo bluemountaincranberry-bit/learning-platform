@@ -1,130 +1,83 @@
 # AGENTS.md
 
-Короткая инструкция для AI-агентов, работающих в этом репозитории.
+Learning App: изучение языка через реальный контент (YouTube, групповые уроки,
+позже субтитры и книги). Laravel 12 и Filament в `src/`, Vue 3 SPA
+(TypeScript, Pinia, Vite), Postgres, Redis, Docker.
 
-## Проект
+- Что за продукт, модули, где что лежит: `PROJECT_CONTEXT.md`.
+- Видение и продуктовые решения: skill `product-owner`.
+- Словарь домена: `GLOSSARY.md`; архитектурные решения: `docs/architecture/adr/`.
+- Стандарты кода и тестов: `engineering/coding-standards.md`, `engineering/naming-conventions.md`.
 
-Это Learning App: приложение для изучения языка через контент.
+## Принципы
 
-Основные части:
+- **Enterprise-режим.** Строим расширяемо, с запасом на рост, по best practice и ADR.
+- **Продумываем до конца.** Все сценарии и нужды пользователя, граничные случаи,
+  следующий шаг продукта. Найденное за рамками тикета идёт в тикет или в новый тикет.
+- **Полнее, а не минимально.** Абстракции, модули, события, расширение API и
+  модели данных — норма, когда служат продукту и modular monolith.
+- **Качество встроено.** Тесты на швах модулей, ясные границы модулей, ADR и
+  короткие docs для устойчивых решений.
+- **Агент решает сам и отчитывается.** Продуктовые вопросы решает `product-owner`,
+  к Вике идут только пункты из его § Escalate.
 
-- backend: Laravel 12 в `src/`;
-- admin: Filament;
-- frontend: Vue 3 SPA, TypeScript, Pinia, Vue Router, Vite;
-- infrastructure: Docker, Postgres, Redis;
-- AI workflow и локальные задачи: `.ai-orchestration/`;
-- engineering правила: `engineering/`;
-- техническая документация: `docs/`.
+## Стоп-линии
 
-## С чего начинать
+Это единственные жёсткие правила; всё остальное агент решает сам, с отчётом.
 
-1. Определи тип запроса: research, proposal, implementation, review, docs или маленькая правка.
-2. Для agent workflow читай `.ai-orchestration/README.md` и нужный workflow из `.ai-orchestration/workflows/`.
-3. Для контекста проекта читай `.ai-orchestration/project-docs/project-overview.md` и `PROJECT_CONTEXT.md`.
-4. Для правил поведения читай `engineering/AGENT_BEHAVIOR.md`.
-5. Для проверок читай `engineering/testing-policy.md`.
+- В живой каталог публикует человек. Агент готовит предложение.
+- В `main` пушит и мержит только Вика. Агент работает в ветке тикета и открывает PR.
+- Данные пользователей сохраняются. Миграции переносят данные, а не удаляют их.
 
-Не открывай все документы подряд. Читай только то, что нужно текущему scope.
+## Какой скилл для чего
 
-## Orchestration
+| Ситуация | Скилл |
+|---|---|
+| Тикет Linear от начала до конца, статус доски, следующий тикет | `linear-work` |
+| Продуктовый, UX, scope или приоритет вопрос | `product-owner` |
+| Не знаю, какой скилл подходит | `ask-matt` |
+| Обсудить и заострить идею или план | `grilling`, `grill-me`; с ADR и глоссарием по ходу — `grill-with-docs` |
+| Идея → спека → тикеты | `to-spec` → `to-tickets` |
+| Работа больше одной сессии | `wayfinder` |
+| Разобрать входящие тикеты | `triage` |
+| Реализовать тикеты или спеку | `implement`, `implement-spec`; внутри — `tdd` |
+| Баг, падение, регрессия скорости | `diagnosing-bugs`, затем `tdd` |
+| Границы модулей, швы, интерфейсы | `codebase-design`; поиск улучшений — `improve-codebase-architecture` |
+| ADR, глоссарий, термины домена | `domain-modeling` |
+| Исследование по первоисточникам | `research` |
+| Проверить логику или UI до реализации | `prototype` |
+| Ревью ветки или PR | `code-review`; текст PR — `pr` |
+| Шаги, которые может сделать только человек (ключи, дашборды) | `wizard` |
+| Вопрос, на который отвечает Вика | `to-questionnaire` |
+| Передать работу другой сессии | `handoff`, `claude-handoff` |
+| Объяснить Вике новую тему | `teach` |
+| Ретро сессии; непонятный ответ агента | `retro`; `wait-what` |
+| Спроектировать агентный workflow | `loop-me` |
+| Скиллы, AGENTS.md | `writing-for-agents` |
+| Статьи и тексты | `writing-fragments` → `writing-shape` или `writing-beats` |
+| Разовая настройка репо | `setup-matt-pocock-skills`, `git-guardrails-claude-code`, `setup-pre-commit`, `setup-ts-deep-modules` |
+| TypeScript-тесты без `as` | `migrate-to-shoehorn` |
+| Учебные упражнения в формате курса | `scaffold-exercises` |
 
-Используй `.ai-orchestration/` как основной источник процесса.
-
-Полезные режимы:
-
-- `research first` - идея, большая задача, архитектура, AI/cloud направление;
-- `proposal first` - есть несколько нормальных подходов;
-- `implement directly` - маленькая понятная правка;
-- `review only` - проверка текущего diff.
-
-Если задача большая, сначала подготовь предложение или локальную markdown-задачу в
-`.ai-orchestration/local-tasks/`. Завершенные локальные задачи удаляются, а
-устойчивые знания переносятся в `.ai-orchestration/project-docs/` или обычные docs.
-
-## Архитектурные границы
-
-Проект развивается как modular monolith.
-
-Перед изменением определи модуль-владелец:
-
-- `User` - auth, роли, права, профиль;
-- `Content` - контент, каталог, обработка, модерация, lexeme extraction;
-- `Learning` - study flow, sessions, learned state, progress;
-- `SRS` - spaced repetition, due items, review history;
-- `AI` - explanations, chat, recommendations, embeddings, providers;
-- `Admin` - backoffice и операционные сценарии;
-- `Integrations` - внешние API, OAuth, webhooks, contracts;
-- `Observability / Infrastructure` - queues, monitoring, logs, Redis, Horizon.
-
-По умолчанию выбирай самый простой способ взаимодействия:
-
-- direct call для простого синхронного use case;
-- job/queue для тяжелой или фоновой работы;
-- event для важных бизнес-фактов и secondary effects.
-
-## Engineering skills
-
-Подключай только релевантные документы:
-
-- backend scope: `engineering/skills/laravel_architecture.md`;
-- SPA scope: `engineering/skills/vue_spa_architecture.md`;
-- jobs, events, queues, integrations: `engineering/skills/async_and_integrations.md`;
-- tests: `engineering/testing-policy.md`.
-
-## Правила изменения кода
-
-- Сначала изучи существующий код и локальные паттерны.
-- Держи scope узким.
-- Не меняй несвязанные файлы.
-- Не откатывай чужие изменения.
-- Не добавляй новые абстракции без явной пользы.
-- Не расширяй API, data model, бизнес-логику или архитектуру без approval.
-- Если меняется устойчивое поведение, обнови короткую документацию.
+Скиллы лежат в `.agents/skills/` (Codex), в `.claude/skills/` — симлинки (Claude).
+Библиотека `mattpocock/skills` зафиксирована в `skills-lock.json` и обновляется
+только через `make skills-update` / `make skills-restore`; при конфликте с нашими
+правилами побеждает она. Свои скиллы — отдельными папками рядом.
 
 ## Команды
 
-Корневые команды:
+Laravel и SPA живут в `src/`, PHP и тесты запускаются в Docker:
 
 ```bash
 make up
-make test
 make test ARGS="--filter=ProcessContent"
-make test ARGS="tests/Feature/ExampleTest.php"
 make npm ARGS="run build"
+make wt-test ARGS="--filter=…"   # из git worktree
+make wt-build                     # из git worktree
+make workers-restart              # после изменений в jobs, очередях, AI-провайдерах
 ```
-
-Laravel и frontend приложение находятся в `src/`.
-
-Прямые команды внутри `src/`:
-
-```bash
-npm run build
-composer test
-php artisan test
-```
-
-Предпочитай focused verification: запускай минимальный набор проверок, который
-реально покрывает измененный flow.
-
-## Product owner
-
-Продуктовые вопросы (что делать, UX, scope, приоритет) решай через skill
-`product-owner` (`.agents/skills/product-owner/`): он отвечает за Вику по её
-видению и логирует решения. К Вике идут только пункты из его раздела
-Escalate. Видение там важнее старых формулировок в этом файле и в
-`.ai-orchestration/profiles/vika.md`.
-
-Цикл работы: research → тикеты в Linear (`/to-tickets`) → выполнение тикета
-скиллом `linear-work` (`/linear-work VIK-N | next | status`) → Вика ревьюит
-(статус In Review) и переводит в Done. Параллельно: отдельная сессия в
-worktree на тикет, проверки через `make wt-test` / `make wt-build`.
 
 ## Agent skills
-
-Skills лежат в `.agents/skills/` (Codex), в `.claude/skills/` — симлинки (Claude).
-Внешние ставятся через `npx skills` и фиксируются в `skills-lock.json`:
-`make skills-update` — обновить, `make skills-restore` — восстановить по lock.
-Внешние skills не редактируй — изменения затрёт update; свои пиши отдельным skill.
 
 ### Issue tracker
 
@@ -138,12 +91,7 @@ Skills лежат в `.agents/skills/` (Codex), в `.claude/skills/` — сим�
 
 Single-context: `GLOSSARY.md` в корне, ADR в `docs/architecture/adr/`. См. `docs/agents/domain.md`.
 
-## Финальный ответ
+## Финальный отчёт
 
-В конце сообщи:
-
-- что сделано;
-- какие файлы изменены;
-- какие проверки запускались;
-- обновлялась ли документация;
-- какие риски остались.
+Что сделано; какие файлы и области изменены; какие проверки запускались и с
+каким результатом; какие docs обновлены; принятые допущения; риски и следующий шаг.

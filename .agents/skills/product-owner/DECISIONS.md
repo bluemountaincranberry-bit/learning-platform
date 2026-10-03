@@ -7,6 +7,8 @@ Newer entries override older ones and VISION.md.
 | Date | Status | Decision | Why / source |
 |---|---|---|---|
 | 2026-10-03 | answered | Word lists on phone: full-width compact rows, filters collapsed (no filter pre-selected), action buttons named by what they do; less scrolling to pick words. | Vika feedback on content page, VIK-38 |
+| 2026-10-03 | answered | Enterprise mode: build extensible and for growth by best practice and ADRs; think business logic and tickets through to the maximum (all scenarios, edge cases, next step); more and more complete beats minimal. Hard stop-lines only: no publishing to the live catalog without a human, no push/merge to `main`, no deleting user data. Replaces "Simple over clever" in VISION.md. | Vika, VIK-44 |
+| 2026-10-03 | answered | Agent skills: the whole `mattpocock/skills` library stays and is never edited; on a conflict Matt's skill wins and our self-written skill or rule is rewritten or removed. | Vika, VIK-44; audit in `docs/agents/skills-audit.md` |
 | 2026-10-03 | answered | Start learning = one screen: what you learn + current flow in one line + **Continue**; details ("what happens", "Change") open on demand. Change sheet like `example.jpg` (Clozemaster): Easy / Medium / Hard (Medium = mixed: recognize → write → hear → use) + optional Focus (words/listening/speaking) + count. Old flow profiles become presets. Progressive disclosure everywhere. | Vika, VIK-29/VIK-30 |
 | 2026-10-03 | assumed | AI chat is removed from the main lesson screen; notes are written in an editor. | VIK-12 |
 | 2026-10-03 | assumed | TED seed default: TED talks already in the DB + 5 short popular talks (≤15 min, B1–B2); Vika edits the list. | VIK-15 |

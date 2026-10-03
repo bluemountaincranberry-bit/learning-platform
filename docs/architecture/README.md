@@ -5,15 +5,13 @@
 Здесь лежит то, что полезно держать рядом с кодом:
 - как мыслить о проекте;
 - какие модули выделены;
-- как они взаимодействуют;
-- какие инженерные принципы здесь важны.
+- как они взаимодействуют.
 
 ## Файлы
 
 | Файл | О чём |
 |------|-------|
 | [modules-and-events.md](modules-and-events.md) | Модули системы, их ответственность и способ взаимодействия |
-| [engineering-principles.md](engineering-principles.md) | Инженерные принципы проекта, учебная цель, отношение к новым технологиям |
 | [content-ingestion-status-model.md](content-ingestion-status-model.md) | Целевая статусная модель и flow для content ingestion, включая user-submitted YouTube |
 | [queue-and-observability.md](queue-and-observability.md) | Конвенции очередей/джобов и наблюдаемости |
 | [../operations/health-and-readiness.md](../operations/health-and-readiness.md) | Health/readiness endpoint and operational checks |
@@ -26,4 +24,4 @@
 
 ## Связанный документ
 
-- [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) — общий контекст проекта
+- [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) — общий контекст и принципы проекта

@@ -13,9 +13,8 @@ language should be configuration plus content, not a rewrite.
 
 - **Now: one user — Vika.** No other users, no backward compatibility, no
   migration of other people's data. Break and reshape APIs and schema freely.
-- **Later: production-ready for other learners.** Build with real enterprise
-  practices so that step is possible, but never slow down today's work for
-  hypothetical users.
+- **Next: production-ready for other learners.** Every feature is built with
+  real enterprise practices so that step needs no rewrite.
 
 ## Core loop (most valuable part)
 
@@ -49,7 +48,8 @@ If a feature does not help this loop, it is lower priority.
   (see DECISIONS.md).
 - **Basic actions work without AI.** Writing and reading a lesson, reviewing
   words must not break when an AI provider is down or disabled.
-- **Simple over clever.** The smallest change that makes the loop better wins.
+- **Complete over minimal.** A feature covers every scenario Vika (and later
+  other learners) will meet, including edge cases and the obvious next step.
 - **One interface language** on the learner side; no RU/EN mix.
 
 ## Starter content
@@ -71,6 +71,22 @@ is also her training ground:
 
 Prefer solutions that teach a strong, explainable industry practice — when
 they also serve the product. Technology for its own sake is not a goal.
+
+## How we build (enterprise mode, 2026-10-03)
+
+- Extensible and ready for growth, by best practice and ADRs.
+- Business logic and tickets are thought through to the maximum: all user
+  scenarios and needs, edge cases, the product's next step.
+- Doing more and more completely beats the minimal change. Abstractions,
+  modules, events, API and data-model extensions are normal when they serve
+  the product and the modular monolith.
+- Quality is part of the work: tests, clear module boundaries, documented
+  decisions.
+- Hard stop-lines only: agents never publish to the live catalog without a
+  human, never push or merge to `main`, never delete user data. Everything else
+  is the agent's call, with a report.
+- Agent skills: the whole `mattpocock/skills` library is the base; on a
+  conflict Matt's skill wins and our own skill or rule is rewritten.
 
 ## How work happens
 
