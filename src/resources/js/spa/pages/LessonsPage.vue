@@ -101,7 +101,7 @@ onMounted(async () => {
                         class="flex flex-col gap-2 rounded-spa border border-border bg-black/10 p-3 transition-colors hover:border-primary sm:flex-row sm:items-center sm:justify-between"
                     >
                         <div class="min-w-0 space-y-1">
-                            <div class="font-medium text-fg">{{ lesson.title || `Занятие от ${formatDate(lesson.updated_at)}` }}</div>
+                            <div class="break-words font-medium text-fg">{{ lesson.title || `Занятие от ${formatDate(lesson.updated_at)}` }}</div>
                             <div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                 <span>{{ formatDate(lesson.updated_at) }}</span>
                                 <UiBadge v-if="lesson.tutor" tone="neutral">{{ lesson.tutor }}</UiBadge>
