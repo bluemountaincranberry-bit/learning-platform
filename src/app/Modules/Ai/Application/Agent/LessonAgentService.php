@@ -2,6 +2,7 @@
 
 namespace App\Modules\Ai\Application\Agent;
 
+use App\Contracts\Ai\LessonNotesWriterInterface;
 use App\Modules\Ai\Application\Agent\Contracts\AgentLoopObserver;
 use App\Modules\Ai\Application\Agent\Contracts\AgentService;
 use App\Modules\Ai\Application\Agent\Contracts\AgentTool;
@@ -13,7 +14,6 @@ use App\Modules\Ai\Application\Agent\Data\AgentToolDefinition;
 use App\Modules\Ai\Application\Agent\Tools\ExtractPdfTextTool;
 use App\Modules\Ai\Application\Agent\Tracing\SpanRecorder;
 use App\Modules\Ai\Application\Agent\Tracing\TraceContext;
-use App\Modules\Ai\Application\Contracts\LessonNotesWriterInterface;
 use App\Modules\Ai\Domain\Models\AgentConversation;
 use App\Modules\Ai\Domain\Models\AgentMessage;
 use Illuminate\Support\Facades\Log;

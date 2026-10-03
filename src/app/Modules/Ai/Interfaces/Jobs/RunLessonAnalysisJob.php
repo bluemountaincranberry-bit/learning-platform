@@ -3,7 +3,7 @@
 namespace App\Modules\Ai\Interfaces\Jobs;
 
 use App\Contracts\Ai\AiErrorMessage;
-use App\Modules\Ai\Application\Contracts\LessonAnalysisStoreInterface;
+use App\Contracts\Ai\LessonAnalysisStoreInterface;
 use App\Modules\Ai\Application\LessonAnalysisService;
 use App\Modules\Ai\Application\LessonCandidateMatchingService;
 use Illuminate\Contracts\Queue\ShouldQueue;

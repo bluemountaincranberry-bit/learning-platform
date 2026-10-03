@@ -2,8 +2,8 @@
 
 namespace App\Modules\Ai\Application;
 
-use App\Modules\Ai\Application\Contracts\LessonAnalysisStoreInterface;
-use App\Modules\Ai\Application\Data\LessonAnalysisContext;
+use App\Contracts\Ai\LessonAnalysisContext;
+use App\Contracts\Ai\LessonAnalysisStoreInterface;
 use App\Modules\Content\Application\Contracts\GrammarProgressServiceInterface;
 
 /**

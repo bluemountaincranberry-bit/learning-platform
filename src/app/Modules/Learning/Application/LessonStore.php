@@ -2,9 +2,9 @@
 
 namespace App\Modules\Learning\Application;
 
-use App\Modules\Ai\Application\Contracts\LessonAnalysisStoreInterface;
-use App\Modules\Ai\Application\Contracts\LessonNotesWriterInterface;
-use App\Modules\Ai\Application\Data\LessonAnalysisContext;
+use App\Contracts\Ai\LessonAnalysisContext;
+use App\Contracts\Ai\LessonAnalysisStoreInterface;
+use App\Contracts\Ai\LessonNotesWriterInterface;
 use App\Modules\Learning\Domain\Models\Lesson;
 use App\Modules\Learning\Domain\Models\LessonAnalysisRun;
 use App\Modules\Learning\Domain\Models\LessonGrammarCandidate;

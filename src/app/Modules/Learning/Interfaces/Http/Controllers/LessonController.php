@@ -3,9 +3,9 @@
 namespace App\Modules\Learning\Interfaces\Http\Controllers;
 
 use App\Contracts\Ai\LessonAssistant;
+use App\Contracts\Ai\LessonNotesWriterInterface;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\SendLessonMessageRequest;
-use App\Modules\Ai\Application\Contracts\LessonNotesWriterInterface;
 use App\Modules\Learning\Domain\Models\Lesson;
 use App\Modules\Learning\Domain\Models\LessonAnalysisRun;
 use App\Support\AiConfig;

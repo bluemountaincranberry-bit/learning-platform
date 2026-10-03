@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Modules\Ai\Application\Data;
+namespace App\Contracts\Ai;
 
 final readonly class LessonAnalysisContext
 {

@@ -2,8 +2,8 @@
 
 namespace App\Modules\Learning;
 
-use App\Modules\Ai\Application\Contracts\LessonAnalysisStoreInterface;
-use App\Modules\Ai\Application\Contracts\LessonNotesWriterInterface;
+use App\Contracts\Ai\LessonAnalysisStoreInterface;
+use App\Contracts\Ai\LessonNotesWriterInterface;
 use App\Modules\Content\Application\Contracts\GrammarProgressStoreInterface;
 use App\Modules\Learning\Application\Contracts\PronunciationAssessmentProviderInterface;
 use App\Modules\Learning\Application\Contracts\SpeechToTextProviderInterface;

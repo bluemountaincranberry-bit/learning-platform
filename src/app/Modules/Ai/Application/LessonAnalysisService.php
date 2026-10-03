@@ -3,11 +3,11 @@
 namespace App\Modules\Ai\Application;
 
 use App\Contracts\Ai\AiJsonClient;
+use App\Contracts\Ai\LessonAnalysisStoreInterface;
 use App\Contracts\Ai\PromptRegistryInterface;
 use App\Exceptions\AiClientException;
 use App\Modules\Ai\Application\Agent\Tracing\TraceContext;
 use App\Modules\Ai\Application\Agent\Tracing\TracedLlmCall;
-use App\Modules\Ai\Application\Contracts\LessonAnalysisStoreInterface;
 use Illuminate\Support\Str;
 
 /**

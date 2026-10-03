@@ -1,8 +1,6 @@
 <?php
 
-namespace App\Modules\Ai\Application\Contracts;
-
-use App\Modules\Ai\Application\Data\LessonAnalysisContext;
+namespace App\Contracts\Ai;
 
 interface LessonAnalysisStoreInterface
 {
