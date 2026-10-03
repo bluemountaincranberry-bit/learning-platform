@@ -6,6 +6,7 @@ Newer entries override older ones and VISION.md.
 
 | Date | Status | Decision | Why / source |
 |---|---|---|---|
+| 2026-10-03 | assumed | VIK-38: content actions are **Practice these words** (whole content) and **Explain with AI**; word-status segments default to New (triage, not a filter); level/type/search start empty in a Filter sheet; skipped words are called **Hidden** everywhere. | Vika feedback on content page; [design note](../../../docs/product/content-page-mobile.md) |
 | 2026-10-03 | assumed | VIK-40: grammar practice = 5 exercise types (choose, build = Easy; fill, transform, fix = Hard; Medium = easy → hard), rounds of 5/10/15 (default Medium · 10), VIK-32 feedback, result screen. Spec: `docs/product/grammar-exercises-block.md`. | Same Easy/Medium/Hard model as VIK-29; one obvious next action |
 | 2026-10-03 | assumed | VIK-40: AI-generated grammar exercises are shown to learners without admin review (marked "AI", reportable, hidden on report). Generated on tap when the pool is short. | Follows VIK-31 as Vika wrote it ("generate with AI, mark as AI exercise, report a bad exercise"); 0 exercises today |
 | 2026-10-03 | assumed | VIK-40: a practice result never changes "learned" by itself; ≥ 80% offers "Mark as learned". Practicing adds the rule to My grammar. | AI proposes, Vika chooses |
