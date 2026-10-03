@@ -6,6 +6,9 @@ Newer entries override older ones and VISION.md.
 
 | Date | Status | Decision | Why / source |
 |---|---|---|---|
+| 2026-10-03 | assumed | VIK-40: grammar practice = 5 exercise types (choose, build = Easy; fill, transform, fix = Hard; Medium = easy → hard), rounds of 5/10/15 (default Medium · 10), VIK-32 feedback, result screen. Spec: `docs/product/grammar-exercises-block.md`. | Same Easy/Medium/Hard model as VIK-29; one obvious next action |
+| 2026-10-03 | assumed | VIK-40: AI-generated grammar exercises are shown to learners without admin review (marked "AI", reportable, hidden on report). Generated on tap when the pool is short. | Follows VIK-31 as Vika wrote it ("generate with AI, mark as AI exercise, report a bad exercise"); 0 exercises today |
+| 2026-10-03 | assumed | VIK-40: a practice result never changes "learned" by itself; ≥ 80% offers "Mark as learned". Practicing adds the rule to My grammar. | AI proposes, Vika chooses |
 | 2026-10-03 | answered | Agents merge their own work: no open questions + all checks green → PR and merge to `main` right away, ticket Done. Otherwise In Review. Vika reviews merged work after the fact. | Vika |
 | 2026-10-03 | assumed | VIK-5: one repetition card per learner and language-aware canonical lexeme; source encounters remain separate. Unknown lesson/manual words stay private; exact shared matches are reused. | Same word from lesson and video must share memory state; [ADR-010](../../../docs/architecture/adr/ADR-010-word-keyed-repetition-and-personal-lexemes.md). |
 | 2026-10-03 | assumed | VIK-5: stopping learning deactivates repetition while preserving its history and source words; restarting reuses the card. Sense-specific cards and automatic fuzzy merges are deferred. | Keep Vika’s data and the default learning path simple; ADR-010. |
