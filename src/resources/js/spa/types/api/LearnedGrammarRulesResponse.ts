@@ -9,6 +9,8 @@ export interface LearnedGrammarRuleItem {
     level: string | null;
     topic: { id: number; name: string } | null;
     status: 'learning' | 'learned';
+    /** "Practice says X%": from practice rounds and repetition, null before any practice. */
+    confidence_calculated: number | null;
     started_at: string;
     learned_at: string | null;
 }

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { Check, Undo2 } from 'lucide-vue-next';
+import { Check, Dumbbell, Undo2 } from 'lucide-vue-next';
 import PageState from '../components/ui/PageState.vue';
 import { useAuthStore } from '../domains/user';
-import { learnedGrammarRulesApi } from '../domains/learning';
+import { learnedGrammarRulesApi, useGrammarPracticeSetting } from '../domains/learning';
 import { grammarApi } from '../domains/content';
 import UiBadge from '../shared/ui/UiBadge.vue';
 import GrammarCard from '../shared/ui/GrammarCard.vue';
@@ -17,6 +17,7 @@ import type { LearnedGrammarRuleItem, LearnedGrammarRulesParams } from '../types
 
 const router = useRouter();
 const authStore = useAuthStore();
+const { setting: practiceSetting } = useGrammarPracticeSetting();
 
 const PER_PAGE_OPTIONS = [10, 15, 25, 50];
 
@@ -75,6 +76,19 @@ function goToPage(page: number) {
     if (page < 1 || page > totalPages.value) return;
     meta.value = { ...meta.value, current_page: page };
     fetchMyGrammar();
+}
+
+
+function openGrammarRule(id: number): void {
+    router.push({ name: 'grammar.details', params: { id } });
+}
+
+function practice(row: LearnedGrammarRuleItem): void {
+    router.push({
+        name: 'grammar.practice',
+        params: { id: row.grammar_rule_id },
+        query: { level: practiceSetting.value.level, count: String(practiceSetting.value.count), from: '/my-grammar' },
+    });
 }
 
 function setPerPage(perPage: number) {
@@ -152,14 +166,64 @@ watch(filterStatus, () => {
 
             <template v-else>
                 <UiCard class="space-y-3">
-                    <GrammarCard v-for="row in items" :key="row.id" :title="row.title ?? 'Grammar rule'" :rule-id="row.grammar_rule_id" :level="row.level" :summary="row.summary" :status="row.status === 'learned' ? 'Learned' : 'Learning'" :status-tone="row.status === 'learned' ? 'success' : 'primary'">
-                        <span class="text-xs text-muted-foreground">{{ row.status === 'learned' ? `Learned ${formatDate(row.learned_at ?? '')}` : `Started ${formatDate(row.started_at ?? '')}` }}</span>
-                        <UiBadge v-if="row.topic" tone="neutral">{{ row.topic.name }}</UiBadge>
-                        <template #actions>
-                            <UiButton v-if="row.status !== 'learned'" variant="primary" size="touch" :disabled="markingId === row.id" @click="markLearned(row)"><Check :size="14" /> Mark as learned</UiButton>
-                            <UiButton variant="ghost" size="touch" :disabled="removingId === row.id" @click="remove(row)"><Undo2 :size="14" /> Remove</UiButton>
-                        </template>
-                    </GrammarCard>
+
+                    <div
+                        v-for="row in items"
+                        :key="row.id"
+                        class="group flex cursor-pointer flex-col gap-3 rounded-spa border border-border bg-surface-alt/45 p-4 transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-start sm:justify-between"
+                        role="link"
+                        tabindex="0"
+                        :aria-label="`Open ${row.title}`"
+                        @click="openGrammarRule(row.grammar_rule_id)"
+                        @keydown.enter.prevent="openGrammarRule(row.grammar_rule_id)"
+                        @keydown.space.prevent="openGrammarRule(row.grammar_rule_id)"
+                    >
+                        <div class="min-w-0 space-y-1">
+                            <span class="font-medium text-fg group-hover:text-primary">
+                                {{ row.title }}
+                            </span>
+                            <p v-if="row.summary" class="text-sm text-muted-foreground line-clamp-2">{{ row.summary }}</p>
+                            <div class="flex flex-wrap items-center gap-2 pt-1">
+                                <span class="text-xs text-muted-foreground">
+                                    {{ row.status === 'learned' ? `Learned ${formatDate(row.learned_at as string)}` : `Started ${formatDate(row.started_at)}` }}
+                                </span>
+                                <UiBadge v-if="row.topic" tone="neutral">{{ row.topic.name }}</UiBadge>
+                                <UiBadge v-if="row.level" tone="neutral">{{ row.level }}</UiBadge>
+                                <span v-if="row.confidence_calculated !== null" class="text-xs text-muted-foreground">
+                                    Practice says {{ Math.round(row.confidence_calculated) }}%
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex shrink-0 flex-wrap items-center gap-2">
+                            <UiButton
+                                variant="secondary"
+                                size="touch"
+                                data-test="practice-row"
+                                @click.stop="practice(row)"
+                            >
+                                <Dumbbell :size="14" /> Practice
+                            </UiButton>
+                            <UiBadge v-if="row.status === 'learned'" tone="success">Learned</UiBadge>
+                            <UiButton
+                                v-else
+                                variant="primary"
+                                size="sm"
+                                :disabled="markingId === row.id"
+                                @click.stop="markLearned(row)"
+                            >
+                                <Check :size="14" /> Mark as learned
+                            </UiButton>
+                            <UiButton
+                                variant="ghost"
+                                size="sm"
+                                :disabled="removingId === row.id"
+                                title="Remove from your grammar list"
+                                @click.stop="remove(row)"
+                            >
+                                <Undo2 :size="14" /> Remove
+                            </UiButton>
+                        </div>
+                    </div>
                 </UiCard>
 
                 <div class="flex flex-wrap items-center gap-4">

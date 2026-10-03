@@ -13,7 +13,11 @@ class GrammarExamAttempt extends Model
 
     public const TYPE_POST = 'post';
 
-    public const TYPES = [self::TYPE_PRE, self::TYPE_POST];
+    /** One finished grammar practice round on the rule page (VIK-31). */
+    public const TYPE_PRACTICE = 'practice';
+
+    /** Types the content grammar warm-up may submit. */
+    public const WARMUP_TYPES = [self::TYPE_PRE, self::TYPE_POST];
 
     protected function casts(): array
     {

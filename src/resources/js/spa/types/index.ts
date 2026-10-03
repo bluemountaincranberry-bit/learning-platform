@@ -19,8 +19,17 @@ export type {
     GrammarRuleListResponse,
     GrammarRuleOneResponse,
     ContentGrammarRulesResponse,
-    GrammarRuleExercise,
-    GrammarRuleExercisesResponse,
+    GrammarPracticeLevel,
+    GrammarExerciseType,
+    GrammarPracticeOutcome,
+    GrammarPracticeExercise,
+    GrammarPracticeLastResult,
+    GrammarPracticeOverview,
+    GrammarPracticeRoundResponse,
+    GrammarPracticeCheckResponse,
+    GrammarPracticeResultItem,
+    GrammarPracticeReviewItem,
+    GrammarPracticeResult,
 } from './grammar';
 export type { ApiError, ApiErrorResponse } from './api';
 export { parseApiError } from './api';

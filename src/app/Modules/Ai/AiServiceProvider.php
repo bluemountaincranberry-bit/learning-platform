@@ -15,6 +15,7 @@ use App\Contracts\Ai\EmbeddingsClientInterface;
 use App\Contracts\Ai\GrammarRuleExampleGenerationDispatcher;
 use App\Contracts\Ai\LessonAssistant;
 use App\Contracts\Ai\LexemeEnrichmentCapability;
+use App\Contracts\Ai\GrammarExerciseGenerationDispatcher;
 use App\Contracts\Ai\LexemeEnrichmentDispatcher;
 use App\Contracts\Ai\LexemeExplanationCapability;
 use App\Contracts\Ai\LexemeMetadataSuggestionCapability;
@@ -57,6 +58,8 @@ use App\Modules\Ai\Application\LexemeEnrichmentService;
 use App\Modules\Ai\Application\ManualLexemeCandidateService;
 use App\Modules\Ai\Application\PromptRegistryService;
 use App\Modules\Ai\Application\QueuedGrammarRuleExampleGenerationDispatcher;
+
+use App\Modules\Ai\Application\QueuedGrammarExerciseGenerationDispatcher;
 use App\Modules\Ai\Application\QueuedLexemeEnrichmentDispatcher;
 use App\Modules\Ai\Application\SentencePracticeService;
 use App\Modules\Ai\Infrastructure\AiProviderFactory;
@@ -129,6 +132,8 @@ class AiServiceProvider extends ServiceProvider
         $this->app->bind(LexemeEnrichmentCapability::class, LexemeEnrichmentService::class);
         $this->app->bind(LexemeEnrichmentDispatcher::class, QueuedLexemeEnrichmentDispatcher::class);
         $this->app->bind(GrammarRuleExampleGenerationDispatcher::class, QueuedGrammarRuleExampleGenerationDispatcher::class);
+
+        $this->app->bind(GrammarExerciseGenerationDispatcher::class, QueuedGrammarExerciseGenerationDispatcher::class);
         $this->app->bind(LexemeMetadataSuggestionCapability::class, LexemeMetadataSuggestionService::class);
         $this->app->bind(ContextSentenceGenerationCapability::class, ContextSentenceGenerationService::class);
         $this->app->bind(LexemeTranslationCapability::class, LexemeTranslationService::class);

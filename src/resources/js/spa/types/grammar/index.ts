@@ -11,4 +11,16 @@ export type { GrammarRuleListParams } from './GrammarRuleListParams';
 export type { GrammarRuleListResponse } from './GrammarRuleListResponse';
 export type { GrammarRuleOneResponse } from './GrammarRuleOneResponse';
 export type { ContentGrammarRulesResponse } from './ContentGrammarRulesResponse';
-export type { GrammarRuleExercise, GrammarRuleExercisesResponse } from './GrammarRuleExercise';
+export type {
+    GrammarPracticeLevel,
+    GrammarExerciseType,
+    GrammarPracticeOutcome,
+    GrammarPracticeExercise,
+    GrammarPracticeLastResult,
+    GrammarPracticeOverview,
+    GrammarPracticeRoundResponse,
+    GrammarPracticeCheckResponse,
+    GrammarPracticeResultItem,
+    GrammarPracticeReviewItem,
+    GrammarPracticeResult,
+} from './GrammarPractice';

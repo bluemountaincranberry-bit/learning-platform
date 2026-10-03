@@ -25,6 +25,7 @@ class LearnedGrammarRuleResource extends JsonResource
                 'name' => $this->rule_topic_name,
             ] : null,
             'status' => $this->status,
+            'confidence_calculated' => $this->confidence_calculated !== null ? (float) $this->confidence_calculated : null,
             'started_at' => $this->started_at?->toIso8601String(),
             'learned_at' => $this->learned_at?->toIso8601String(),
         ];

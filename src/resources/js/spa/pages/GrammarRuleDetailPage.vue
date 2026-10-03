@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, shallowRef, onMounted, onBeforeUnmount, computed, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { RouterLink } from 'vue-router';
 import PageState from '../components/ui/PageState.vue';
@@ -8,10 +8,10 @@ import UiSectionHeader from '../shared/ui/UiSectionHeader.vue';
 import GrammarRuleExamples from '../widgets/grammar/GrammarRuleExamples.vue';
 import GrammarRuleHeader from '../widgets/grammar/GrammarRuleHeader.vue';
 import MarkdownContent from '../shared/ui/MarkdownContent.vue';
-import ExercisePractice from '../widgets/grammar/ExercisePractice.vue';
+import GrammarPracticeCard from '../widgets/grammar/GrammarPracticeCard.vue';
 import { grammarApi } from '../domains/content';
 import { useAuthStore } from '../domains/user';
-import type { GrammarRule, GrammarRuleExercise } from '../types';
+import type { GrammarRule } from '../types';
 
 const route = useRoute();
 const router = useRouter();
@@ -21,25 +21,37 @@ const ruleId = computed(() => route.params.id as string);
 const loading = ref(true);
 const error = ref('');
 const rule = ref<GrammarRule | null>(null);
-const exercises = ref<GrammarRuleExercise[]>([]);
+const practiceCard = ref<InstanceType<typeof GrammarPracticeCard> | null>(null);
+const practiceBlock = shallowRef<HTMLElement | null>(null);
+// Sticky "Practice" on phones while reading; hidden once the block is on screen.
+const practiceBlockVisible = ref(false);
+let practiceObserver: IntersectionObserver | null = null;
 const progressBusy = ref(false);
 
 async function loadRule(): Promise<void> {
     loading.value = true;
     error.value = '';
     try {
-        const [ruleData, exercisesData] = await Promise.all([
-            grammarApi.getOne(ruleId.value),
-            grammarApi.getExercises(ruleId.value).catch(() => ({ exercises: [] })),
-        ]);
-        rule.value = ruleData.rule;
-        exercises.value = exercisesData.exercises;
+        rule.value = (await grammarApi.getOne(ruleId.value)).rule;
     } catch {
         error.value = 'Grammar rule not found or unavailable.';
     } finally {
         loading.value = false;
     }
+    await nextTick();
+    observePracticeBlock();
 }
+
+function observePracticeBlock(): void {
+    practiceObserver?.disconnect();
+    if (!practiceBlock.value || typeof IntersectionObserver === 'undefined') return;
+    practiceObserver = new IntersectionObserver(([entry]) => {
+        practiceBlockVisible.value = entry.isIntersecting;
+    });
+    practiceObserver.observe(practiceBlock.value);
+}
+
+onBeforeUnmount(() => practiceObserver?.disconnect());
 
 async function addToMyList(): Promise<void> {
     if (!rule.value) return;
@@ -142,11 +154,18 @@ onMounted(loadRule);
                 />
             </section>
 
-            <section v-if="!rule.is_personal" id="rule-exercises" class="scroll-mt-24 space-y-3 border-t border-border pt-5 sm:rounded-xl sm:border sm:bg-card sm:p-5">
-                <UiSectionHeader title="Exercises" subtitle="Practice this rule" />
-                <ExercisePractice v-if="exercises.length > 0" :exercises="exercises" />
-                <p v-else class="text-sm text-muted-foreground">No exercises yet for this rule.</p>
-            </section>
+
+            <div ref="practiceBlock" class="scroll-mb-24">
+                <GrammarPracticeCard v-if="rule" ref="practiceCard" :rule-id="rule.id" :authenticated="authStore.isAuthenticated" />
+            </div>
+
+            <div
+                v-if="rule && authStore.isAuthenticated && !practiceBlockVisible"
+                class="fixed inset-x-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-20 sm:hidden"
+                data-test="sticky-practice"
+            >
+                <UiButton variant="primary" size="lg" class="w-full shadow-lg" @click="practiceCard?.practice()">Practice</UiButton>
+            </div>
         </div>
     </PageState>
 </template>
