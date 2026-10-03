@@ -5,7 +5,9 @@ const props = withDefaults(defineProps<{
     open: boolean;
     title: string;
     busy?: boolean;
-}>(), { busy: false });
+    /** Bottom sheet on phones (slides up from the bottom edge), centered dialog from `sm` up. */
+    sheet?: boolean;
+}>(), { busy: false, sheet: false });
 
 const emit = defineEmits<{ close: []; }>();
 const dialogElement = ref<HTMLElement | null>(null);
@@ -44,11 +46,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 
 <template>
     <Teleport to="body">
-        <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @click.self="!busy && emit('close')">
-            <section ref="dialogElement" role="dialog" aria-modal="true" tabindex="-1" :aria-busy="busy" :aria-labelledby="titleId" class="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl">
+        <div v-if="open" class="fixed inset-0 z-50 flex justify-center bg-black/50" :class="sheet ? 'items-end sm:items-center sm:p-4' : 'items-center p-4'" @click.self="!busy && emit('close')">
+            <section ref="dialogElement" role="dialog" aria-modal="true" tabindex="-1" :aria-busy="busy" :aria-labelledby="titleId" class="w-full max-w-lg border border-border bg-card p-5 shadow-xl" :class="sheet ? 'max-h-[85vh] overflow-y-auto rounded-t-2xl pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-xl' : 'rounded-xl'">
                 <div class="flex items-center justify-between gap-4">
                     <h2 :id="titleId" class="text-base font-semibold text-foreground">{{ title }}</h2>
-                    <button type="button" aria-label="Close dialog" class="rounded p-1 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" :disabled="busy" @click="emit('close')">×</button>
+                    <button type="button" aria-label="Close dialog" class="-m-2 flex h-11 w-11 items-center justify-center rounded text-lg text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" :disabled="busy" @click="emit('close')">×</button>
                 </div>
                 <div class="mt-4"><slot /></div>
                 <div v-if="$slots.footer" class="mt-5 flex justify-end gap-2"><slot name="footer" /></div>
