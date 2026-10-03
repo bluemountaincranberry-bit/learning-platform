@@ -50,8 +50,8 @@ study flow, progress tracking и SRS. Admin/editor управляет конте
 
 ## Progress schema compatibility
 
-- `user_lexeme_progress` is now standardized on `content_lexeme_id`.
-- Legacy `lexeme_id` handling was removed from application logic and the migration layer now only cleans up old schema when present.
+- `user_lexeme_progress` uses canonical `lexeme_id`, unique per user, after the July 2026 migrations; `content_lexeme_id` retains source context.
+- Confidence remains occurrence-scoped and SRS still uses `type:text`; proposed consolidation and a data-preserving migration plan are in `docs/architecture/adr/ADR-010-word-keyed-repetition-and-personal-lexemes.md`.
 
 ## Основные документы
 
