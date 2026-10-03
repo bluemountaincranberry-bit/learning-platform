@@ -106,6 +106,38 @@ php artisan test
 Предпочитай focused verification: запускай минимальный набор проверок, который
 реально покрывает измененный flow.
 
+## Product owner
+
+Продуктовые вопросы (что делать, UX, scope, приоритет) решай через skill
+`product-owner` (`.agents/skills/product-owner/`): он отвечает за Вику по её
+видению и логирует решения. К Вике идут только пункты из его раздела
+Escalate. Видение там важнее старых формулировок в этом файле и в
+`.ai-orchestration/profiles/vika.md`.
+
+Цикл работы: research → тикеты в Linear (`/to-tickets`) → выполнение тикета
+скиллом `linear-work` (`/linear-work VIK-N | next | status`) → Вика ревьюит
+(статус In Review) и переводит в Done. Параллельно: отдельная сессия в
+worktree на тикет, проверки через `make wt-test` / `make wt-build`.
+
+## Agent skills
+
+Skills лежат в `.agents/skills/` (Codex), в `.claude/skills/` — симлинки (Claude).
+Внешние ставятся через `npx skills` и фиксируются в `skills-lock.json`:
+`make skills-update` — обновить, `make skills-restore` — восстановить по lock.
+Внешние skills не редактируй — изменения затрёт update; свои пиши отдельным skill.
+
+### Issue tracker
+
+Тикеты в Linear через Linear MCP. См. `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Дефолтные роли: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. См. `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` в корне, ADR в `docs/architecture/adr/`. См. `docs/agents/domain.md`.
+
 ## Финальный ответ
 
 В конце сообщи:
