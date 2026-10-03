@@ -26,11 +26,13 @@ class LessonStore implements LessonAnalysisStoreInterface, LessonNotesWriterInte
         );
     }
 
-    public function startRun(int $runId): bool
+    public function startRun(int $runId, bool $retry = false): bool
     {
         return LessonAnalysisRun::query()->whereKey($runId)
-            ->where('status', LessonAnalysisRun::STATUS_PENDING)
-            ->update(['status' => LessonAnalysisRun::STATUS_RUNNING, 'started_at' => now()]) === 1;
+            ->whereIn('status', $retry
+                ? [LessonAnalysisRun::STATUS_PENDING, LessonAnalysisRun::STATUS_FAILED]
+                : [LessonAnalysisRun::STATUS_PENDING])
+            ->update(['status' => LessonAnalysisRun::STATUS_RUNNING, 'started_at' => now(), 'completed_at' => null, 'failure_reason' => null]) === 1;
     }
 
     public function completeRun(int $runId): void
@@ -45,6 +47,23 @@ class LessonStore implements LessonAnalysisStoreInterface, LessonNotesWriterInte
         LessonAnalysisRun::query()->whereKey($runId)->update([
             'status' => LessonAnalysisRun::STATUS_FAILED, 'completed_at' => now(), 'failure_reason' => $reason,
         ]);
+    }
+
+    public function persistCandidates(int $runId, array $lexemes, array $grammar): void
+    {
+        DB::transaction(function () use ($runId, $lexemes, $grammar): void {
+            $run = LessonAnalysisRun::query()->lockForUpdate()->findOrFail($runId);
+            foreach ($lexemes as $attributes) {
+                if (! $run->lexemeCandidates()->where('normalized_text', $attributes['normalized_text'])->exists()) {
+                    $this->createLexemeCandidate($runId, $attributes);
+                }
+            }
+            foreach ($grammar as $attributes) {
+                if (! $run->grammarCandidates()->whereRaw('LOWER(title) = ?', [mb_strtolower($attributes['title'])])->exists()) {
+                    $this->createGrammarCandidate($runId, $attributes);
+                }
+            }
+        });
     }
 
     public function createLexemeCandidate(int $runId, array $attributes): void

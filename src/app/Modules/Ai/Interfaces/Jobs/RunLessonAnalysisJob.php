@@ -36,7 +36,7 @@ class RunLessonAnalysisJob implements ShouldQueue
 
     public function handle(LessonAnalysisService $service, LessonCandidateMatchingService $matcher, LessonAnalysisStoreInterface $lessons): void
     {
-        if (! $lessons->startRun($this->runId)) {
+        if ($this->attempts() > $this->tries || ! $lessons->startRun($this->runId, $this->attempts() > 1)) {
             return;
         }
 

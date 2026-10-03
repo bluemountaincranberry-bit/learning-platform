@@ -106,3 +106,19 @@ If Horizon cannot connect to Redis:
 - confirm the `redis` service is running;
 - confirm the PHP image has the `redis` extension enabled;
 - rebuild the PHP image with `docker compose build app`.
+
+## Lesson analysis retries
+
+`RunLessonAnalysisJob` allows two attempts with a 30-second delay before the
+second attempt. Each exception records a sanitized failure reason. Only an
+eligible queue retry (attempt 2) may reclaim a failed run; fresh duplicate
+deliveries cannot restart failed runs, and running/completed runs are skipped.
+A successful retry clears the old failure reason and completion timestamp when
+claiming the run. The last provider failure leaves the run failed and notes intact.
+
+Learning persists the lexeme/grammar candidate batch in one transaction after
+the provider response, locking the run to serialize batch writes. Replays retain
+existing candidates by normalized lexeme text / case-insensitive grammar title.
+No notes or existing candidates are deleted. Matching remains best effort.
+These guarantees cover exception-driven retries; recovery of a worker killed
+while a run is running remains a separate operational concern.

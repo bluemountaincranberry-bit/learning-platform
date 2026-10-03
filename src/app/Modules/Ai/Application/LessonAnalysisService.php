@@ -78,13 +78,11 @@ class LessonAnalysisService
             throw new AiClientException('AI analysis found no vocabulary or grammar in these notes.');
         }
 
-        foreach ($this->dedupeByField($lexemes, 'text') as $item) {
-            $this->createLexemeCandidate($runId, $item);
-        }
-
-        foreach ($this->dedupeByField($grammar, 'title') as $item) {
-            $this->createGrammarCandidate($runId, $item);
-        }
+        $this->lessons->persistCandidates(
+            $runId,
+            array_values(array_filter(array_map($this->lexemeAttributes(...), $this->dedupeByField($lexemes, 'text')))),
+            array_values(array_filter(array_map($this->grammarAttributes(...), $this->dedupeByField($grammar, 'title')))),
+        );
     }
 
     private function buildSystemPrompt(string $sourceLanguage, string $translationLanguage): string
@@ -147,10 +145,10 @@ class LessonAnalysisService
     /**
      * @param  mixed  $item
      */
-    private function createLexemeCandidate(int $runId, $item): void
+    private function lexemeAttributes($item): ?array
     {
         if (! is_array($item) || ! is_string($item['text'] ?? null) || trim($item['text']) === '') {
-            return;
+            return null;
         }
 
         $text = trim($item['text']);
@@ -158,7 +156,7 @@ class LessonAnalysisService
             ? $item['level']
             : null;
 
-        $this->lessons->createLexemeCandidate($runId, [
+        return [
             'text' => $text,
             'normalized_text' => Str::lower($text),
             'type' => $item['type'] ?? null,
@@ -168,25 +166,25 @@ class LessonAnalysisService
             'example_translation' => is_string($item['example_translation'] ?? null) ? $item['example_translation'] : null,
             'note' => is_string($item['note'] ?? null) ? $item['note'] : null,
             'confidence' => is_numeric($item['confidence'] ?? null) ? (float) $item['confidence'] : null,
-        ]);
+        ];
     }
 
     /**
      * @param  mixed  $item
      */
-    private function createGrammarCandidate(int $runId, $item): void
+    private function grammarAttributes($item): ?array
     {
         if (! is_array($item) || ! is_string($item['title'] ?? null) || trim($item['title']) === '') {
-            return;
+            return null;
         }
 
-        $this->lessons->createGrammarCandidate($runId, [
+        return [
             'title' => trim($item['title']),
             'summary' => is_string($item['summary'] ?? null) ? $item['summary'] : null,
             'example' => is_string($item['example'] ?? null) ? $item['example'] : null,
             'example_translation' => is_string($item['example_translation'] ?? null) ? $item['example_translation'] : null,
             'note' => is_string($item['note'] ?? null) ? $item['note'] : null,
             'confidence' => is_numeric($item['confidence'] ?? null) ? (float) $item['confidence'] : null,
-        ]);
+        ];
     }
 }
