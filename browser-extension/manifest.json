@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Learning App — YouTube subtitles",
+  "version": "0.2.0",
+  "description": "Import subtitles from the YouTube tab into Learning App.",
+  "action": { "default_popup": "popup.html" },
+  "permissions": ["activeTab", "storage", "scripting"],
+  "host_permissions": ["https://www.youtube.com/*", "https://youtube.com/*", "http://localhost/*", "http://127.0.0.1/*", "http://192.168.1.64/*"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "content_scripts": [{
+    "matches": ["https://www.youtube.com/*", "https://youtube.com/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}

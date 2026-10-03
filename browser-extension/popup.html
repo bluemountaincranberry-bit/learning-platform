@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Learning App</title><style>body{font:14px system-ui;width:300px;padding:12px}label{display:block;margin:8px 0 3px}input,button{box-sizing:border-box;width:100%;padding:7px}button{margin-top:12px;cursor:pointer}#status{margin-top:10px;white-space:pre-wrap}</style></head>
+<body>
+  <strong>Import YouTube subtitles</strong>
+  <label for="apiBase">Learning App URL</label><input id="apiBase" placeholder="http://localhost:8088">
+  <label for="token">API token</label><input id="token" type="password" placeholder="Bearer token">
+  <label for="language">Language</label><input id="language" value="en" maxlength="2">
+  <label for="level">Level (optional)</label><input id="level" placeholder="A2">
+  <button id="import">Import current video</button>
+  <div id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

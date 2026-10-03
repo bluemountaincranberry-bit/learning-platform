@@ -1,0 +1,34 @@
+config/docker.env
+
+/.env
+src/.env
+src/vendor/
+src/node_modules/
+
+# PhpStorm / IntelliJ IDEA
+.idea/
+*.iml
+
+Basic Excise File
+
+# Obsidian (local vault settings)
+.obsidian/
+
+# Local YouTube browser session; contains authentication cookies.
+/runtime/youtube/*.json
+
+# Local AWS configuration and generated TypeScript build cache.
+/.aws
+*.tsbuildinfo
+
+# Local Claude runtime state and agent worktrees.
+**/.claude/scheduled_tasks.lock
+**/.claude/scheduled_tasks.json
+**/.claude/routines/.state/
+**/.claude/worktrees/
+**/.claude/checkpoints/
+**/.claude/mailbox/
+**/.claude/agent-registry.json
+**/.claude/agent-memory-local
+**/.claude/first-run
+**/.claude/assistant-daemon-state.json

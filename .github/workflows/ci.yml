@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests and formatting
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, bcmath, intl, pdo_sqlite, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Check rewrite module formatting
+        # The pre-existing repository-wide Pint baseline is not clean yet.
+        # Keep the investor gate honest by enforcing formatting on the module
+        # boundaries introduced by the rewrite while legacy cleanup is staged.
+        run: vendor/bin/pint --test app/Modules/Ai/Domain/Models app/Modules/Content/Domain/Models app/Modules/Srs/Domain/Models app/Modules/User/Domain/Models app/Modules/Ai/Interfaces/Jobs app/Modules/Content/Interfaces/Jobs app/Modules/Learning/Interfaces/Jobs app/Modules/Srs/Application/Contracts/SrsRepositoryInterface.php app/Modules/Srs/Infrastructure/Persistence/EloquentSrsRepository.php app/Modules/Srs/Interfaces/Listeners/CreateSrsCardOnLearningStartedListener.php app/Modules/Srs/Interfaces/Listeners/DeleteSrsCardOnLearningStoppedListener.php
+
+      - name: Run backend tests
+        env:
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        run: php artisan test
+
+  frontend:
+    name: Frontend typecheck and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Audit production JavaScript dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Typecheck
+        run: npx vue-tsc --noEmit
+
+      - name: Build SPA
+        run: npm run build
+
+  dependency-audit:
+    name: Dependency audit report
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Audit Composer dependencies
+        run: composer audit --locked --format=plain
+
+  e2e:
+    name: Browser rewrite smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare application environment
+        run: cp src/.env.example src/.env
+
+      - name: Start Compose stack
+        run: docker compose --env-file config/docker.env up -d --build
+
+      - name: Install backend dependencies and seed demo data
+        run: |
+          docker compose --env-file config/docker.env exec -T app composer install --no-interaction --prefer-dist --no-progress
+          docker compose --env-file config/docker.env exec -T app php artisan key:generate
+          docker compose --env-file config/docker.env exec -T app php artisan migrate:fresh --seed --force
+
+      - name: Wait for Vite
+        run: docker compose --env-file config/docker.env exec -T node sh -c 'until wget -qO- http://127.0.0.1:5177/@vite/client >/dev/null; do sleep 2; done'
+
+      - name: Run browser smoke
+        run: docker compose --env-file config/docker.env exec -T browser npm run e2e

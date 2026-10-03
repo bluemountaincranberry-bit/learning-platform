@@ -1,0 +1,4 @@
+{
+  "description": "Exact pre-existing frontend boundary violations. New entries fail the check.",
+  "violations": []
+}

@@ -1,0 +1,547 @@
+ M Makefile
+ M README.md
+ M docker-compose.yml
+ M docker/playwright/Dockerfile
+ M docker/playwright/package.json
+ M docs/architecture/README.md
+ M docs/product/epic/ai-candidate-extraction-review-epic.md
+ M src/.env.example
+ M src/app/Console/Commands/AgentTraceReportCommand.php
+ M src/app/Console/Commands/AiEvalCommand.php
+ M src/app/Console/Commands/BackfillLexemeLevelsCommand.php
+ M src/app/Console/Commands/CheckAdminContentsAccess.php
+ M src/app/Console/Commands/CleanupExerciseAudioCommand.php
+ M src/app/Console/Commands/ComputeCanonicalLexemeEmbeddingsCommand.php
+ M src/app/Console/Commands/ComputeEmbeddingsCommand.php
+ M src/app/Console/Commands/ComputeGrammarRuleEmbeddingsCommand.php
+ M src/app/Console/Commands/ConsumeExerciseEventsCommand.php
+ M src/app/Console/Commands/ConsumeKafkaCommand.php
+ M src/app/Console/Commands/CreateAdminUser.php
+ M src/app/Console/Commands/FixAdminAccess.php
+ M src/app/Filament/Pages/AgentGraphRuns.php
+ M src/app/Filament/Pages/AgentTraceSpans.php
+ M src/app/Filament/Pages/AgentTraces.php
+ M src/app/Filament/Pages/ContentAgentChat.php
+ M src/app/Filament/Pages/GraphDefinitions.php
+ M src/app/Filament/Pages/LearningFlowMetrics.php
+ M src/app/Filament/Pages/PromptTemplates.php
+ M src/app/Filament/Resources/Contents/Actions/AcceptTranscriptAction.php
+ M src/app/Filament/Resources/Contents/Actions/AnalyzeWithAiAction.php
+ M src/app/Filament/Resources/Contents/Actions/AnalyzeWithAiGraphAction.php
+ M src/app/Filament/Resources/Contents/Actions/ApplyAiCandidatesAction.php
+ M src/app/Filament/Resources/Contents/Actions/ContentPipelineAction.php
+ M src/app/Filament/Resources/Contents/Actions/ResetAiAnalysisAction.php
+ M src/app/Filament/Resources/Contents/ContentResource.php
+ M src/app/Filament/Resources/Contents/Pages/ListContents.php
+ M src/app/Filament/Resources/Contents/RelationManagers/GrammarCandidatesRelationManager.php
+ M src/app/Filament/Resources/Contents/RelationManagers/GrammarRulesRelationManager.php
+ M src/app/Filament/Resources/Contents/RelationManagers/LexemeCandidatesRelationManager.php
+ M src/app/Filament/Resources/Contents/RelationManagers/LexemesRelationManager.php
+ M src/app/Filament/Resources/Contents/Schemas/ContentForm.php
+ M src/app/Filament/Resources/Contents/Tables/ContentsTable.php
+ M src/app/Filament/Resources/GrammarRules/Actions/AiDraftGrammarContentAction.php
+ M src/app/Filament/Resources/GrammarRules/Actions/GenerateGrammarExercisesAction.php
+ M src/app/Filament/Resources/GrammarRules/GrammarRuleResource.php
+ M src/app/Filament/Resources/GrammarRules/RelationManagers/ExercisesRelationManager.php
+ M src/app/Filament/Resources/GrammarRules/RelationManagers/RevisionsRelationManager.php
+ M src/app/Filament/Resources/GrammarRules/Schemas/GrammarRuleForm.php
+ M src/app/Filament/Resources/GrammarRules/Tables/GrammarRulesTable.php
+ M src/app/Filament/Resources/GrammarTopics/GrammarTopicResource.php
+ M src/app/Filament/Resources/GrammarTopics/Schemas/GrammarTopicForm.php
+ M src/app/Filament/Resources/GrammarTopics/Tables/GrammarTopicsTable.php
+ M src/app/Filament/Resources/LearningFlowAssignments/LearningFlowAssignmentResource.php
+ M src/app/Filament/Resources/LearningFlowAssignments/Schemas/LearningFlowAssignmentForm.php
+ M src/app/Filament/Resources/LearningFlowProfiles/LearningFlowProfileResource.php
+ M src/app/Filament/Resources/LearningFlowProfiles/Pages/EditLearningFlowProfile.php
+ M src/app/Filament/Resources/Lexemes/Actions/AiEnrichLexemeAction.php
+ M src/app/Filament/Resources/Lexemes/LexemeResource.php
+ M src/app/Filament/Resources/Lexemes/RelationManagers/AssociationsRelationManager.php
+ M src/app/Filament/Resources/Lexemes/Schemas/LexemeForm.php
+ M src/app/Filament/Resources/Lexemes/Tables/LexemesTable.php
+ M src/app/Filament/Resources/Users/UserResource.php
+ M src/app/Filament/Widgets/AiChatOverviewWidget.php
+ M src/app/Filament/Widgets/IngestionStatusOverview.php
+ M src/app/Http/Requests/Api/Admin/AdminGrammarRuleIndexRequest.php
+ M src/app/Http/Requests/Api/Admin/AdminGrammarRuleStoreRequest.php
+ M src/app/Http/Requests/Api/Admin/AdminGrammarRuleUpdateRequest.php
+ M src/app/Http/Requests/Api/Admin/AdminGrammarTopicIndexRequest.php
+ M src/app/Http/Requests/Api/Admin/AdminGrammarTopicStoreRequest.php
+ M src/app/Http/Requests/Api/Admin/AdminGrammarTopicUpdateRequest.php
+ M src/app/Http/Requests/Api/Admin/AdminLexemeIndexRequest.php
+ M src/app/Http/Requests/Api/Admin/AdminLexemeStoreRequest.php
+ M src/app/Http/Requests/Api/Admin/AdminLexemeUpdateRequest.php
+ M src/app/Http/Requests/Api/ApiProfileUpdateRequest.php
+ M src/app/Http/Requests/Api/ContentIndexRequest.php
+ M src/app/Http/Requests/Api/MyWordsIndexRequest.php
+ M src/app/Jobs/ComputeCanonicalLexemeEmbeddingsJob.php
+ M src/app/Jobs/ComputeEmbeddingsJob.php
+ M src/app/Jobs/ComputeGrammarRuleEmbeddingsJob.php
+ M src/app/Jobs/EnrichLexemeAssociationsJob.php
+ M src/app/Jobs/FetchTranscriptJob.php
+ M src/app/Jobs/GraphBranchJob.php
+ M src/app/Jobs/ProcessContentJob.php
+ M src/app/Jobs/ProcessExerciseAttemptJob.php
+ M src/app/Jobs/ResumeGraphJob.php
+ M src/app/Jobs/RunAgentTurnJob.php
+ M src/app/Jobs/RunAiAnalysisGraphJob.php
+ M src/app/Jobs/RunAiContentAnalysisJob.php
+ M src/app/Jobs/RunLessonAnalysisJob.php
+ M src/app/Jobs/SuggestLexemeLevelJob.php
+ M src/app/Jobs/TranslateTranscriptSegmentsJob.php
+ M src/app/Models/AgentConversation.php
+ M src/app/Models/AgentGraphBranchResult.php
+ M src/app/Models/AgentGraphRun.php
+ M src/app/Models/AgentMessage.php
+ M src/app/Models/AgentTrace.php
+ M src/app/Models/AgentTraceSpan.php
+ M src/app/Models/AiAnalysisRun.php
+ M src/app/Models/AiConversation.php
+ M src/app/Models/AiMessage.php
+ M src/app/Models/AiSemanticCacheEntry.php
+ M src/app/Models/CanonicalLexemeEmbedding.php
+ M src/app/Models/ClozeExample.php
+ M src/app/Models/Content.php
+ M src/app/Models/ContentExamAttempt.php
+ M src/app/Models/ContentGrammarCandidate.php
+ M src/app/Models/ContentLexeme.php
+ M src/app/Models/ContentLexemeCandidate.php
+ M src/app/Models/ContentRuleLink.php
+ M src/app/Models/EntityRevision.php
+ M src/app/Models/EventLog.php
+ M src/app/Models/ExerciseAttempt.php
+ M src/app/Models/GrammarExamAttempt.php
+ M src/app/Models/GrammarRule.php
+ M src/app/Models/GrammarRuleEmbedding.php
+ M src/app/Models/GrammarRuleExample.php
+ M src/app/Models/GrammarRuleExercise.php
+ M src/app/Models/GrammarTopic.php
+ M src/app/Models/LearningFlowAssignment.php
+ M src/app/Models/LearningFlowMetricEvent.php
+ M src/app/Models/LearningFlowProfile.php
+ M src/app/Models/LearningPointEvent.php
+ M src/app/Models/LearningProgress.php
+ M src/app/Models/LearningRetry.php
+ M src/app/Models/Lesson.php
+ M src/app/Models/LessonAnalysisRun.php
+ M src/app/Models/LessonGrammarCandidate.php
+ M src/app/Models/LessonLexemeCandidate.php
+ M src/app/Models/Lexeme.php
+ M src/app/Models/LexemeAssociation.php
+ M src/app/Models/LexemeEmbedding.php
+ M src/app/Models/LexemeExample.php
+ M src/app/Models/LexemeSense.php
+ M src/app/Models/LexemeTranslation.php
+ M src/app/Models/ModelPricing.php
+ M src/app/Models/PersistedGraphDefinition.php
+ M src/app/Models/PersistedGraphDefinitionVersion.php
+ M src/app/Models/PromptTemplate.php
+ M src/app/Models/PromptTemplateVersion.php
+ M src/app/Models/SelfCheckSubmission.php
+ M src/app/Models/SrsCard.php
+ M src/app/Models/SrsReview.php
+ M src/app/Models/TranscriptSegment.php
+ M src/app/Models/TranscriptSegmentTranslation.php
+ M src/app/Models/User.php
+ M src/app/Models/UserGrammarRule.php
+ M src/app/Models/UserLearningPreference.php
+ M src/app/Models/UserLexemeConfidence.php
+ M src/app/Models/UserLexemeContextCheck.php
+ M src/app/Models/UserLexemeProgress.php
+ M src/app/Models/UserLexemeSkip.php
+ M src/app/Modules/Ai/AiServiceProvider.php
+ M src/app/Modules/Ai/Application/Agent/ContentAgentService.php
+ M src/app/Modules/Ai/Application/Agent/Graph/AiAnalysisGraphService.php
+ M src/app/Modules/Ai/Application/Agent/Graph/EloquentGraphRunObserver.php
+ M src/app/Modules/Ai/Application/Agent/Graph/GraphDefinitionAdminService.php
+ M src/app/Modules/Ai/Application/Agent/Graph/GraphDefinitionResolver.php
+ M src/app/Modules/Ai/Application/Agent/Graph/GraphDefinitionTestRunService.php
+ M src/app/Modules/Ai/Application/Agent/Graph/GraphRunStatusStreamer.php
+ M src/app/Modules/Ai/Application/Agent/Graph/Nodes/AnalyzeNode.php
+ M src/app/Modules/Ai/Application/Agent/Graph/Nodes/ApplyNode.php
+ M src/app/Modules/Ai/Application/Agent/Graph/Nodes/MatchNode.php
+ M src/app/Modules/Ai/Application/Agent/Graph/Nodes/ParallelNode.php
+ M src/app/Modules/Ai/Application/Agent/LessonAgentService.php
+ M src/app/Modules/Ai/Application/Agent/StudentTutorAgentService.php
+ M src/app/Modules/Ai/Application/Agent/Tools/CreateContentTool.php
+ M src/app/Modules/Ai/Application/Agent/Tools/ExtractPdfTextTool.php
+ M src/app/Modules/Ai/Application/Agent/Tools/GetAnalysisCandidatesTool.php
+ M src/app/Modules/Ai/Application/Agent/Tools/Grammar/GrammarExplanationTool.php
+ M src/app/Modules/Ai/Application/Agent/Tools/RunContentAnalysisTool.php
+ M src/app/Modules/Ai/Application/Agent/Tools/SearchExistingLexemesTool.php
+ M src/app/Modules/Ai/Application/Agent/Tools/Student/ExplainGrammarTool.php
+ M src/app/Modules/Ai/Application/Agent/Tools/Student/GenerateQuizTool.php
+ M src/app/Modules/Ai/Application/Agent/Tools/Student/GetLearningHistoryTool.php
+ M src/app/Modules/Ai/Application/Agent/Tools/Student/GetReviewScheduleTool.php
+ M src/app/Modules/Ai/Application/Agent/Tools/Student/GetUserLevelTool.php
+ M src/app/Modules/Ai/Application/Agent/Tools/Student/GetUserMistakesTool.php
+ M src/app/Modules/Ai/Application/Agent/Tools/Student/GetVocabularySizeTool.php
+ M src/app/Modules/Ai/Application/Agent/Tools/Student/SearchVocabularyTool.php
+ M src/app/Modules/Ai/Application/Agent/Tracing/DatabaseSpanRecorder.php
+ M src/app/Modules/Ai/Application/AiCandidateApplyService.php
+ M src/app/Modules/Ai/Application/AiCandidateAutoApplyService.php
+ M src/app/Modules/Ai/Application/AiContentAnalysisService.php
+ M src/app/Modules/Ai/Application/AiContentResetService.php
+ M src/app/Modules/Ai/Application/AiConversationService.php
+ M src/app/Modules/Ai/Application/AiExplainLexemeService.php
+ M src/app/Modules/Ai/Application/AiGrammarExerciseService.php
+ M src/app/Modules/Ai/Application/CandidateMatchingService.php
+ M src/app/Modules/Ai/Application/LessonAnalysisService.php
+ M src/app/Modules/Ai/Application/LessonCandidateMatchingService.php
+ M src/app/Modules/Ai/Application/LexemeEnrichmentService.php
+ M src/app/Modules/Ai/Application/PromptCatalogService.php
+ M src/app/Modules/Ai/Application/PromptRegistryService.php
+ M src/app/Modules/Ai/Application/PromptTemplateAdminService.php
+ M src/app/Modules/Ai/Application/RagIndexingService.php
+ M src/app/Modules/Ai/Application/RecommendationService.php
+ M src/app/Modules/Ai/Application/SemanticCacheService.php
+ M src/app/Modules/Ai/Application/SentencePracticeService.php
+ M src/app/Modules/Ai/Application/Support/LexemeCandidateFields.php
+ M src/app/Modules/Ai/Infrastructure/ElasticSpanExporter.php
+ M src/app/Modules/Ai/Interfaces/Http/Controllers/Admin/AgentListController.php
+ M src/app/Modules/Ai/Interfaces/Http/Controllers/Admin/GraphDefinitionController.php
+ M src/app/Modules/Ai/Interfaces/Http/Controllers/Admin/GraphRunStreamController.php
+ M src/app/Modules/Ai/Interfaces/Http/Controllers/Admin/PromptTemplateController.php
+ M src/app/Modules/Ai/Interfaces/Http/Controllers/AiConversationController.php
+ M src/app/Modules/Ai/Interfaces/Http/Controllers/LessonController.php
+ M src/app/Modules/Ai/Interfaces/Http/Controllers/SentencePracticeController.php
+ M src/app/Modules/Ai/Interfaces/Http/Controllers/TutorConversationController.php
+ M src/app/Modules/Content/Application/Ai/GrammarRuleAiContentBuilder.php
+ M src/app/Modules/Content/Application/Ai/LexemeEnrichmentPromptBuilder.php
+ M src/app/Modules/Content/Application/AiAnalysisAutoDispatchService.php
+ M src/app/Modules/Content/Application/CanonicalLexemeSyncService.php
+ M src/app/Modules/Content/Application/ContentProcessingOrchestrator.php
+ M src/app/Modules/Content/Application/ContentReadinessService.php
+ M src/app/Modules/Content/Application/ContentService.php
+ M src/app/Modules/Content/Application/Contracts/ContentProcessingOrchestratorInterface.php
+ M src/app/Modules/Content/Application/Contracts/ContentRepositoryInterface.php
+ M src/app/Modules/Content/Application/Contracts/ContentServiceInterface.php
+ M src/app/Modules/Content/Application/Contracts/GrammarCatalogServiceInterface.php
+ M src/app/Modules/Content/Application/Contracts/GrammarProgressServiceInterface.php
+ M src/app/Modules/Content/Application/Contracts/LexemeServiceInterface.php
+ M src/app/Modules/Content/Application/GrammarCatalogService.php
+ M src/app/Modules/Content/Application/GrammarConfidenceService.php
+ M src/app/Modules/Content/Application/GrammarProgressService.php
+ M src/app/Modules/Content/Application/LexemeSenseSyncService.php
+ M src/app/Modules/Content/Application/LexemeService.php
+ M src/app/Modules/Content/Application/Transcript/TranscriptLexemeLookupService.php
+ M src/app/Modules/Content/Application/Transcript/TranscriptSegmentStore.php
+ M src/app/Modules/Content/Application/Transcript/TranscriptTranslationService.php
+ M src/app/Modules/Content/ContentServiceProvider.php
+ M src/app/Modules/Content/Domain/Events/ContentSubmitted.php
+ M src/app/Modules/Content/Domain/Events/LexemeLearningStarted.php
+ M src/app/Modules/Content/Domain/Events/LexemeLearningStopped.php
+ M src/app/Modules/Content/Infrastructure/Persistence/ContentRepository.php
+ M src/app/Modules/Content/Interfaces/Http/Controllers/AdminGrammarRuleController.php
+ M src/app/Modules/Content/Interfaces/Http/Controllers/AdminGrammarTopicController.php
+ M src/app/Modules/Content/Interfaces/Http/Controllers/AdminLexemeController.php
+ M src/app/Modules/Content/Interfaces/Http/Controllers/ContentAiSuggestionsController.php
+ M src/app/Modules/Content/Interfaces/Http/Controllers/ContentController.php
+ M src/app/Modules/Content/Interfaces/Http/Controllers/ContentGrammarPreExamController.php
+ M src/app/Modules/Content/Interfaces/Http/Controllers/ContentReadinessController.php
+ M src/app/Modules/Content/Interfaces/Http/Controllers/GrammarRuleController.php
+ M src/app/Modules/Content/Interfaces/Http/Controllers/LexemeController.php
+ M src/app/Modules/Content/Interfaces/Http/Controllers/TranscriptController.php
+ M src/app/Modules/Content/Interfaces/Http/Controllers/TranscriptTranslationController.php
+ M src/app/Modules/Content/Interfaces/Listeners/DispatchContentProcessingListener.php
+ M src/app/Modules/Learning/Application/AdaptiveActivitySelector.php
+ M src/app/Modules/Learning/Application/ExerciseAttemptService.php
+ M src/app/Modules/Learning/Application/LearnedLexemesService.php
+ M src/app/Modules/Learning/Application/LearningFlowMetricsService.php
+ M src/app/Modules/Learning/Application/LearningFlowResolver.php
+ M src/app/Modules/Learning/Application/LearningRetryService.php
+ M src/app/Modules/Learning/Application/LexemeConfidenceService.php
+ M src/app/Modules/Learning/Application/LexemeLearningSelector.php
+ M src/app/Modules/Learning/Application/MyWordsService.php
+ M src/app/Modules/Learning/Application/PointsAwardService.php
+ M src/app/Modules/Learning/Application/ProgressStatsService.php
+ M src/app/Modules/Learning/Application/SelfCheckService.php
+ M src/app/Modules/Learning/Application/TrainingSessionService.php
+ M src/app/Modules/Learning/Interfaces/Http/Controllers/ExerciseAttemptController.php
+ M src/app/Modules/Learning/Interfaces/Http/Controllers/LearningFlowController.php
+ M src/app/Modules/Learning/Interfaces/Http/Controllers/SelfCheckController.php
+ M src/app/Modules/Learning/Interfaces/Http/Resources/LearnedGrammarRuleResource.php
+ M src/app/Modules/Learning/Interfaces/Http/Resources/LearnedLexemeResource.php
+ M src/app/Modules/Learning/Interfaces/Http/Resources/MyWordResource.php
+ M src/app/Modules/Srs/Application/Contracts/SrsServiceInterface.php
+ M src/app/Modules/Srs/Application/SrsService.php
+ M src/app/Modules/Srs/Interfaces/Http/Controllers/SrsController.php
+ M src/app/Modules/Srs/Interfaces/Listeners/CreateSrsCardOnLearningStartedListener.php
+ M src/app/Modules/Srs/Interfaces/Listeners/DeleteSrsCardOnLearningStoppedListener.php
+ M src/app/Modules/Srs/SrsServiceProvider.php
+ M src/app/Modules/User/Application/LearningStatsService.php
+ M src/app/Modules/User/Interfaces/Http/Controllers/AuthController.php
+ M src/app/Policies/ContentPolicy.php
+ M src/app/Policies/SrsCardPolicy.php
+ M src/app/Providers/AppServiceProvider.php
+ M src/app/Providers/Filament/AdminPanelProvider.php
+ M src/app/Providers/TelescopeServiceProvider.php
+ M src/app/Services/ContentTokenizer.php
+ M src/app/Services/FallbackYoutubeTranscriptFetcher.php
+ M src/app/Services/LibraryYoutubeTranscriptFetcher.php
+ M src/app/Services/PlaywrightYoutubeTranscriptFetcher.php
+ M src/app/Services/StubYoutubeTranscriptFetcher.php
+ M src/app/Services/SupadataYoutubeTranscriptFetcher.php
+ M src/app/Services/YoutubeOEmbedTitleFetcher.php
+ M src/app/Services/YoutubeWebTranscriptFetcher.php
+ M src/app/Support/HasRevisions.php
+ M src/composer.lock
+ M src/config/ai.php
+ M src/config/auth.php
+ M src/database/factories/AiConversationFactory.php
+ M src/database/factories/ContentFactory.php
+ M src/database/factories/UserFactory.php
+ M src/package-lock.json
+ M src/package.json
+ M src/resources/js/spa/api/sentencePracticeApi.ts
+ M src/resources/js/spa/composables/useAuth.ts
+ M src/resources/js/spa/composables/useCatalog.ts
+ M src/resources/js/spa/domains/ai/index.ts
+ M src/resources/js/spa/domains/content/index.ts
+ M src/resources/js/spa/domains/learning/index.ts
+ M src/resources/js/spa/domains/user/index.ts
+ M src/resources/js/spa/main.ts
+ M src/resources/js/spa/pages/AddYoutubePage.vue
+ M src/resources/js/spa/pages/CatalogPage.vue
+ M src/resources/js/spa/pages/ChatPage.vue
+ M src/resources/js/spa/pages/ContentDetailsPage.vue
+ M src/resources/js/spa/pages/ContentExamPage.vue
+ M src/resources/js/spa/pages/ContextPracticePage.vue
+ M src/resources/js/spa/pages/DashboardPage.vue
+ M src/resources/js/spa/pages/GrammarPage.vue
+ M src/resources/js/spa/pages/GrammarPreExamPage.vue
+ M src/resources/js/spa/pages/GrammarRuleDetailPage.vue
+ M src/resources/js/spa/pages/LessonDetailPage.vue
+ M src/resources/js/spa/pages/LessonsPage.vue
+ M src/resources/js/spa/pages/LexemeDetailPage.vue
+ M src/resources/js/spa/pages/LoginPage.vue
+ M src/resources/js/spa/pages/MyGrammarPage.vue
+ M src/resources/js/spa/pages/MyProgressPage.vue
+ M src/resources/js/spa/pages/MyWordsPage.vue
+ M src/resources/js/spa/pages/OnboardingPage.vue
+ M src/resources/js/spa/pages/RegisterPage.vue
+ M src/resources/js/spa/pages/RepetitionsPage.vue
+ M src/resources/js/spa/pages/SettingsPage.vue
+ M src/resources/js/spa/pages/SpeakingPracticePage.vue
+ M src/resources/js/spa/pages/StudyPage.vue
+ M src/resources/js/spa/pages/TranscriptExercisePage.vue
+ M src/resources/js/spa/pages/admin/GraphCanvasPage.vue
+ M src/resources/js/spa/pages/my-words/MyWordsSettingsPanel.vue
+ M src/resources/js/spa/router.ts
+ M src/resources/js/spa/shared/ui/TranscriptViewer.vue
+ M src/resources/js/spa/shared/ui/UiInput.vue
+ M src/resources/js/spa/shared/ui/YoutubeEmbed.vue
+ M src/resources/js/spa/stores/authStore.ts
+ M src/resources/js/spa/types/index.ts
+ M src/resources/js/spa/types/router/RouteMeta.ts
+ M src/resources/js/spa/widgets/content/ReadinessStepper.vue
+ M src/resources/js/spa/widgets/shell/SpaShell.vue
+ M src/resources/js/spa/widgets/trainer/ContextSentenceCard.vue
+ M src/resources/js/spa/widgets/trainer/DictationCard.vue
+ M src/resources/js/spa/widgets/trainer/ShadowingCard.vue
+ M src/resources/js/spa/widgets/trainer/WordCard.vue
+ M src/routes/web.php
+ M src/tests/Feature/Admin/AiBuilderPagesTest.php
+ M src/tests/Feature/AdminAgentObservabilityPagesTest.php
+ M src/tests/Feature/AdminAiCandidatesActionsTest.php
+ M src/tests/Feature/AdminAiCandidatesViewTest.php
+ M src/tests/Feature/AdminAnalyzeWithAiActionTest.php
+ M src/tests/Feature/AdminAnalyzeWithAiGraphActionTest.php
+ M src/tests/Feature/AdminApplyAiCandidatesActionTest.php
+ M src/tests/Feature/AdminApproveAndApplyGraphRunActionTest.php
+ M src/tests/Feature/AdminContentsAccessTest.php
+ M src/tests/Feature/AdminCreateContentTest.php
+ M src/tests/Feature/AdminGenerateGrammarExercisesActionTest.php
+ M src/tests/Feature/AdminGrammarRuleResourceTest.php
+ M src/tests/Feature/AdminGrammarRulesRelationManagerTest.php
+ M src/tests/Feature/AdminLexemeResourceTest.php
+ M src/tests/Feature/Ai/Agent/AgentToolsTest.php
+ M src/tests/Feature/Ai/Agent/ContentAgentChatRateLimitTest.php
+ M src/tests/Feature/Ai/Agent/ContentAgentServiceTest.php
+ M src/tests/Feature/Ai/Agent/Grammar/GrammarAgentServiceTest.php
+ M src/tests/Feature/Ai/Agent/Grammar/GrammarToolsTest.php
+ M src/tests/Feature/Ai/Agent/Graph/AiAnalysisGraphServiceTest.php
+ M src/tests/Feature/Ai/Agent/Graph/EloquentGraphRunObserverTest.php
+ M src/tests/Feature/Ai/Agent/Graph/GraphDefinitionResolverTest.php
+ M src/tests/Feature/Ai/Agent/Graph/GraphDefinitionTestRunServiceTest.php
+ M src/tests/Feature/Ai/Agent/Graph/GraphRunStatusStreamerTest.php
+ M src/tests/Feature/Ai/Agent/Graph/ParallelNodeTest.php
+ M src/tests/Feature/Ai/Agent/PlanningAgentServiceTest.php
+ M src/tests/Feature/Ai/Agent/Review/ReviewAgentServiceTest.php
+ M src/tests/Feature/Ai/Agent/Review/ReviewToolsTest.php
+ M src/tests/Feature/Ai/Agent/RunAgentTurnJobTest.php
+ M src/tests/Feature/Ai/Agent/Student/GenerateQuizToolTest.php
+ M src/tests/Feature/Ai/Agent/Student/GetUserLevelToolTest.php
+ M src/tests/Feature/Ai/Agent/Student/LearningToolsTest.php
+ M src/tests/Feature/Ai/Agent/Student/MemoryToolsTest.php
+ M src/tests/Feature/Ai/Agent/Student/ProgressToolsTest.php
+ M src/tests/Feature/Ai/Agent/StudentTutorAgentServiceTest.php
+ M src/tests/Feature/Ai/Agent/Tracing/AgentTraceReportCommandTest.php
+ M src/tests/Feature/Ai/Agent/Tracing/DatabaseSpanRecorderTest.php
+ M src/tests/Feature/Ai/Agent/TutorConversationControllerTest.php
+ M src/tests/Feature/Ai/AiCandidateApplyServiceTest.php
+ M src/tests/Feature/Ai/AiCandidateAutoApplyServiceTest.php
+ M src/tests/Feature/Ai/AiContentAnalysisServiceTest.php
+ M src/tests/Feature/Ai/AiEvalCommandTest.php
+ M src/tests/Feature/Ai/AiExplainLexemeModelOverrideTest.php
+ M src/tests/Feature/Ai/AiFieldEditServiceTest.php
+ M src/tests/Feature/Ai/AiGrammarExerciseServiceTest.php
+ M src/tests/Feature/Ai/AiServiceProviderBindingTest.php
+ M src/tests/Feature/Ai/AiServiceProviderPromptOverrideTest.php
+ M src/tests/Feature/Ai/CandidateMatchingServiceTest.php
+ M src/tests/Feature/Ai/ChatContextAiServicePromptOverrideTest.php
+ M src/tests/Feature/Ai/ComputeCanonicalLexemeEmbeddingsJobTest.php
+ M src/tests/Feature/Ai/ComputeEmbeddingsJobTest.php
+ M src/tests/Feature/Ai/ComputeGrammarRuleEmbeddingsJobTest.php
+ M src/tests/Feature/Ai/ElasticSpanExporterTest.php
+ M src/tests/Feature/Ai/EmbeddingsClientTest.php
+ M src/tests/Feature/Ai/GrammarRuleAiContentBuilderTest.php
+ M src/tests/Feature/Ai/LessonAnalysisServiceTest.php
+ M src/tests/Feature/Ai/LessonCandidateMatchingServiceTest.php
+ M src/tests/Feature/Ai/LessonControllerTest.php
+ M src/tests/Feature/Ai/PromptRegistryServiceTest.php
+ M src/tests/Feature/Ai/RagIndexingServiceTest.php
+ M src/tests/Feature/Ai/RagRetrievalServiceTest.php
+ M src/tests/Feature/Ai/RecommendationServiceTest.php
+ M src/tests/Feature/Ai/RunAiAnalysisGraphJobTest.php
+ M src/tests/Feature/Ai/RunAiContentAnalysisJobAutoApplyTest.php
+ M src/tests/Feature/Ai/RunAiContentAnalysisJobTest.php
+ M src/tests/Feature/Ai/SemanticCacheServiceTest.php
+ M src/tests/Feature/Ai/SentencePracticeServiceTest.php
+ M src/tests/Feature/AiAnalysisAutoDispatchServiceTest.php
+ M src/tests/Feature/AiEnrichLexemeActionTest.php
+ M src/tests/Feature/Api/Admin/GraphDefinitionAdminApiTest.php
+ M src/tests/Feature/Api/Admin/GraphDefinitionTestRunApiTest.php
+ M src/tests/Feature/Api/Admin/GraphRunStreamApiTest.php
+ M src/tests/Feature/Api/Admin/NodePaletteAndAgentListApiTest.php
+ M src/tests/Feature/Api/Admin/PromptCatalogApiTest.php
+ M src/tests/Feature/Api/Admin/PromptTemplateAdminApiTest.php
+ M src/tests/Feature/Api/AdminGrammarApiTest.php
+ M src/tests/Feature/Api/AiChatApiTest.php
+ M src/tests/Feature/Api/ApiAuthTest.php
+ M src/tests/Feature/Api/ApiProfileAiExtractionThoroughnessTest.php
+ M src/tests/Feature/Api/ApiProfileCurrentLevelTest.php
+ M src/tests/Feature/Api/ApiProfileTranslationLanguageTest.php
+ M src/tests/Feature/Api/ContentAiSuggestionsTest.php
+ M src/tests/Feature/Api/ContentCatalogTest.php
+ M src/tests/Feature/Api/ContentGrammarRulesTest.php
+ M src/tests/Feature/Api/ContentLexemesGrammarAndSenseTest.php
+ M src/tests/Feature/Api/ContentLexemesLevelTest.php
+ M src/tests/Feature/Api/ContentLexemesNotAnalyzedTest.php
+ M src/tests/Feature/Api/ContentLexemesSynonymsAndExamplesTest.php
+ M src/tests/Feature/Api/ContentLexemesTranslationTest.php
+ M src/tests/Feature/Api/ContentSubmissionFlowTest.php
+ M src/tests/Feature/Api/DailyGoalStreakTest.php
+ M src/tests/Feature/Api/ExerciseAttemptApiTest.php
+ M src/tests/Feature/Api/GlobalLearnedIntegrationTest.php
+ M src/tests/Feature/Api/GrammarProgressApiTest.php
+ M src/tests/Feature/Api/GrammarRuleCatalogTest.php
+ M src/tests/Feature/Api/GrammarRuleExercisesApiTest.php
+ M src/tests/Feature/Api/ImportYoutubeTranscriptTest.php
+ M src/tests/Feature/Api/LearnedLexemesApiTest.php
+ M src/tests/Feature/Api/LearnedLexemesSynonymsAndExamplesTest.php
+ M src/tests/Feature/Api/LearningKnowledgeModelTest.php
+ M src/tests/Feature/Api/LexemeBulkActionsTest.php
+ M src/tests/Feature/Api/LexemeDictionaryShowTest.php
+ M src/tests/Feature/Api/LexemeExplainTest.php
+ M src/tests/Feature/Api/LexemeMoreExamplesTest.php
+ M src/tests/Feature/Api/LexemeProgressTest.php
+ M src/tests/Feature/Api/LexemeSkipTest.php
+ M src/tests/Feature/Api/LexemeStartLearningTest.php
+ M src/tests/Feature/Api/LexemeStopLearningTest.php
+ M src/tests/Feature/Api/MeStatsApiTest.php
+ M src/tests/Feature/Api/MySubmissionsPendingAiSuggestionsTest.php
+ M src/tests/Feature/Api/MyWordsApiTest.php
+ M src/tests/Feature/Api/RecommendedApiTest.php
+ M src/tests/Feature/Api/SelfCheckApiTest.php
+ M src/tests/Feature/Api/SrsFlowTest.php
+ M src/tests/Feature/Api/TrainingReviewQueueTest.php
+ M src/tests/Feature/Api/TranscriptLexemeCreateTest.php
+ M src/tests/Feature/Api/TranscriptSegmentsTest.php
+ M src/tests/Feature/Auth/RbacAccessTest.php
+ M src/tests/Feature/CanonicalLexemeSyncServiceTest.php
+ M src/tests/Feature/Console/BackfillLexemeLevelsCommandTest.php
+ M src/tests/Feature/Content/ContentGrammarPreExamControllerTest.php
+ M src/tests/Feature/Content/ContentReadinessControllerTest.php
+ M src/tests/Feature/Content/ContentReadinessServiceTest.php
+ M src/tests/Feature/Content/GrammarConfidenceServiceTest.php
+ M src/tests/Feature/ContentLexemeTest.php
+ M src/tests/Feature/ContentProcessingOrchestratorTest.php
+ M src/tests/Feature/ContentStatusModelTest.php
+ M src/tests/Feature/ContentTranscriptReviewTest.php
+ M src/tests/Feature/FetchTranscriptJobTest.php
+ M src/tests/Feature/GrammarCatalogSchemaTest.php
+ M src/tests/Feature/HasRevisionsTest.php
+ M src/tests/Feature/Jobs/EnrichLexemeAssociationsJobTest.php
+ M src/tests/Feature/Jobs/SuggestLexemeLevelJobTest.php
+ M src/tests/Feature/Kafka/ConsumeExerciseEventsCommandTest.php
+ M src/tests/Feature/Kafka/KafkaProducerListenerTest.php
+ M src/tests/Feature/Learning/LearningFlowResolverTest.php
+ M src/tests/Feature/Learning/ProgressStatsWeakSpotsTest.php
+ M src/tests/Feature/Learning/SelfCheckIdempotencyTest.php
+ M src/tests/Feature/LexemePickPrimaryTranslationTest.php
+ M src/tests/Feature/LexemeSenseSyncServiceTest.php
+ M src/tests/Feature/ProcessContentIntegrationTest.php
+ M src/tests/Feature/ProcessContentJobTest.php
+ M src/tests/Feature/YoutubeOEmbedTitleFetcherTest.php
+ M src/tests/Fixtures/Evals/tutor_agent_cases.php
+ M src/tests/Unit/Ai/Agent/Graph/Nodes/ApplyNodeTest.php
+ M src/tests/Unit/ContentTokenizerTest.php
+ M src/tests/Unit/Services/YoutubeWebTranscriptFetcherTest.php
+ M src/tsconfig.json
+ M src/vite.config.js
+?? .agents/
+?? .ai-orchestration/local-tasks/2026-09-14-01-rewrite-baseline.md
+?? .ai-orchestration/local-tasks/2026-09-14-02-backend-foundation-rewrite.md
+?? .ai-orchestration/local-tasks/2026-09-14-03-ai-platform-rewrite.md
+?? .ai-orchestration/local-tasks/2026-09-14-04-domain-rewrite.md
+?? .ai-orchestration/local-tasks/2026-09-14-05-frontend-rewrite.md
+?? .ai-orchestration/local-tasks/2026-09-14-06-investor-readiness.md
+?? .ai-orchestration/local-tasks/2026-09-15-frontend-architecture-research-and-spec.md
+?? .codex/skills/spec-driven-rewrite/
+?? .github/
+?? docker/playwright/e2e/
+?? docs/architecture/adr/ADR-007-modular-monolith-rewrite.md
+?? docs/architecture/adr/ADR-008-ai-platform-boundary.md
+?? docs/architecture/adr/ADR-009-contract-first-rewrite-testing.md
+?? docs/architecture/frontend-rewrite-research.md
+?? docs/architecture/frontend-rewrite-spec.md
+?? docs/architecture/module-ownership.md
+?? docs/architecture/rewrite-completion-review.md
+?? docs/architecture/rewrite-spec.md
+?? docs/operations/
+?? openspec/
+?? src/app/Http/Controllers/HealthController.php
+?? src/app/Modules/Ai/Application/Capabilities/
+?? src/app/Modules/Ai/Contracts/ContentAnalysisCapability.php
+?? src/app/Modules/Ai/Contracts/ContextSentenceGenerationCapability.php
+?? src/app/Modules/Ai/Contracts/LexemeExplanationCapability.php
+?? src/app/Modules/Ai/Contracts/LexemeMetadataSuggestionCapability.php
+?? src/app/Modules/Ai/Contracts/LexemeTranslationCapability.php
+?? src/app/Modules/Ai/Contracts/SentenceAnswerGradingCapability.php
+?? src/app/Modules/Ai/Contracts/SentenceGenerationCapability.php
+?? src/app/Modules/Ai/Domain/
+?? src/app/Modules/Ai/Infrastructure/AiProviderFactory.php
+?? src/app/Modules/Ai/Infrastructure/OllamaEmbeddingsClient.php
+?? src/app/Modules/Ai/Interfaces/Jobs/
+?? src/app/Modules/Content/Application/ContentTokenizer.php
+?? src/app/Modules/Content/Domain/Models/
+?? src/app/Modules/Content/Infrastructure/Integrations/
+?? src/app/Modules/Content/Interfaces/Jobs/
+?? src/app/Modules/Infrastructure/
+?? src/app/Modules/Learning/Domain/Models/
+?? src/app/Modules/Learning/Interfaces/Jobs/
+?? src/app/Modules/Srs/Application/Contracts/SrsRepositoryInterface.php
+?? src/app/Modules/Srs/Domain/Models/
+?? src/app/Modules/Srs/Infrastructure/
+?? src/app/Modules/User/Domain/
+?? src/resources/js/spa/domains/content/model/
+?? src/resources/js/spa/domains/user/model/
+?? src/resources/js/spa/infrastructure/
+?? src/resources/js/spa/shared/ui/AsyncState.vue
+?? src/resources/js/spa/shared/ui/UiPageHeader.vue
+?? src/resources/js/spa/shared/ui/UiPageShell.vue
+?? src/resources/js/spa/shared/ui/UiSpinner.vue
+?? src/resources/js/spa/shared/ui/UiStack.vue
+?? src/resources/js/spa/shared/ui/index.ts
+?? src/tests/Feature/HealthEndpointTest.php
+?? src/tests/Feature/Srs/

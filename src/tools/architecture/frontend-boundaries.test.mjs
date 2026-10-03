@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import { frontendViolations as check } from './frontend-boundaries.mjs';
+assert.deepEqual(check('pages/Home.vue', '<script setup lang="ts">import { Card } from "@/spa/domains/content";</script>'), []);
+assert.deepEqual(check('domains/content/model/query.ts', 'import { read } from "../api/content.api"'), []);
+assert.equal(check('pages/Home.ts', 'import { read } from "@/spa/domains/content/api/content.api"')[0].rule, 'ts-private-domain');
+assert.equal(check('pages/Home.ts', 'fetch("/api/content")')[0].rule, 'ts-page-http');
+assert.equal(check('pages/Home.ts', 'import http from "../infrastructure/http/client"')[0].rule, 'ts-page-http');
+assert.equal(check('shared/ui/Card.vue', '<script setup>import { card } from "@/spa/domains/content";</script>')[0].rule, 'ts-shared-business');
+assert.equal(check('domains/user/model/test.ts', 'export { query } from "../../content/model/query"')[0].rule, 'ts-private-domain');
+assert.equal(check('pages/Home.ts', 'const api = import("../domains/content/api/content.api")')[0].rule, 'ts-private-domain');
+assert.equal(check('pages/Home.ts', 'type Result = import("../domains/content/model/types").Result')[0].rule, 'ts-private-domain');
+assert.deepEqual(check('pages/Home.ts', '// fetch("/api")\nconst label = "fetch";'), []);
+console.log('Frontend architecture fixtures passed.');

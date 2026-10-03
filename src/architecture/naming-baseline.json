@@ -1,0 +1,31 @@
+{
+  "description": "Exact pre-existing naming violations. Framework-required names are outside these rules.",
+  "exceptions": [],
+  "violations": [
+    "domain-file-convention|resources/js/spa/domains/content/model/contentQueries.ts|contentQueries.ts",
+    "domain-file-convention|resources/js/spa/domains/content/model/contentQueryKeys.ts|contentQueryKeys.ts",
+    "domain-file-convention|resources/js/spa/domains/user/model/profileQueries.ts|profileQueries.ts",
+    "domain-file-convention|resources/js/spa/domains/user/model/profileQueryKeys.ts|profileQueryKeys.ts",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/ContentAgentService.php|only",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/Data/AgentToolDefinition.php|so",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/Graph/AiAnalysisGraphService.php|is",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/Graph/Definitions/AiAnalysisGraph.php|hand",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/Graph/GraphDefinitionResolver.php|instead",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/Graph/GraphDefinitionTestRunService.php|then",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/Graph/Nodes/AgentNode.php|per",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/Graph/Nodes/CallbackRouterNode.php|per",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/Graph/ResolvedGraphDefinition.php|instead",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/PlanningAgentService.php|does",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/StudentTutorAgentService.php|per",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/Tools/Handoff/HandoffToGrammarAgentTool.php|plus",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/Tools/HandoffTool.php|for",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/Tools/Student/ExplainGrammarTool.php|and",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/Tools/Student/FindExamplesTool.php|is",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Agent/Tracing/TracedLlmCall.php|is",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/AiCandidateAutoApplyService.php|only",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/Prompt/PromptTemplateRenderer.php|rather",
+    "php-file-symbol-mismatch|app/Modules/Ai/Application/PromptTemplateAdminService.php|is",
+    "php-file-symbol-mismatch|app/Modules/Ai/Contracts/AiStreamingChatClient.php|rather",
+    "php-file-symbol-mismatch|app/Modules/Content/Infrastructure/Pdf/BasicPdfTextExtractor.php|behind"
+  ]
+}

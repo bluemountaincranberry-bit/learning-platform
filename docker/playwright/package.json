@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "node e2e/rewrite-smoke.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.55.0",
+    "youtube-transcript": "1.3.1"
+  }
+}
