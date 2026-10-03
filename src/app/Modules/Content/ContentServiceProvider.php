@@ -86,7 +86,7 @@ use App\Modules\Content\Infrastructure\Integrations\StubYoutubeTranscriptFetcher
 use App\Modules\Content\Infrastructure\Integrations\SupadataYoutubeTranscriptFetcher;
 use App\Modules\Content\Infrastructure\Integrations\YoutubeOEmbedTitleFetcher;
 use App\Modules\Content\Infrastructure\Integrations\YoutubeWebTranscriptFetcher;
-use App\Modules\Content\Infrastructure\Pdf\BasicPdfTextExtractor;
+use App\Modules\Content\Infrastructure\Pdf\PopplerPdfTextExtractor;
 use App\Modules\Content\Infrastructure\Persistence\ContentRepository;
 use App\Modules\Content\Infrastructure\Subtitles\SrtVttSubtitleTextExtractor;
 use App\Modules\Content\Interfaces\Listeners\DispatchContentProcessingListener;
@@ -182,7 +182,7 @@ class ContentServiceProvider extends ServiceProvider
         $this->app->bind(GrammarRuleTitleReaderInterface::class, GrammarRuleTitleReader::class);
         $this->app->bind(GraphTestContentFactoryInterface::class, GraphTestContentFactory::class);
         $this->app->bind(LexemeServiceInterface::class, LexemeService::class);
-        $this->app->bind(PdfTextExtractorInterface::class, BasicPdfTextExtractor::class);
+        $this->app->bind(PdfTextExtractorInterface::class, PopplerPdfTextExtractor::class);
         $this->app->bind(SubtitleTextExtractorInterface::class, SrtVttSubtitleTextExtractor::class);
     }
 

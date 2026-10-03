@@ -14,6 +14,7 @@ RUN apt-get update \
         libjpeg-dev \
         libfreetype6-dev \
         ffmpeg \
+        poppler-utils \
         librdkafka-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" \

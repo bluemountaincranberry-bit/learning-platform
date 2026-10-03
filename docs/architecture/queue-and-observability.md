@@ -68,11 +68,17 @@ Check Laravel drivers:
 docker compose exec app php artisan about --only=drivers
 ```
 
-Restart Horizon after config changes:
+Restart Horizon after any change to config, jobs, queued listeners, service
+providers/bindings or AI providers — the worker keeps the old code in memory
+until restarted (a stale worker once broke every lesson chat turn):
 
 ```bash
-docker compose exec horizon php artisan horizon:terminate
+make workers-restart
+# or: docker compose exec horizon php artisan horizon:terminate
 ```
+
+After changing `docker/php/Dockerfile` (e.g. system tools like `pdftotext`),
+rebuild the image and recreate both containers: `docker compose up -d --build app horizon`.
 
 ## Verification Checklist
 
