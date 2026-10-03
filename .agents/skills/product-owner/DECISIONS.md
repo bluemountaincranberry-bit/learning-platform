@@ -29,3 +29,5 @@ Newer entries override older ones and VISION.md.
 | 2026-10-03 | open (VIK-15) | Which TED talks to seed ("ones we already learned"): use the YouTube contents already in the DB, or a new list? | Vision is ambiguous |
 | 2026-08-08 | answered | AI content analysis auto-applies candidates ≥ confidence floor into the shared catalog, no confirmation click. Applies to the catalog pipeline only, not to personal lists. | Vika, EPIC 9 |
 | 2026-08-01 | answered (see open item above) | "My grammar" is a personal list without SRS. | Vika |
+
+| 2026-10-03 | assumed | VIK-19: Today links to Dashboard; Lessons and Words include their detail pages; catalog study belongs under More → Catalog. Keep the existing shell-free focused practice/exam surfaces. More reuses the accessible shared dialog and preserves AI chat role restrictions. | Ticket defines the five destinations; smallest mobile shell change without changing training flows. |
