@@ -7,6 +7,7 @@ use App\Modules\Content\Application\Contracts\GrammarExerciseGenerationsInterfac
 use App\Modules\Content\Application\Data\GrammarExerciseGenerationRequest;
 use App\Modules\Content\Domain\Models\GrammarExerciseGeneration;
 use App\Support\AiConfig;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -22,28 +23,33 @@ final class GrammarExerciseGenerations implements GrammarExerciseGenerationsInte
 
         // Two taps (or a tap and a top-up) at the same moment must not both
         // pass the "no active batch" check.
-        $generationId = Cache::lock('grammar-exercise-generation:'.$ruleId, 10)->block(5, function () use ($ruleId, $userId, $size): int|string {
-            if ($this->hasActive($ruleId)) {
-                return GrammarExerciseGenerationRequest::ACTIVE;
-            }
+        try {
+            $generationId = Cache::lock('grammar-exercise-generation:'.$ruleId, 10)->block(5, function () use ($ruleId, $userId, $size): int|string {
+                if ($this->hasActive($ruleId)) {
+                    return GrammarExerciseGenerationRequest::ACTIVE;
+                }
 
-            $usedToday = GrammarExerciseGeneration::query()
-                ->where('user_id', $userId)
-                ->where('grammar_rule_id', $ruleId)
-                ->where('created_at', '>=', now()->startOfDay())
-                ->count();
+                $usedToday = GrammarExerciseGeneration::query()
+                    ->where('user_id', $userId)
+                    ->where('grammar_rule_id', $ruleId)
+                    ->where('created_at', '>=', now()->startOfDay())
+                    ->count();
 
-            if ($usedToday >= (int) config('ai.exercises.practice.daily_batches_per_rule', 3)) {
-                return GrammarExerciseGenerationRequest::LIMITED;
-            }
+                if ($usedToday >= (int) config('ai.exercises.practice.daily_batches_per_rule', 3)) {
+                    return GrammarExerciseGenerationRequest::LIMITED;
+                }
 
-            return GrammarExerciseGeneration::query()->create([
-                'grammar_rule_id' => $ruleId,
-                'user_id' => $userId,
-                'size' => $size,
-                'status' => GrammarExerciseGeneration::STATUS_QUEUED,
-            ])->id;
-        });
+                return GrammarExerciseGeneration::query()->create([
+                    'grammar_rule_id' => $ruleId,
+                    'user_id' => $userId,
+                    'size' => $size,
+                    'status' => GrammarExerciseGeneration::STATUS_QUEUED,
+                ])->id;
+            });
+        } catch (LockTimeoutException) {
+            // Another request for this rule holds the lock and is creating the batch.
+            return new GrammarExerciseGenerationRequest(GrammarExerciseGenerationRequest::ACTIVE);
+        }
 
         if (is_string($generationId)) {
             return new GrammarExerciseGenerationRequest($generationId);

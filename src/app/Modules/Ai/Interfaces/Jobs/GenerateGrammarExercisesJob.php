@@ -7,7 +7,6 @@ use App\Exceptions\AiClientException;
 use App\Modules\Ai\Application\AiGrammarExerciseService;
 use App\Modules\Content\Application\Contracts\GrammarExerciseGenerationsInterface;
 use App\Support\AiConfig;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
@@ -20,9 +19,11 @@ use Throwable;
  * One learner-triggered AI batch of grammar exercises (VIK-31). The batch
  * row in grammar_exercise_generations tracks status for the round screen;
  * failures mark it failed so the learner sees "can't be prepared" instead of
- * waiting forever. No retries: the learner can tap Try again.
+ * waiting forever. No retries: the learner can tap Try again. One batch
+ * per rule at a time is enforced when the batch row is created
+ * (GrammarExerciseGenerations), not here.
  */
-class GenerateGrammarExercisesJob implements ShouldBeUnique, ShouldQueue
+class GenerateGrammarExercisesJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -35,11 +36,6 @@ class GenerateGrammarExercisesJob implements ShouldBeUnique, ShouldQueue
     public function tags(): array
     {
         return ['grammar-exercise-generation:'.$this->generationId, 'job:generate-grammar-exercises'];
-    }
-
-    public function uniqueId(): string
-    {
-        return 'GenerateGrammarExercises:'.$this->generationId;
     }
 
     public function handle(GrammarExerciseGenerationsInterface $generations, AiGrammarExerciseService $service): void

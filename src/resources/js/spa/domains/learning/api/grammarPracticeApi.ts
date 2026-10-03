@@ -26,9 +26,10 @@ export const grammarPracticeApi = {
             .then((r) => r.data);
     },
 
+    /** The server counts tries and decides the outcome; the client only sends what was answered. */
     check(
         exerciseId: number,
-        payload: { given: string | null; attempt: 1 | 2; show_answer?: boolean },
+        payload: { given: string | null; show_answer?: boolean },
     ): Promise<GrammarPracticeCheckResponse> {
         return axios.post(`/api/grammar-exercises/${exerciseId}/check`, payload).then((r) => r.data);
     },
@@ -42,7 +43,7 @@ export const grammarPracticeApi = {
 
     complete(
         ruleId: number | string,
-        payload: { level: GrammarPracticeLevel; items: GrammarPracticeResultItem[]; content_id?: number | null },
+        payload: { level: GrammarPracticeLevel; items: GrammarPracticeResultItem[]; content_id?: number | null; replay?: boolean },
     ): Promise<GrammarPracticeResult> {
         return axios.post(`/api/grammar-rules/${ruleId}/practice/complete`, payload).then((r) => r.data);
     },

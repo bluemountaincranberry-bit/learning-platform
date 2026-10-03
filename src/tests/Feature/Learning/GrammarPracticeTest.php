@@ -9,6 +9,8 @@ use App\Modules\Content\Domain\Models\GrammarRule;
 use App\Modules\Content\Domain\Models\GrammarRuleExercise;
 use App\Modules\Content\Domain\Models\GrammarTopic;
 use App\Modules\Learning\Domain\Models\UserGrammarRule;
+use App\Modules\Learning\Interfaces\Listeners\TopUpGrammarExercisePool;
+use Illuminate\Events\CallQueuedListener;
 use App\Modules\User\Models\User;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
@@ -157,10 +159,13 @@ test('all five types check correctly', function (string $type, string $right, st
     learner();
     $exercise = exerciseOf($rule, $type);
 
-    $this->postJson("/api/grammar-exercises/{$exercise->id}/check", ['given' => $right, 'attempt' => 1])
-        ->assertOk()->assertJson(['correct' => true, 'outcome' => 'first_try']);
-    $this->postJson("/api/grammar-exercises/{$exercise->id}/check", ['given' => $wrong, 'attempt' => 1])
+    $this->postJson("/api/grammar-exercises/{$exercise->id}/check", ['given' => $wrong])
         ->assertOk()->assertJson(['correct' => false]);
+
+    // A new round starts the exercise afresh.
+    $this->postJson("/api/grammar-rules/{$rule->id}/practice/rounds", ['level' => 'medium', 'count' => 5])->assertOk();
+    $this->postJson("/api/grammar-exercises/{$exercise->id}/check", ['given' => $right])
+        ->assertOk()->assertJson(['correct' => true, 'outcome' => 'first_try']);
 })->with([
     'choose the form' => ['multiple_choice', '1', '0'],
     'build the sentence' => ['build', 'Have you ever been to Japan?', 'You have ever been to Japan?'],
@@ -176,21 +181,24 @@ test('first wrong gives a hint without the answer, second wrong gives the answer
     $choice = exerciseOf($rule, 'multiple_choice');
     $cloze = exerciseOf($rule, 'cloze');
 
-    $first = $this->postJson("/api/grammar-exercises/{$choice->id}/check", ['given' => '0', 'attempt' => 1])
+    $first = $this->postJson("/api/grammar-exercises/{$choice->id}/check", ['given' => '0'])
         ->assertOk()
         ->assertJson(['correct' => false, 'hint' => 'Twice = experience up to now.', 'struck_option_index' => 0])
         ->json();
     expect($first)->not->toHaveKeys(['answer', 'explanation']);
 
-    $this->postJson("/api/grammar-exercises/{$choice->id}/check", ['given' => '1', 'attempt' => 2])
+    $this->postJson("/api/grammar-exercises/{$choice->id}/check", ['given' => '1'])
         ->assertOk()->assertJson(['correct' => true, 'outcome' => 'after_hint']);
 
-    $this->postJson("/api/grammar-exercises/{$cloze->id}/check", ['given' => 'has losed', 'attempt' => 2])
+    $this->postJson("/api/grammar-exercises/{$cloze->id}/check", ['given' => 'has losed'])
+        ->assertOk()->assertJsonMissing(['answer' => 'has lost']);
+    $this->postJson("/api/grammar-exercises/{$cloze->id}/check", ['given' => 'has loosed'])
         ->assertOk()
         ->assertJson(['correct' => false, 'outcome' => 'answer_shown', 'answer' => 'has lost', 'explanation' => 'lose – lost – lost.']);
 
-    $this->postJson("/api/grammar-exercises/{$cloze->id}/check", ['given' => null, 'attempt' => 1, 'show_answer' => true])
-        ->assertOk()->assertJson(['outcome' => 'answer_shown', 'answer' => 'has lost']);
+    // Asking again about a settled exercise returns the same result.
+    $this->postJson("/api/grammar-exercises/{$cloze->id}/check", ['given' => 'has lost'])
+        ->assertOk()->assertJson(['correct' => false, 'outcome' => 'answer_shown']);
 });
 
 test('an exercise without a hint gets a generic one that never contains the answer', function () {
@@ -199,7 +207,7 @@ test('an exercise without a hint gets a generic one that never contains the answ
     learner();
     $cloze = exerciseOf($rule, 'cloze');
 
-    $hint = $this->postJson("/api/grammar-exercises/{$cloze->id}/check", ['given' => 'x', 'attempt' => 1])->json('hint');
+    $hint = $this->postJson("/api/grammar-exercises/{$cloze->id}/check", ['given' => 'x'])->json('hint');
 
     expect($hint)->toBeString()->not->toContain('has lost');
 });
@@ -219,7 +227,7 @@ test('a reported exercise is hidden for the learner at once and replaced in the 
         ->and($replacement['id'])->not->toBe($bad->id)
         ->and(GrammarExerciseReport::query()->where('user_id', $user->id)->count())->toBe(1);
 
-    $this->postJson("/api/grammar-exercises/{$bad->id}/check", ['given' => 'x', 'attempt' => 1])->assertNotFound();
+    $this->postJson("/api/grammar-exercises/{$bad->id}/check", ['given' => 'x'])->assertNotFound();
     $ids = array_column($this->postJson("/api/grammar-rules/{$rule->id}/practice/rounds", ['level' => 'medium', 'count' => 10])->json('exercises'), 'id');
     expect($ids)->not->toContain($bad->id);
 });
@@ -246,16 +254,24 @@ test('a finished round writes one practice attempt, joins My grammar and updates
     addExercises($rule, fiveTypeItems());
     $user = learner();
     $ids = fn (string $type) => exerciseOf($rule, $type)->id;
+    $check = fn (string $type, ?string $given) => $this->postJson('/api/grammar-exercises/'.$ids($type).'/check', ['given' => $given])->assertOk();
+
+    $check('multiple_choice', '1');
+    $check('build', 'Have you ever been to Japan?');
+    $check('cloze', 'has losed');
+    $check('cloze', 'has lost');
+    $check('transform', 'They finished?');
+    $check('transform', 'They finished?');
+    $this->postJson('/api/grammar-exercises/'.$ids('fix').'/report', ['level' => 'medium'])->assertOk();
 
     $result = $this->postJson("/api/grammar-rules/{$rule->id}/practice/complete", [
         'level' => 'medium',
         'items' => [
-            ['exercise_id' => $ids('multiple_choice'), 'outcome' => 'first_try', 'attempts' => 1, 'given' => '1', 'ms' => 3000],
-            ['exercise_id' => $ids('build'), 'outcome' => 'first_try', 'attempts' => 1, 'given' => 'Have you ever been to Japan?', 'ms' => 6000],
-            ['exercise_id' => $ids('cloze'), 'outcome' => 'after_hint', 'attempts' => 2, 'given' => 'has lost', 'ms' => 9000],
-            // Claims success with a wrong answer → counted as missed.
-            ['exercise_id' => $ids('transform'), 'outcome' => 'first_try', 'attempts' => 1, 'given' => 'They finished?', 'ms' => 7000],
-            ['exercise_id' => $ids('fix'), 'outcome' => 'reported', 'attempts' => 0, 'given' => null, 'ms' => 2000],
+            ['exercise_id' => $ids('multiple_choice'), 'ms' => 3000],
+            ['exercise_id' => $ids('build'), 'ms' => 6000],
+            ['exercise_id' => $ids('cloze'), 'ms' => 9000],
+            ['exercise_id' => $ids('transform'), 'outcome' => 'first_try', 'ms' => 7000],
+            ['exercise_id' => $ids('fix'), 'outcome' => 'reported', 'ms' => 2000],
         ],
     ])->assertCreated()->json();
 
@@ -277,8 +293,8 @@ test('a finished round writes one practice attempt, joins My grammar and updates
     expect($progress->status)->toBe(UserGrammarRule::STATUS_LEARNING)
         ->and($progress->confidence_calculated)->toBe(62.5);
 
-    // Few unseen exercises left → a background top-up was queued.
-    Queue::assertPushed(GenerateGrammarExercisesJob::class);
+    // Few unseen exercises left → the background top-up listener was queued.
+    Queue::assertPushed(CallQueuedListener::class, fn (CallQueuedListener $job) => $job->class === TopUpGrammarExercisePool::class);
 
     $this->getJson("/api/grammar-rules/{$rule->id}/practice")
         ->assertJson(['last_result' => ['score_pct' => 62.5, 'level' => 'medium'], 'in_my_list' => true, 'unseen_count' => 0]);
@@ -289,10 +305,11 @@ test('a strong Medium or Hard round offers Mark as learned, an Easy one does not
     addExercises($rule, fiveTypeItems());
     learner();
     $choice = exerciseOf($rule, 'multiple_choice');
+    $this->postJson("/api/grammar-exercises/{$choice->id}/check", ['given' => '1'])->assertOk();
 
     $this->postJson("/api/grammar-rules/{$rule->id}/practice/complete", [
         'level' => $level,
-        'items' => [['exercise_id' => $choice->id, 'outcome' => 'first_try', 'attempts' => 1, 'given' => '1']],
+        'items' => [['exercise_id' => $choice->id]],
     ])->assertCreated()->assertJson(['score_pct' => 100, 'can_mark_learned' => $offered, 'learned' => false]);
 })->with([['easy', false], ['medium', true], ['hard', true]]);
 
@@ -302,7 +319,7 @@ test('closing a round early writes nothing', function () {
     learner();
 
     $this->postJson("/api/grammar-rules/{$rule->id}/practice/rounds", ['level' => 'medium', 'count' => 5])->assertOk();
-    $this->postJson('/api/grammar-exercises/'.exerciseOf($rule, 'cloze')->id.'/check', ['given' => 'has lost', 'attempt' => 1])->assertOk();
+    $this->postJson('/api/grammar-exercises/'.exerciseOf($rule, 'cloze')->id.'/check', ['given' => 'has lost'])->assertOk();
 
     expect(GrammarExamAttempt::query()->count())->toBe(0)
         ->and(UserGrammarRule::query()->count())->toBe(0);
@@ -341,4 +358,120 @@ test('unpublished rules and guests cannot practice', function () {
 
     learner();
     $this->getJson("/api/grammar-rules/{$draft->id}/practice")->assertNotFound();
+});
+
+test('the server decides the outcome: a shown answer cannot be claimed as first try', function () {
+    $rule = practiceRule();
+    addExercises($rule, fiveTypeItems());
+    learner();
+    $cloze = exerciseOf($rule, 'cloze');
+    $choice = exerciseOf($rule, 'multiple_choice');
+
+    $this->postJson("/api/grammar-rules/{$rule->id}/practice/rounds", ['level' => 'medium', 'count' => 5])->assertOk();
+    $this->postJson("/api/grammar-exercises/{$cloze->id}/check", ['given' => null, 'show_answer' => true])->assertJson(['answer' => 'has lost']);
+    // Sending "attempt 1" again does not buy another hint.
+    $this->postJson("/api/grammar-exercises/{$choice->id}/check", ['given' => '0', 'attempt' => 1])->assertJsonStructure(['hint']);
+    $this->postJson("/api/grammar-exercises/{$choice->id}/check", ['given' => '2', 'attempt' => 1])->assertJson(['outcome' => 'answer_shown']);
+
+    $result = $this->postJson("/api/grammar-rules/{$rule->id}/practice/complete", [
+        'level' => 'medium',
+        'items' => [
+            ['exercise_id' => $cloze->id, 'outcome' => 'first_try', 'given' => 'has lost'],
+            ['exercise_id' => $cloze->id, 'outcome' => 'first_try', 'given' => 'has lost'],
+            ['exercise_id' => $choice->id, 'outcome' => 'first_try', 'given' => '1'],
+        ],
+    ])->assertCreated()->json();
+
+    expect($result)->toMatchArray(['score_pct' => 0, 'first_try' => 0, 'missed' => 2])
+        ->and(GrammarExamAttempt::query()->sole()->items)->toHaveCount(2);
+});
+
+test('exercises that were never answered are not scored', function () {
+    $rule = practiceRule();
+    addExercises($rule, fiveTypeItems());
+    learner();
+
+    $this->postJson("/api/grammar-rules/{$rule->id}/practice/complete", [
+        'level' => 'medium',
+        'items' => [['exercise_id' => exerciseOf($rule, 'cloze')->id, 'outcome' => 'first_try', 'given' => 'has lost']],
+    ])->assertUnprocessable();
+});
+
+test('a practice-mistakes replay is scored for the screen but not saved', function () {
+    $rule = practiceRule();
+    addExercises($rule, fiveTypeItems());
+    learner();
+    $cloze = exerciseOf($rule, 'cloze');
+
+    $this->postJson("/api/grammar-rules/{$rule->id}/practice/rounds", ['level' => 'hard', 'count' => 5, 'exercise_ids' => [$cloze->id]])->assertOk();
+    $this->postJson("/api/grammar-exercises/{$cloze->id}/check", ['given' => 'has lost'])->assertJson(['correct' => true]);
+
+    $this->postJson("/api/grammar-rules/{$rule->id}/practice/complete", [
+        'level' => 'hard', 'replay' => true,
+        'items' => [['exercise_id' => $cloze->id, 'outcome' => 'first_try', 'given' => 'has lost']],
+    ])->assertCreated()->assertJson(['score_pct' => 100, 'can_mark_learned' => false, 'attempt_id' => null]);
+
+    expect(GrammarExamAttempt::query()->count())->toBe(0)
+        ->and(UserGrammarRule::query()->count())->toBe(0);
+});
+
+test('a new round forgets answers from a round that was closed early', function () {
+    $rule = practiceRule();
+    addExercises($rule, fiveTypeItems());
+    learner();
+    $cloze = exerciseOf($rule, 'cloze');
+
+    $this->postJson("/api/grammar-rules/{$rule->id}/practice/rounds", ['level' => 'medium', 'count' => 5])->assertOk();
+    $this->postJson("/api/grammar-exercises/{$cloze->id}/check", ['given' => null, 'show_answer' => true]);
+
+    $this->postJson("/api/grammar-rules/{$rule->id}/practice/rounds", ['level' => 'medium', 'count' => 5])->assertOk();
+    $this->postJson("/api/grammar-exercises/{$cloze->id}/check", ['given' => 'has lost'])->assertJson(['correct' => true, 'outcome' => 'first_try']);
+});
+
+test('with AI down a hard round falls back to the exercises that exist', function () {
+    config(['ai.enabled' => false]);
+    $rule = practiceRule();
+    addExercises($rule, [fiveTypeItems()[0]]);
+    learner();
+
+    $this->postJson("/api/grammar-rules/{$rule->id}/practice/rounds", ['level' => 'hard', 'count' => 5])
+        ->assertOk()
+        ->assertJsonPath('exercises.0.type', 'multiple_choice');
+});
+
+test('exercises of an unpublished rule cannot be checked or reported', function () {
+    $rule = practiceRule();
+    addExercises($rule, fiveTypeItems());
+    $rule->update(['status' => GrammarRule::STATUS_DRAFT]);
+    learner();
+    $cloze = exerciseOf($rule, 'cloze');
+
+    $this->postJson("/api/grammar-exercises/{$cloze->id}/check", ['given' => null, 'show_answer' => true])->assertNotFound();
+    $this->postJson("/api/grammar-exercises/{$cloze->id}/report", ['level' => 'hard'])->assertOk()->assertJson(['replacement' => null]);
+    expect(GrammarExerciseReport::query()->count())->toBe(0);
+});
+
+test('a reported item counts only when this learner reported that exercise of this rule', function () {
+    $rule = practiceRule();
+    $other = practiceRule();
+    addExercises($rule, fiveTypeItems());
+    addExercises($other, [fiveTypeItems()[2]]);
+    learner();
+    $cloze = exerciseOf($rule, 'cloze');
+    $fix = exerciseOf($rule, 'fix');
+
+    $this->postJson("/api/grammar-exercises/{$fix->id}/report", ['level' => 'hard'])->assertOk();
+    $this->postJson("/api/grammar-exercises/{$cloze->id}/check", ['given' => 'has lost'])->assertOk();
+
+    $result = $this->postJson("/api/grammar-rules/{$rule->id}/practice/complete", [
+        'level' => 'hard',
+        'items' => [
+            ['exercise_id' => $cloze->id, 'outcome' => 'first_try'],
+            ['exercise_id' => $fix->id, 'outcome' => 'reported'],
+            ['exercise_id' => exerciseOf($other, 'cloze')->id, 'outcome' => 'reported'],
+            ['exercise_id' => exerciseOf($rule, 'transform')->id, 'outcome' => 'reported'],
+        ],
+    ])->assertCreated()->json();
+
+    expect($result)->toMatchArray(['first_try' => 1, 'reported' => 1]);
 });

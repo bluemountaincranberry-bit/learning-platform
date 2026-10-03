@@ -125,7 +125,6 @@ export function useGrammarPracticeRound(options: GrammarRoundOptions, api: Api =
         try {
             const response = await api.check(current.value.id, {
                 given,
-                attempt: attempt.value,
                 ...(showAnswer ? { show_answer: true } : {}),
             });
             lastGiven.value = given;
@@ -210,6 +209,8 @@ export function useGrammarPracticeRound(options: GrammarRoundOptions, api: Api =
                 level: options.level,
                 items: items.value,
                 content_id: options.contentId ?? null,
+                // "Practice mistakes" re-checks answers just shown: scored, not saved.
+                ...(options.exerciseIds ? { replay: true } : {}),
             });
             phase.value = 'result';
         } catch {

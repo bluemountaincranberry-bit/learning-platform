@@ -57,7 +57,7 @@ describe('BuildExercise', () => {
 describe('TypedExercise', () => {
     it('draws the gap, binds the input and submits on Enter', async () => {
         const wrapper = mount(TypedExercise, {
-            props: { exercise: exercise({}), disabled: false, state: 'idle', modelValue: '', 'onUpdate:modelValue': (v: string) => wrapper.setProps({ modelValue: v }) },
+            props: { exercise: exercise({}), disabled: false, state: 'idle' as const, modelValue: '', 'onUpdate:modelValue': (v: string) => wrapper.setProps({ modelValue: v }) },
         });
 
         expect(wrapper.find('[data-test="gap"]').exists()).toBe(true);

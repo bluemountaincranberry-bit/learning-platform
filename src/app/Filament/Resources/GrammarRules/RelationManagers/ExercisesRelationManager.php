@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\GrammarRules\RelationManagers;
 
+use App\Modules\Content\Application\GrammarAnswerChecker;
 use App\Modules\Content\Domain\Models\GrammarRuleExercise;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -70,7 +71,15 @@ class ExercisesRelationManager extends RelationManager
             Textarea::make('hint')
                 ->helperText('Shown after the first wrong answer. Must not contain the answer.')
                 ->rows(2)
-                ->columnSpanFull(),
+                ->columnSpanFull()
+                ->rule(fn (Get $get) => function (string $attribute, mixed $value, \Closure $fail) use ($get): void {
+                    $answer = $get('type') === GrammarRuleExercise::TYPE_MULTIPLE_CHOICE
+                        ? (self::lines($get('options'))[(int) $get('answer_index')] ?? '')
+                        : (string) $get('answer');
+                    if (is_string($value) && $answer !== '' && app(GrammarAnswerChecker::class)->hintRevealsAnswer($value, $answer)) {
+                        $fail('The hint gives the answer away.');
+                    }
+                }),
             Textarea::make('explanation')->rows(2)->columnSpanFull(),
             TextInput::make('sort_order')->numeric()->default(0),
         ]);

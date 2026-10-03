@@ -14,8 +14,6 @@ use App\Modules\Content\Application\Data\GrammarPracticeExercise;
  */
 final class GrammarRoundComposer
 {
-    private const MISSED = 'answer_shown';
-
     /**
      * @param  list<GrammarPracticeExercise>  $pool
      * @param  array<int, GrammarExerciseHistory>  $history  keyed by exercise id
@@ -95,7 +93,7 @@ final class GrammarRoundComposer
 
         return match (true) {
             $seen === null => [0, 0, $exercise->id],
-            $seen->lastOutcome === self::MISSED => [1, $seen->lastSeenAt->getTimestamp(), $exercise->id],
+            $seen->lastOutcome === GrammarPracticeOutcome::AnswerShown->value => [1, $seen->lastSeenAt->getTimestamp(), $exercise->id],
             default => [2, $seen->lastSeenAt->getTimestamp(), $exercise->id],
         };
     }

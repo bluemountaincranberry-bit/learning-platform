@@ -72,7 +72,7 @@ describe('GrammarPracticePage', () => {
         for (const tile of wrapper.findAll('[data-test="tile"]')) await tile.trigger('click');
         await wrapper.get('[data-test="check"]').trigger('click');
         await flushPromises();
-        expect(api.check).toHaveBeenLastCalledWith(2, { given: 'you Have been?', attempt: 1 });
+        expect(api.check).toHaveBeenLastCalledWith(2, { given: 'you Have been?' });
         await wrapper.get('[data-test="next"]').trigger('click');
 
         // 3–5. typed types
@@ -81,7 +81,7 @@ describe('GrammarPracticePage', () => {
             await wrapper.get('[data-test="answer-input"]').setValue('answer');
             await wrapper.get('[data-test="check"]').trigger('click');
             await flushPromises();
-            expect(api.check).toHaveBeenLastCalledWith(id, { given: 'answer', attempt: 1 });
+            expect(api.check).toHaveBeenLastCalledWith(id, { given: 'answer' });
             await wrapper.get('[data-test="next"]').trigger('click');
             await flushPromises();
         }

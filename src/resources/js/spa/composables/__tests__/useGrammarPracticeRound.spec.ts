@@ -64,10 +64,10 @@ describe('useGrammarPracticeRound', () => {
         expect(round.hint.value).toBe('Think of the 3rd form.');
         expect(round.attempt.value).toBe(2);
         expect(round.phase.value).toBe('answering');
-        expect(api.check).toHaveBeenLastCalledWith(1, { given: 'has losed', attempt: 1 });
+        expect(api.check).toHaveBeenLastCalledWith(1, { given: 'has losed' });
 
         await round.submit('has loosed');
-        expect(api.check).toHaveBeenLastCalledWith(1, { given: 'has loosed', attempt: 2 });
+        expect(api.check).toHaveBeenLastCalledWith(1, { given: 'has loosed' });
         expect(round.phase.value).toBe('settled');
         expect(round.settled.value?.answer).toBe('has lost');
         expect(round.items.value).toEqual([expect.objectContaining({ exercise_id: 1, outcome: 'answer_shown', attempts: 2, given: 'has loosed' })]);
@@ -84,7 +84,7 @@ describe('useGrammarPracticeRound', () => {
 
         await round.showAnswer();
 
-        expect(api.check).toHaveBeenCalledWith(1, { given: null, attempt: 1, show_answer: true });
+        expect(api.check).toHaveBeenCalledWith(1, { given: null, show_answer: true });
         expect(round.items.value[0].outcome).toBe('answer_shown');
     });
 
@@ -128,5 +128,11 @@ describe('useGrammarPracticeRound', () => {
 
         expect(api.startRound).toHaveBeenLastCalledWith(7, { level: 'medium', count: 10, exercise_ids: [2] });
         expect(round.items.value).toEqual([]);
+
+        api.check = vi.fn().mockResolvedValue({ correct: true, outcome: 'after_hint', answer: 'a' });
+        await round.submit('a');
+        await round.next();
+        await round.next();
+        expect(api.complete).toHaveBeenLastCalledWith(7, expect.objectContaining({ replay: true }));
     });
 });

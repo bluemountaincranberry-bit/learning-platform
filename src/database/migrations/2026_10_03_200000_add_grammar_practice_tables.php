@@ -30,7 +30,7 @@ return new class extends Migration
             $table->json('tiles')->nullable()->after('options');
             $table->string('origin')->default('admin')->after('status');
             $table->string('dedup_key')->nullable()->after('prompt');
-            $table->index(['grammar_rule_id', 'dedup_key']);
+            $table->unique(['grammar_rule_id', 'dedup_key']);
         });
 
         Schema::create('grammar_exercise_reports', function (Blueprint $table): void {
@@ -72,7 +72,7 @@ return new class extends Migration
         Schema::dropIfExists('grammar_exercise_generations');
         Schema::dropIfExists('grammar_exercise_reports');
         Schema::table('grammar_rule_exercises', function (Blueprint $table): void {
-            $table->dropIndex(['grammar_rule_id', 'dedup_key']);
+            $table->dropUnique(['grammar_rule_id', 'dedup_key']);
             $table->dropColumn(['instruction', 'hint', 'accepted_answers', 'tiles', 'origin', 'dedup_key']);
         });
     }

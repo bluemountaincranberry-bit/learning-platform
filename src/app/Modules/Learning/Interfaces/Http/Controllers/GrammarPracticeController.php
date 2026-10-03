@@ -5,6 +5,7 @@ namespace App\Modules\Learning\Interfaces\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Content\Application\Data\GrammarPracticeRule;
 use App\Modules\Learning\Application\GrammarPractice\GrammarPracticeLevel;
+use App\Modules\Learning\Application\GrammarPractice\GrammarPracticeOutcome;
 use App\Modules\Learning\Application\GrammarPractice\GrammarPracticeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,7 +52,6 @@ class GrammarPracticeController extends Controller
     {
         $validated = $request->validate([
             'given' => ['nullable', 'string', 'max:500'],
-            'attempt' => ['required', 'integer', 'min:1', 'max:2'],
             'show_answer' => ['sometimes', 'boolean'],
         ]);
 
@@ -59,7 +59,6 @@ class GrammarPracticeController extends Controller
             $request->user()->id,
             $exercise,
             $validated['given'] ?? null,
-            (int) $validated['attempt'],
             (bool) ($validated['show_answer'] ?? false),
         );
 
@@ -93,11 +92,10 @@ class GrammarPracticeController extends Controller
         $validated = $request->validate([
             'level' => ['required', Rule::enum(GrammarPracticeLevel::class)],
             'content_id' => ['nullable', 'integer', 'exists:contents,id'],
+            'replay' => ['sometimes', 'boolean'],
             'items' => ['required', 'array', 'min:1', 'max:30'],
             'items.*.exercise_id' => ['required', 'integer'],
-            'items.*.outcome' => ['required', Rule::in(GrammarPracticeService::OUTCOMES)],
-            'items.*.attempts' => ['nullable', 'integer', 'min:0', 'max:5'],
-            'items.*.given' => ['nullable', 'string', 'max:500'],
+            'items.*.outcome' => ['nullable', Rule::enum(GrammarPracticeOutcome::class)],
             'items.*.ms' => ['nullable', 'integer', 'min:0'],
         ]);
 
@@ -107,6 +105,7 @@ class GrammarPracticeController extends Controller
             GrammarPracticeLevel::from($validated['level']),
             $validated['items'],
             $validated['content_id'] ?? null,
+            (bool) ($validated['replay'] ?? false),
         );
 
         return response()->json($result, 201);

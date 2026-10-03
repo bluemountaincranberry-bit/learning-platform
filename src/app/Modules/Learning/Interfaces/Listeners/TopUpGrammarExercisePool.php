@@ -6,13 +6,15 @@ use App\Modules\Content\Application\Contracts\GrammarAttemptLogInterface;
 use App\Modules\Content\Application\Contracts\GrammarExerciseGenerationsInterface;
 use App\Modules\Content\Application\Contracts\GrammarExercisePoolInterface;
 use App\Modules\Learning\Domain\Events\GrammarPracticeCompleted;
+use Illuminate\Contracts\Queue\ShouldQueue;
 
 /**
  * After a round, queue another AI batch in the background when the learner
  * has few unseen exercises left for the rule, so the next round is fresh.
  * Subject to the same per-rule, per-day batch limit as on-demand generation.
+ * Queued: secondary work that must never fail the request that saved the round.
  */
-final class TopUpGrammarExercisePool
+final class TopUpGrammarExercisePool implements ShouldQueue
 {
     public function __construct(
         private readonly GrammarExercisePoolInterface $pool,

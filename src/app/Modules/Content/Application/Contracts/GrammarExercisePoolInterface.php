@@ -24,4 +24,11 @@ interface GrammarExercisePoolInterface
     public function isCorrect(GrammarPracticeExercise $exercise, string|int $given): bool;
 
     public function report(int $userId, int $exerciseId, ?string $reason): void;
+
+    /**
+     * Exercises of the rule this learner has reported.
+     *
+     * @return list<int>
+     */
+    public function reportedBy(int $userId, int $ruleId): array;
 }
