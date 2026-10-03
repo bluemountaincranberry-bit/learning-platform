@@ -29,7 +29,7 @@ function lessonMatcher(EmbeddingsClientInterface $embeddings): LessonCandidateMa
     return new LessonCandidateMatchingService(
         new CandidateMatchingService($embeddings),
         app(GrammarProgressService::class),
-        app(\App\Modules\Learning\Application\Contracts\LessonAnalysisStoreInterface::class)
+        app(\App\Modules\Ai\Application\Contracts\LessonAnalysisStoreInterface::class)
     );
 }
 

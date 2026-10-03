@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Modules\Learning\Application\Contracts;
+namespace App\Modules\Ai\Application\Contracts;
 
-use App\Modules\Learning\Application\Data\LessonAnalysisContext;
+use App\Modules\Ai\Application\Data\LessonAnalysisContext;
 
 interface LessonAnalysisStoreInterface
 {
@@ -15,10 +15,10 @@ interface LessonAnalysisStoreInterface
     public function failRun(int $runId, string $reason): void;
 
     /** @param array<string, mixed> $attributes */
-    public function createLexeme(int $runId, array $attributes): void;
+    public function createLexemeCandidate(int $runId, array $attributes): void;
 
     /** @param array<string, mixed> $attributes */
-    public function createGrammar(int $runId, array $attributes): void;
+    public function createGrammarCandidate(int $runId, array $attributes): void;
 
     /** @return array<int, array{id:int, normalized_text:string, text:string}> */
     public function lexemeCandidates(int $runId): array;

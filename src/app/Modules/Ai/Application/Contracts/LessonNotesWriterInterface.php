@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Modules\Learning\Application\Contracts;
+namespace App\Modules\Ai\Application\Contracts;
 
 interface LessonNotesWriterInterface
 {

@@ -43,7 +43,9 @@ AI владеет assistant conversations, `LessonAgentService`, анализо�
 а также `RunLessonAnalysisJob`. Learning вызывает их через общий контракт
 `App\Contracts\Ai\LessonAssistant`. AI читает контекст, сохраняет кандидатов
 и меняет состояние runs через `LessonAnalysisStoreInterface`, а извлечённый
-текст дописывает через `LessonNotesWriterInterface` из Learning. Между
+текст дописывает через `LessonNotesWriterInterface`. Эти порты и DTO контекста
+принадлежат потребителю AI (`Ai/Application/Contracts`, `Ai/Application/Data`),
+а `Learning/Application/LessonStore` реализует их как владелец данных. Между
 модулями передаются ID, DTO и массивы, без импорта чужих Eloquent-моделей.
 Создание записи assistant conversation не вызывает AI-провайдер; сообщения
 агенту по-прежнему проверяют agent flag и дневную квоту, а запуск разбора

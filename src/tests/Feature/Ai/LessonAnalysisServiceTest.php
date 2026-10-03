@@ -11,7 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 function makeLessonAnalysisService(AiJsonClient $client): LessonAnalysisService
 {
-    return new LessonAnalysisService($client, app(TracedLlmCall::class), app(PromptRegistryInterface::class), app(\App\Modules\Learning\Application\Contracts\LessonAnalysisStoreInterface::class));
+    return new LessonAnalysisService($client, app(TracedLlmCall::class), app(PromptRegistryInterface::class), app(\App\Modules\Ai\Application\Contracts\LessonAnalysisStoreInterface::class));
 }
 
 uses(RefreshDatabase::class);

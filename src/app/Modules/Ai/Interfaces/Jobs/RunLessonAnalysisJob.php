@@ -3,9 +3,9 @@
 namespace App\Modules\Ai\Interfaces\Jobs;
 
 use App\Contracts\Ai\AiErrorMessage;
+use App\Modules\Ai\Application\Contracts\LessonAnalysisStoreInterface;
 use App\Modules\Ai\Application\LessonAnalysisService;
 use App\Modules\Ai\Application\LessonCandidateMatchingService;
-use App\Modules\Learning\Application\Contracts\LessonAnalysisStoreInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;

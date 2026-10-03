@@ -2,9 +2,9 @@
 
 namespace App\Modules\Learning\Application;
 
-use App\Modules\Learning\Application\Contracts\LessonAnalysisStoreInterface;
-use App\Modules\Learning\Application\Contracts\LessonNotesWriterInterface;
-use App\Modules\Learning\Application\Data\LessonAnalysisContext;
+use App\Modules\Ai\Application\Contracts\LessonAnalysisStoreInterface;
+use App\Modules\Ai\Application\Contracts\LessonNotesWriterInterface;
+use App\Modules\Ai\Application\Data\LessonAnalysisContext;
 use App\Modules\Learning\Domain\Models\Lesson;
 use App\Modules\Learning\Domain\Models\LessonAnalysisRun;
 use App\Modules\Learning\Domain\Models\LessonGrammarCandidate;
@@ -47,7 +47,7 @@ class LessonStore implements LessonAnalysisStoreInterface, LessonNotesWriterInte
         ]);
     }
 
-    public function createLexeme(int $runId, array $attributes): void
+    public function createLexemeCandidate(int $runId, array $attributes): void
     {
         $type = $attributes['type'] ?? null;
         $attributes['type'] = is_string($type) && in_array($type, LessonLexemeCandidate::TYPES, true)
@@ -57,7 +57,7 @@ class LessonStore implements LessonAnalysisStoreInterface, LessonNotesWriterInte
         ]);
     }
 
-    public function createGrammar(int $runId, array $attributes): void
+    public function createGrammarCandidate(int $runId, array $attributes): void
     {
         LessonGrammarCandidate::query()->create([
             ...$attributes, 'lesson_analysis_run_id' => $runId, 'status' => LessonGrammarCandidate::STATUS_PENDING,

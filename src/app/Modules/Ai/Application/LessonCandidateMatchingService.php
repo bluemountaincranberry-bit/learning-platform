@@ -2,9 +2,9 @@
 
 namespace App\Modules\Ai\Application;
 
+use App\Modules\Ai\Application\Contracts\LessonAnalysisStoreInterface;
+use App\Modules\Ai\Application\Data\LessonAnalysisContext;
 use App\Modules\Content\Application\Contracts\GrammarProgressServiceInterface;
-use App\Modules\Learning\Application\Contracts\LessonAnalysisStoreInterface;
-use App\Modules\Learning\Application\Data\LessonAnalysisContext;
 
 /**
  * Resolves LessonAnalysisRun candidates against the canonical shared

@@ -7,7 +7,7 @@ use App\Contracts\Ai\PromptRegistryInterface;
 use App\Exceptions\AiClientException;
 use App\Modules\Ai\Application\Agent\Tracing\TraceContext;
 use App\Modules\Ai\Application\Agent\Tracing\TracedLlmCall;
-use App\Modules\Learning\Application\Contracts\LessonAnalysisStoreInterface;
+use App\Modules\Ai\Application\Contracts\LessonAnalysisStoreInterface;
 use Illuminate\Support\Str;
 
 /**
@@ -158,7 +158,7 @@ class LessonAnalysisService
             ? $item['level']
             : null;
 
-        $this->lessons->createLexeme($runId, [
+        $this->lessons->createLexemeCandidate($runId, [
             'text' => $text,
             'normalized_text' => Str::lower($text),
             'type' => $item['type'] ?? null,
@@ -180,7 +180,7 @@ class LessonAnalysisService
             return;
         }
 
-        $this->lessons->createGrammar($runId, [
+        $this->lessons->createGrammarCandidate($runId, [
             'title' => trim($item['title']),
             'summary' => is_string($item['summary'] ?? null) ? $item['summary'] : null,
             'example' => is_string($item['example'] ?? null) ? $item['example'] : null,

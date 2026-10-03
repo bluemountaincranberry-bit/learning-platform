@@ -2,9 +2,9 @@
 
 namespace App\Modules\Learning;
 
+use App\Modules\Ai\Application\Contracts\LessonAnalysisStoreInterface;
+use App\Modules\Ai\Application\Contracts\LessonNotesWriterInterface;
 use App\Modules\Content\Application\Contracts\GrammarProgressStoreInterface;
-use App\Modules\Learning\Application\Contracts\LessonAnalysisStoreInterface;
-use App\Modules\Learning\Application\Contracts\LessonNotesWriterInterface;
 use App\Modules\Learning\Application\Contracts\PronunciationAssessmentProviderInterface;
 use App\Modules\Learning\Application\Contracts\SpeechToTextProviderInterface;
 use App\Modules\Learning\Application\GrammarProgressStore;
