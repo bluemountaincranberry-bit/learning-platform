@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import {
@@ -79,6 +79,7 @@ const navItems = computed(() =>
 );
 
 const moreOpen = ref(false);
+const moreMenu = ref<HTMLElement | null>(null);
 const mobileNavItems = [
     { name: 'dashboard', label: 'Today', icon: LayoutDashboard },
     { name: 'lessons', label: 'Lessons', icon: NotebookText },
@@ -100,6 +101,12 @@ function isMobileDestinationActive(name: string): boolean {
 
 const moreActive = computed(() => moreNavItems.value.some((item) => isMobileDestinationActive(item.name)));
 watch(() => route.fullPath, () => { moreOpen.value = false; });
+// Start on a menu link so the shared dialog traps Tab in both directions.
+watch(moreOpen, async (open) => {
+    if (!open) return;
+    await nextTick();
+    moreMenu.value?.querySelector<HTMLAnchorElement>('a')?.focus();
+}, { flush: 'post' });
 </script>
 
 <template>
@@ -212,7 +219,7 @@ watch(() => route.fullPath, () => { moreOpen.value = false; });
         </nav>
 
         <UiDialog :open="moreOpen" title="More" sheet @close="moreOpen = false">
-            <nav aria-label="More destinations" class="space-y-1">
+            <nav ref="moreMenu" aria-label="More destinations" class="space-y-1">
                 <RouterLink
                     v-for="item in moreNavItems"
                     :key="item.name"

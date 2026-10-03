@@ -83,6 +83,10 @@ try {
         await dialog.waitFor({ state: 'hidden' });
         await nav.getByRole('button', { name: 'More', exact: true }).click();
         await dialog.waitFor();
+        // Initial Shift+Tab must stay in the dialog too.
+        await page.waitForFunction(() => document.activeElement?.getAttribute('href') === '/catalog');
+        await page.keyboard.press('Shift+Tab');
+        assert.ok(await dialog.getByRole('button', { name: 'Close dialog' }).evaluate((el) => el === document.activeElement));
         // Tab wraps from the last link to the close button and back.
         await dialog.getByRole('link', { name: 'Settings', exact: true }).focus();
         await page.keyboard.press('Tab');
@@ -101,7 +105,7 @@ try {
     await page.keyboard.press('Escape');
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/dashboard');
-        await page.getByRole('navigation', { name: 'Mobile navigation' }).locator('a[href="/dashboard"][aria-current="page"]').waitFor();
+    await page.locator('aside a[href="/dashboard"][aria-current="page"]').waitFor();
     const sidebar = page.locator('aside');
     await sidebar.waitFor();
     assert.deepEqual(await sidebar.locator('nav a').allTextContents().then((labels) => labels.map((label) => label.replace('live', '').trim())), ['Dashboard', 'Catalog', 'Grammar', 'Practice', 'My words', 'My grammar', 'My lessons', 'Progress', 'Settings']);
