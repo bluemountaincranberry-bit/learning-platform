@@ -12,12 +12,15 @@ use App\Modules\Learning\Application\LearningStatsService;
 use App\Modules\Learning\Application\LessonStore;
 use App\Modules\Learning\Application\ReviewOutcomeHandler;
 use App\Modules\Learning\Domain\Events\ExerciseCompleted;
+use App\Modules\Learning\Domain\Events\GrammarPracticeCompleted;
 use App\Modules\Learning\Infrastructure\AzurePronunciationAssessmentProvider;
 use App\Modules\Learning\Infrastructure\DemoPronunciationAssessmentProvider;
 use App\Modules\Learning\Infrastructure\OpenAiSpeechToTextProvider;
 use App\Modules\Learning\Infrastructure\StubPronunciationAssessmentProvider;
 use App\Modules\Learning\Infrastructure\StubSpeechToTextProvider;
+use App\Modules\Learning\Interfaces\Listeners\AddPracticedRuleToMyGrammar;
 use App\Modules\Learning\Interfaces\Listeners\PublishExerciseCompletedToKafka;
+use App\Modules\Learning\Interfaces\Listeners\TopUpGrammarExercisePool;
 use App\Modules\Srs\Application\Contracts\ReviewOutcomeHandlerInterface;
 use App\Modules\User\Application\Contracts\LearningStatsReaderInterface;
 use Illuminate\Support\Facades\Event;
@@ -69,6 +72,13 @@ class LearningServiceProvider extends ServiceProvider
         Route::middleware('api')
             ->prefix('api')
             ->group(app_path('Modules/Learning/Routes/training.php'));
+
+        Route::middleware('api')
+            ->prefix('api')
+            ->group(app_path('Modules/Learning/Routes/grammar-practice.php'));
+
+        Event::listen(GrammarPracticeCompleted::class, AddPracticedRuleToMyGrammar::class);
+        Event::listen(GrammarPracticeCompleted::class, TopUpGrammarExercisePool::class);
 
         // Task 4.13 — same conditional registration as ContentServiceProvider's
         // PublishContentSubmittedToKafka: only listen when Kafka is enabled.

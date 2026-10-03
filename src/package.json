@@ -5,6 +5,7 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
+        "test": "vitest run",
         "architecture:frontend": "node scripts/architecture/check-frontend-boundaries.mjs",
         "architecture:naming": "node scripts/architecture/check-naming.mjs"
     },
@@ -12,16 +13,19 @@
         "@tailwindcss/forms": "^0.5.2",
         "@tailwindcss/vite": "^4.0.0",
         "@vitejs/plugin-vue": "^6.0.4",
+        "@vue/test-utils": "^2.5.1",
         "alpinejs": "^3.4.2",
         "autoprefixer": "^10.4.2",
         "axios": "^1.11.0",
         "concurrently": "^9.0.1",
+        "happy-dom": "^18.0.1",
         "laravel-vite-plugin": "^2.0.0",
         "pinia": "^3.0.4",
         "postcss": "^8.4.31",
         "tailwindcss": "^3.1.0",
         "typescript": "^5.7.0",
         "vite": "^7.0.7",
+        "vitest": "^3.2.7",
         "vue": "^3.5.29",
         "vue-router": "^5.0.3",
         "vue-tsc": "^3.3.11"

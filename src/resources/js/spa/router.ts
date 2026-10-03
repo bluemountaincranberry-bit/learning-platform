@@ -69,6 +69,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'Grammar rule', section: 'grammar' } as RouteMeta,
     },
     {
+        path: '/grammar/:id/practice',
+        name: 'grammar.practice',
+        component: () => import('./pages/GrammarPracticePage.vue'),
+        meta: { requiresAuth: true, title: 'Grammar practice', section: 'grammar', focusLayout: true } as RouteMeta,
+    },
+    {
         path: '/add-youtube',
         name: 'add-youtube',
         component: () => import('./pages/AddYoutubePage.vue'),

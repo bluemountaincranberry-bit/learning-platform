@@ -25,7 +25,6 @@ Route::get('/content/{content}/grammar-rules', [GrammarRuleController::class, 'f
 
 Route::get('/grammar-rules', [GrammarRuleController::class, 'index'])->name('api.grammar-rules.index');
 Route::get('/grammar-rules/{rule}', [GrammarRuleController::class, 'show'])->name('api.grammar-rules.show');
-Route::get('/grammar-rules/{rule}/exercises', [GrammarRuleController::class, 'exercises'])->name('api.grammar-rules.exercises');
 
 Route::get('/dictionary/{word}', [LexemeController::class, 'show'])->name('api.dictionary.show');
 

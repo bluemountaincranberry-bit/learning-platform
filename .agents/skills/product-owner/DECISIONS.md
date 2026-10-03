@@ -6,6 +6,9 @@ Newer entries override older ones and VISION.md.
 
 | Date | Status | Decision | Why / source |
 |---|---|---|---|
+| 2026-10-03 | assumed | VIK-31: grammar answers are checked on the server; the answer, explanation and hint reach the phone only when needed (hint after the 1st wrong try, answer after the 2nd or "Show answer"). | VIK-32: a hint never contains the answer, so it can't ship with the exercise |
+| 2026-10-03 | assumed | VIK-31: "Practice mistakes" replays exercises answered after a hint or missed; Level/Count for grammar is remembered on the device until the VIK-29 setting exists. | Simplest reading of the spec; VIK-29 not built yet |
+| 2026-10-03 | assumed | VIK-31: admin-triggered "AI: Generate exercises" still makes drafts that wait for review; only learner-triggered batches (origin `ai`) skip review. Personal rules (VIK-26) will reuse the same pool once they exist. | Keeps the admin review path; VIK-26 not built |
 | 2026-10-03 | assumed | VIK-38: content actions are **Practice these words** (whole content) and **Explain with AI**; word-status segments default to New (triage, not a filter); level/type/search start empty in a Filter sheet; skipped words are called **Hidden** everywhere. | Vika feedback on content page; [design note](../../../docs/product/content-page-mobile.md) |
 | 2026-10-03 | assumed | VIK-40: grammar practice = 5 exercise types (choose, build = Easy; fill, transform, fix = Hard; Medium = easy → hard), rounds of 5/10/15 (default Medium · 10), VIK-32 feedback, result screen. Spec: `docs/product/grammar-exercises-block.md`. | Same Easy/Medium/Hard model as VIK-29; one obvious next action |
 | 2026-10-03 | assumed | VIK-40: AI-generated grammar exercises are shown to learners without admin review (marked "AI", reportable, hidden on report). Generated on tap when the pool is short. | Follows VIK-31 as Vika wrote it ("generate with AI, mark as AI exercise, report a bad exercise"); 0 exercises today |

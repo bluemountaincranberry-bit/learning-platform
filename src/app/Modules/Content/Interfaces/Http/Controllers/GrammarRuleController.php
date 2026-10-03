@@ -4,13 +4,11 @@ namespace App\Modules\Content\Interfaces\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\GrammarRuleIndexRequest;
-use App\Http\Resources\GrammarRuleExerciseResource;
 use App\Http\Resources\GrammarRuleResource;
 use App\Modules\Content\Application\Contracts\GrammarCatalogServiceInterface;
 use App\Modules\Content\Application\Contracts\GrammarProgressServiceInterface;
 use App\Modules\Content\Domain\Models\Content;
 use App\Modules\Content\Domain\Models\GrammarRule;
-use App\Modules\Content\Domain\Models\GrammarRuleExercise;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -114,17 +112,6 @@ class GrammarRuleController extends Controller
         $this->grammarProgressService->setManualConfidence($rule, $request->user()->id, $validated['confidence'] ?? null);
 
         return response()->json(['ok' => true]);
-    }
-
-    public function exercises(GrammarRule $rule): JsonResponse
-    {
-        abort_unless($rule->status === GrammarRule::STATUS_PUBLISHED, 404);
-
-        $exercises = $rule->exercises()->where('status', GrammarRuleExercise::STATUS_PUBLISHED)->get();
-
-        return response()->json([
-            'exercises' => GrammarRuleExerciseResource::collection($exercises),
-        ]);
     }
 
     /**

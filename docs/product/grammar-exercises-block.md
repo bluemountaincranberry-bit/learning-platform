@@ -147,6 +147,33 @@ started.
 | Today | "Rule of the day" card: a due rule (if VIK-10 yes), else the My grammar rule with the lowest confidence. Not shown when My grammar is empty. |
 | Lesson / content page grammar block | Each rule row links to the rule page and has **Practice**. Mixed rounds over several rules are out of scope for VIK-31. |
 
+## Implementation (VIK-31)
+
+- **Where it lives.** Content owns the exercise pool, answer checking
+  (`GrammarAnswerChecker`), reports and AI batch bookkeeping
+  (`grammar_exercise_generations`). Learning owns the round
+  (`GrammarPracticeService`, `GrammarRoundComposer`) and the event
+  `GrammarPracticeCompleted` with its listeners (add to My grammar +
+  confidence, background top-up). AI owns `GenerateGrammarExercisesJob`.
+- **API** (auth): `GET /api/grammar-rules/{id}/practice` (start card),
+  `POST …/practice/rounds` (200 ready · 202 preparing · 503 unavailable),
+  `POST /api/grammar-exercises/{id}/check` (attempt 1|2, `show_answer`),
+  `POST /api/grammar-exercises/{id}/report` (returns the replacement),
+  `POST /api/grammar-rules/{id}/practice/complete`. The old
+  `GET /api/grammar-rules/{id}/exercises` (answers in the payload) is gone.
+- **Exercise fields:** `instruction` (task line, e.g. "Make it a question"),
+  `hint`, `accepted_answers`, `tiles`, `origin`, `dedup_key` (normalized prompt; normalized answer for build, whose prompts are generic).
+  A generated hint that contains the answer is dropped; the round then shows
+  a generic hint.
+- **Limits** (`config/ai.php` → `exercises.practice`): first batch 15, top-up
+  10 when fewer than 10 unseen remain, round starts at 5, 3 batches per rule
+  per learner per day, one active batch per rule.
+- **SPA:** start card on the rule page (+ sticky Practice on phones), round
+  page `/grammar/:id/practice` (full screen), Practice on My grammar rows.
+  Component tests: `npm test` (vitest).
+- **Not yet:** personal rules (waits for VIK-26), `next_practice_at`
+  (waits for VIK-10), Today and lesson entry points (VIK-47).
+
 ## Out of scope
 
 Speaking or listening grammar exercises, AI-graded free writing, mixed

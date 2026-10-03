@@ -4,7 +4,6 @@ import type {
     GrammarRuleListResponse,
     GrammarRuleOneResponse,
     ContentGrammarRulesResponse,
-    GrammarRuleExercisesResponse,
 } from '../../../types';
 
 export const grammarApi = {
@@ -18,10 +17,6 @@ export const grammarApi = {
 
     getForContent(contentId: string | number): Promise<ContentGrammarRulesResponse> {
         return axios.get(`/api/content/${contentId}/grammar-rules`).then((r) => r.data);
-    },
-
-    getExercises(ruleId: string | number): Promise<GrammarRuleExercisesResponse> {
-        return axios.get(`/api/grammar-rules/${ruleId}/exercises`).then((r) => r.data);
     },
 
     startLearning(ruleId: string | number): Promise<{ ok: true }> {

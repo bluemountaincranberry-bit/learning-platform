@@ -180,6 +180,17 @@ return [
     'exercises' => [
         'default_count' => (int) env('AI_EXERCISES_DEFAULT_COUNT', 5),
         'max_count' => (int) env('AI_EXERCISES_MAX_COUNT', 10),
+
+        // Learner-triggered generation for grammar practice (VIK-31): the
+        // first batch fills an empty rule (3 per type), top-ups keep at least
+        // `top_up_below` unseen exercises, a round starts at `min_to_start`.
+        'practice' => [
+            'first_batch' => (int) env('AI_GRAMMAR_PRACTICE_FIRST_BATCH', 15),
+            'top_up_batch' => (int) env('AI_GRAMMAR_PRACTICE_TOP_UP_BATCH', 10),
+            'top_up_below' => (int) env('AI_GRAMMAR_PRACTICE_TOP_UP_BELOW', 10),
+            'min_to_start' => (int) env('AI_GRAMMAR_PRACTICE_MIN_TO_START', 5),
+            'daily_batches_per_rule' => (int) env('AI_GRAMMAR_PRACTICE_DAILY_BATCHES', 3),
+        ],
     ],
 
     /*

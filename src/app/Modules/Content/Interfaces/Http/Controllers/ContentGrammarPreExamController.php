@@ -75,7 +75,7 @@ class ContentGrammarPreExamController extends Controller
     public function complete(Request $request, Content $content): JsonResponse
     {
         $validated = $request->validate([
-            'type' => ['required', 'in:'.implode(',', GrammarExamAttempt::TYPES)],
+            'type' => ['required', 'in:'.implode(',', GrammarExamAttempt::WARMUP_TYPES)],
             'results' => ['required', 'array', 'min:1'],
             'results.*.grammar_rule_id' => ['required', 'integer'],
             'results.*.prompt_sentence' => ['required', 'string'],

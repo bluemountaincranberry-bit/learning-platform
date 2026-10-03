@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { Check, Undo2 } from 'lucide-vue-next';
+import { Check, Dumbbell, Undo2 } from 'lucide-vue-next';
 import PageState from '../components/ui/PageState.vue';
 import { useAuthStore } from '../domains/user';
-import { learnedGrammarRulesApi } from '../domains/learning';
+import { learnedGrammarRulesApi, useGrammarPracticeSetting } from '../domains/learning';
 import { grammarApi } from '../domains/content';
 import UiBadge from '../shared/ui/UiBadge.vue';
 import UiButton from '../shared/ui/UiButton.vue';
@@ -16,6 +16,7 @@ import type { LearnedGrammarRuleItem, LearnedGrammarRulesParams } from '../types
 
 const router = useRouter();
 const authStore = useAuthStore();
+const { setting: practiceSetting } = useGrammarPracticeSetting();
 
 const PER_PAGE_OPTIONS = [10, 15, 25, 50];
 
@@ -78,6 +79,14 @@ function goToPage(page: number) {
 
 function openGrammarRule(id: number): void {
     router.push({ name: 'grammar.details', params: { id } });
+}
+
+function practice(row: LearnedGrammarRuleItem): void {
+    router.push({
+        name: 'grammar.practice',
+        params: { id: row.grammar_rule_id },
+        query: { level: practiceSetting.value.level, count: String(practiceSetting.value.count), from: '/my-grammar' },
+    });
 }
 
 function setPerPage(perPage: number) {
@@ -177,9 +186,20 @@ watch(filterStatus, () => {
                                 </span>
                                 <UiBadge v-if="row.topic" tone="neutral">{{ row.topic.name }}</UiBadge>
                                 <UiBadge v-if="row.level" tone="neutral">{{ row.level }}</UiBadge>
+                                <span v-if="row.confidence_calculated !== null" class="text-xs text-muted-foreground">
+                                    Practice says {{ Math.round(row.confidence_calculated) }}%
+                                </span>
                             </div>
                         </div>
                         <div class="flex shrink-0 flex-wrap items-center gap-2">
+                            <UiButton
+                                variant="secondary"
+                                size="touch"
+                                data-test="practice-row"
+                                @click.stop="practice(row)"
+                            >
+                                <Dumbbell :size="14" /> Practice
+                            </UiButton>
                             <UiBadge v-if="row.status === 'learned'" tone="success">Learned</UiBadge>
                             <UiButton
                                 v-else

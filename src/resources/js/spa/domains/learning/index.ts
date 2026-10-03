@@ -11,11 +11,14 @@ export type { LearningFlowPreferences, LearningFlowResponse } from './api/learni
 export { srsApi } from '../srs';
 export { trainingApi } from './api/trainingApi';
 export { grammarPreExamApi } from './api/grammarPreExamApi';
+export { grammarPracticeApi } from './api/grammarPracticeApi';
 export type { GrammarPreExamType, GrammarPreExamCard, GrammarPreExamResultItem, GrammarPreExamAttemptGroup } from './api/grammarPreExamApi';
 export { useTrainingSession } from '../../composables/useTrainingSession';
 export { useSentencePracticeSession } from '../../composables/useSentencePracticeSession';
 export { useContentExamSession } from '../../composables/useContentExamSession';
 export { useGrammarPreExamSession } from '../../composables/useGrammarPreExamSession';
+export { useGrammarPracticeRound } from '../../composables/useGrammarPracticeRound';
+export { useGrammarPracticeSetting, grammarPracticeMinutes, GRAMMAR_PRACTICE_COUNTS } from '../../composables/useGrammarPracticeSetting';
 export { useAnswerStylePreference } from '../../composables/useAnswerStylePreference';
 export { useTrainerSettings } from '../../composables/useTrainerSettings';
 export { useAudioRecorder } from '../../composables/useAudioRecorder';
