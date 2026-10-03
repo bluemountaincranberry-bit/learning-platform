@@ -29,3 +29,12 @@ Newer entries override older ones and VISION.md.
 | 2026-10-03 | open (VIK-15) | Which TED talks to seed ("ones we already learned"): use the YouTube contents already in the DB, or a new list? | Vision is ambiguous |
 | 2026-08-08 | answered | AI content analysis auto-applies candidates ≥ confidence floor into the shared catalog, no confirmation click. Applies to the catalog pipeline only, not to personal lists. | Vika, EPIC 9 |
 | 2026-08-01 | answered (see open item above) | "My grammar" is a personal list without SRS. | Vika |
+
+## VIK-45 — Speaking Coach (2026-10-03)
+
+- **assumed:** Start with five short TED/TEDx phrases: listen → repeat → replay → choose one improvement → retry. Easy keeps the text, Medium fades it, Hard permits a short retell; one-minute talks and minimal-pair drills follow later. This serves the speaking goal with the existing 30-second recorder and VIK-29's Continue/Change model.
+- **assumed:** Audio only, explicit saving, private owner-authorized replay and same-phrase then-vs-now comparisons. Proposed unpinned retention is 90 days after visible opt-in consent, with pinned comparisons protected and a 100MB quota that rejects new saves rather than evicting old ones. Existing learning data is untouched. Video adds storage and privacy cost before proving learning value.
+- **assumed:** Prioritize intelligibility, rhythm and fluency; separate provider dimensions and provenance. STT mismatch and pitch similarity are not accent diagnoses. Basic recording/replay works with paid providers disabled; only linked practiced lexemes contribute to confidence/SRS.
+- **open:** Paid Azure/OpenAI activation needs Vika's explicit provider scope and spending caps (VIK-49). Recommendation: replay-only initially; later consider US$5/month and US$0.25/session including retries, after a regional price quote and recording pilot. No new spending is authorized by this research.
+
+Research: [Speaking Coach](../../../docs/product/speaking-coach-research.md). Follow-up implementation: VIK-50, VIK-51, VIK-52; budget gate: VIK-49.
