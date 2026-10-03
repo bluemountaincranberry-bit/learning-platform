@@ -6,6 +6,7 @@ use App\Modules\Content\Application\Contracts\GrammarExerciseDraftsInterface;
 use App\Modules\Content\Application\Data\GrammarExerciseSource;
 use App\Modules\Content\Domain\Models\GrammarRule;
 use App\Modules\Content\Domain\Models\GrammarRuleExercise;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -61,10 +62,17 @@ final class GrammarExerciseDrafts implements GrammarExerciseDraftsInterface
             }
 
             $seen[$attributes['dedup_key']] = true;
-            $rule->exercises()->create($attributes + [
-                'status' => GrammarRuleExercise::STATUS_DRAFT,
-                'origin' => $origin,
-            ]);
+            try {
+                $rule->exercises()->create($attributes + [
+                    'status' => GrammarRuleExercise::STATUS_DRAFT,
+                    'origin' => $origin,
+                ]);
+            } catch (UniqueConstraintViolationException) {
+                // A concurrent batch for this rule saved the same exercise first.
+                $duplicates++;
+
+                continue;
+            }
             $created++;
         }
 

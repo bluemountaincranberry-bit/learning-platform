@@ -165,9 +165,17 @@ started.
   `hint`, `accepted_answers`, `tiles`, `origin`, `dedup_key` (normalized prompt; normalized answer for build, whose prompts are generic).
   A generated hint that contains the answer is dropped; the round then shows
   a generic hint.
+- **Trust:** the server counts tries and keeps each exercise's outcome for
+  the current round (`GrammarPracticeLedger`, cache); `complete` saves that
+  outcome, not the client's claim. A new round clears it. A "Practice
+  mistakes" replay is scored for the screen but not saved and never offers
+  "Mark as learned".
+- **AI down:** a round uses whatever exists, falling back to the other level
+  when the asked level has nothing.
 - **Limits** (`config/ai.php` → `exercises.practice`): first batch 15, top-up
   10 when fewer than 10 unseen remain, round starts at 5, 3 batches per rule
-  per learner per day, one active batch per rule.
+  per learner per day, one active batch per rule. The top-up after a round
+  runs in a queued listener.
 - **SPA:** start card on the rule page (+ sticky Practice on phones), round
   page `/grammar/:id/practice` (full screen), Practice on My grammar rows.
   Component tests: `npm test` (vitest).

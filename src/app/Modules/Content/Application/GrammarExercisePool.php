@@ -59,10 +59,21 @@ final class GrammarExercisePool implements GrammarExercisePoolInterface
         );
     }
 
+    public function reportedBy(int $userId, int $ruleId): array
+    {
+        return GrammarExerciseReport::query()
+            ->where('user_id', $userId)
+            ->whereHas('exercise', fn (Builder $q) => $q->where('grammar_rule_id', $ruleId))
+            ->pluck('grammar_rule_exercise_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
     /** @return Builder<GrammarRuleExercise> */
     private function visibleTo(int $userId): Builder
     {
         return GrammarRuleExercise::query()
+            ->whereHas('grammarRule', fn (Builder $q) => $q->where('status', GrammarRule::STATUS_PUBLISHED))
             ->where('status', '!=', GrammarRuleExercise::STATUS_ARCHIVED)
             ->where(fn (Builder $q) => $q
                 ->where('status', GrammarRuleExercise::STATUS_PUBLISHED)

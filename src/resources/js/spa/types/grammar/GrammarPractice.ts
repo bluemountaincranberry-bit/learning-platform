@@ -67,6 +67,10 @@ export interface GrammarPracticeCheckResponse {
     explanation?: string | null;
 }
 
+/**
+ * One exercise of a finished round. The server takes outcome and answer
+ * from its own record of the checks; `outcome` only matters for `reported`.
+ */
 export interface GrammarPracticeResultItem {
     exercise_id: number;
     outcome: GrammarPracticeOutcome;
@@ -87,7 +91,8 @@ export interface GrammarPracticeReviewItem {
 
 /** POST /api/grammar-rules/:id/practice/complete */
 export interface GrammarPracticeResult {
-    attempt_id: number;
+    /** null for a "Practice mistakes" replay, which is not saved. */
+    attempt_id: number | null;
     level: GrammarPracticeLevel;
     score_pct: number;
     first_try: number;
