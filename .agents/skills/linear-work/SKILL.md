@@ -5,21 +5,22 @@ description: Run Linear tickets end to end for this repo — pick, claim, spec, 
 
 # Linear work loop
 
-One session = one ticket. Team `Viktoryia` (key `VIK`), tracker conventions in
+One session = one ticket. Team `Viktoryia` (key `VIK`), tracker conventions and the status flow in
 `docs/agents/issue-tracker.md`. Product questions go to the `product-owner`
 skill first.
 
 ## Modes
 
 - `status` → go to § Status. No code changes.
-- `next` → pick the **frontier** ticket: status Backlog/Todo, label
+- `next` → pick the **frontier** ticket: status Todo, label
   `ready-for-agent`, every blocker Done; highest priority, then lowest number.
   Show it in one line and continue with § Run.
 - `VIK-N` → § Run on that ticket.
 
 ## Status
 
-Report in a short table: In Progress, In Review, `needs-info` tickets (with the
+First, move every Backlog ticket labeled `ready-for-agent` whose blockers are
+all Done to Todo. Then report in a short table: In Progress, In Review, Needs Input tickets (with the
 open question from the last comment), and the next 3 frontier tickets. Add
 `git worktree list` and local `vik-*` branches with unmerged commits. End with
 one recommendation: what to run next and which tickets can run in parallel
@@ -38,8 +39,7 @@ one recommendation: what to run next and which tickets can run in parallel
 5. **Questions.** Answer every product question with `product-owner` and log
    `assumed` decisions. Only for its § Escalate items, or a choice that would
    waste days if wrong: post one Linear comment with numbered questions and a
-   recommended answer for each, add `needs-info`, remove `ready-for-agent`,
-   status → Todo, and stop. That is a valid end of the session.
+   recommended answer for each, status → Needs Input, and stop. That is a valid end of the session.
 6. **Design / research tickets** (label Research, or a "design pass" step in
    the ticket): write the doc/ADR/mockup the ticket asks for, commit it, and
    finish via step 9. For tickets that state follow-up updates (e.g. "update

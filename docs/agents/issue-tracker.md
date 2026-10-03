@@ -22,6 +22,18 @@ under `.scratch/<feature-slug>/issues/NN-<slug>.md` with the same template.
 - Priority: Linear priority (Urgent/High/Medium/Low) = P0/P1/P2/P3.
 - Blocking: use Linear's native "blocked by" relation.
 
+## Status flow
+
+| Status | Type | Meaning | Who moves it |
+|---|---|---|---|
+| Backlog | backlog | Idea, or blocked by unfinished tickets | anyone |
+| Todo | unstarted | Specified and unblocked — an agent may take it (if `ready-for-agent`) | agent, when its blockers are Done |
+| In Progress | started | Agent or Vika is working on it | agent on claim |
+| Needs Input | started | Agent stopped with questions in a comment; waits for Vika | agent; Vika answers in a comment and moves it back to Todo |
+| In Review | started | Work pushed on the ticket branch, report in a comment | agent on finish |
+| Done | completed | Vika reviewed and merged | Vika |
+| Canceled / Duplicate | canceled | Not doing | Vika |
+
 ## Ticket template
 
 Write for an agent that has the repo but not this conversation. Short and
