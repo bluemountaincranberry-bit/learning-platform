@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Queue;
 
 test('starter command fills an empty catalog with words and grammar and is repeatable', function () {
     Http::preventStrayRequests();
-    config(['ai.enabled' => true]);
+    config(['ai.enabled' => true, 'queue.default' => 'database']);
     $fetcher = Mockery::mock(YoutubeTranscriptFetcherInterface::class);
     $fetcher->shouldReceive('fetch')->times(6)->with(Mockery::type('string'), 'en')
         ->andReturn(TranscriptDocument::fromPlainText('I have been waiting for inspiration.', 'en', 'test'));
@@ -25,9 +25,12 @@ test('starter command fills an empty catalog with words and grammar and is repea
     app()->instance(AiJsonClient::class, $client);
     $embeddings = Mockery::mock(EmbeddingsClientInterface::class);
     $embeddings->shouldReceive('embed')->andReturn([1.0, 0.0]);
+    $embeddings->shouldReceive('embedBatch')->andReturnUsing(fn (array $texts): array => array_fill(0, count($texts), [1.0, 0.0]));
     app()->instance(EmbeddingsClientInterface::class, $embeddings);
 
     $this->artisan('content:seed-starter')->expectsOutputToContain('Created: 6; skipped: 0')->assertSuccessful();
+    $this->getJson('/api/content?language=en')->assertJsonCount(0, 'data');
+    $this->artisan('queue:work', ['connection' => 'database', '--stop-when-empty' => true, '--sleep' => 0, '--tries' => 1])->assertSuccessful();
     $this->getJson('/api/content?language=en')->assertOk()->assertJsonCount(6, 'data');
     foreach (Content::all() as $content) {
         expect($content->status)->toBe('ready')
