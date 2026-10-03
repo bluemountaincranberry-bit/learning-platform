@@ -139,10 +139,10 @@ onMounted(async () => {
                         v-for="item in recommendedItems"
                         :key="item.id"
                         :to="{ name: 'catalog.details', params: { id: item.id } }"
-                        class="rounded-spa-lg border border-border bg-black/10 p-3 transition-colors hover:border-primary hover:bg-surface-alt"
+                        class="min-w-0 rounded-spa-lg border border-border bg-black/10 p-3 transition-colors hover:border-primary hover:bg-surface-alt"
                     >
                         <div class="flex flex-wrap items-center gap-2">
-                            <div class="font-medium text-fg">{{ item.title }}</div>
+                            <div class="min-w-0 max-w-full break-words font-medium text-fg">{{ item.title }}</div>
                             <UiBadge tone="neutral">{{ item.type }}</UiBadge>
                             <UiBadge v-if="item.level" tone="primary">{{ item.level }}</UiBadge>
                         </div>
@@ -159,7 +159,7 @@ onMounted(async () => {
                         v-for="item in previewItems"
                         :key="item.id"
                         :to="{ name: 'catalog.details', params: { id: item.id } }"
-                        class="rounded-spa-lg border border-border bg-black/10 p-3 transition-colors hover:border-primary hover:bg-surface-alt"
+                        class="min-w-0 rounded-spa-lg border border-border bg-black/10 p-3 transition-colors hover:border-primary hover:bg-surface-alt"
                     >
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0">
