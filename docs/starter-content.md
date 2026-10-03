@@ -30,6 +30,11 @@ Use the existing configured YouTube transcript and AI providers, with
 `AI_FEATURE_ENABLED=true` and their credentials available to both Artisan
 and workers. Importing makes normal provider calls and uses their existing
 quotas/billing. No new service, schema migration or user account is created.
+Long transcripts can exceed the default 30-second AI request deadline;
+`AI_TIMEOUT_SECONDS` controls it. Live verification used a 180-second provider
+deadline after the default timed out. Keep provider/job/worker deadlines
+consistent in your runtime and retry failed analysis in Admin. This command
+does not change those shared settings.
 Dry-run performs no writes, dispatches no jobs and works with AI disabled.
 When new items are missing, a real import refuses to start with AI disabled.
 
