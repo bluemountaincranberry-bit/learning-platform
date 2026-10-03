@@ -282,7 +282,7 @@ SRS/mastery.
 - [ ] Сравнить completion rate, error rate, retries, retention, activity mix
   и points inflation со старым flow.
 - [ ] Добавить kill switch к старому selector.
-- [ ] Обновить `docs/architecture/` и `.ai-orchestration/project-docs/`.
+- [ ] Обновить `docs/architecture/` и `PROJECT_CONTEXT.md`.
 - [ ] После завершения удалить эту задачу и перенести устойчивые решения в
   постоянную документацию.
 
@@ -334,7 +334,7 @@ SRS/mastery.
 
 - Обновить `docs/architecture/` описанием profiles, resolver, selector и
   points ledger.
-- Обновить `.ai-orchestration/project-docs/project-overview.md`, если новые
+- Обновить `PROJECT_CONTEXT.md`, если новые
   границы станут устойчивыми.
 
 ## Завершение

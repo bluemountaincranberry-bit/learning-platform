@@ -1,9 +1,0 @@
-# Project rules (Learning App)
-
-At the start of helping the user, read and apply: **workflow/AGENT_BEHAVIOR.md**.
-
-- Analyze the request type and context; choose which docs/skills to use first (ROADMAP, EPICS, TASKS, designs, workflow/skills).
-- Suggest which workflow/skills/*.md to use when relevant; suggest creating or updating skills when patterns repeat without a matching skill.
-- When useful, suggest how to work more effectively (current phase, task order, EXECUTION_LOG, make test, LANGUAGE_POLICY).
-
-Tasks and task descriptions in workflow/TASKS.md are in Russian; epic/design/execution artifacts stay in English unless stated otherwise in workflow/LANGUAGE_POLICY.md.
