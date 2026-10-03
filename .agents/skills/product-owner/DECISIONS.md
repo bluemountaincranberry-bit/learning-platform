@@ -6,6 +6,8 @@ Newer entries override older ones and VISION.md.
 
 | Date | Status | Decision | Why / source |
 |---|---|---|---|
+| 2026-10-03 | assumed | VIK-5: one repetition card per learner and language-aware canonical lexeme; source encounters remain separate. Unknown lesson/manual words stay private; exact shared matches are reused. | Same word from lesson and video must share memory state; [ADR-010](../../../docs/architecture/adr/ADR-010-word-keyed-repetition-and-personal-lexemes.md). |
+| 2026-10-03 | assumed | VIK-5: stopping learning deactivates repetition while preserving its history and source words; restarting reuses the card. Sense-specific cards and automatic fuzzy merges are deferred. | Keep Vika’s data and the default learning path simple; ADR-010. |
 | 2026-10-03 | answered | Word lists on phone: full-width compact rows, filters collapsed (no filter pre-selected), action buttons named by what they do; less scrolling to pick words. | Vika feedback on content page, VIK-38 |
 | 2026-10-03 | answered | Start learning = one screen: what you learn + current flow in one line + **Continue**; details ("what happens", "Change") open on demand. Change sheet like `example.jpg` (Clozemaster): Easy / Medium / Hard (Medium = mixed: recognize → write → hear → use) + optional Focus (words/listening/speaking) + count. Old flow profiles become presets. Progressive disclosure everywhere. | Vika, VIK-29/VIK-30 |
 | 2026-10-03 | assumed | AI chat is removed from the main lesson screen; notes are written in an editor. | VIK-12 |
