@@ -70,9 +70,8 @@ const allNavItems = [
 // canAccessTutorAgent defaults to true (roles start empty) so a guest or a
 // not-yet-loaded-roles student still sees the item; it only ever hides it,
 // never wrongly shows it to staff, once /api/auth/me has answered.
-// "Мои занятия" (LessonController) shares that same access-tutor-agent gate
-// on the backend — same audience (student, not staff), same reasoning.
-const STAFF_ONLY_HIDDEN = ['chat', 'lessons'];
+// Lessons are available to every authenticated user, including staff.
+const STAFF_ONLY_HIDDEN = ['chat'];
 const navItems = computed(() =>
     allNavItems.filter((item) => !STAFF_ONLY_HIDDEN.includes(item.name) || canAccessTutorAgent.value)
 );

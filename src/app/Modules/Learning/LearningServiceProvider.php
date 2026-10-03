@@ -3,10 +3,13 @@
 namespace App\Modules\Learning;
 
 use App\Modules\Content\Application\Contracts\GrammarProgressStoreInterface;
+use App\Modules\Learning\Application\Contracts\LessonAnalysisStoreInterface;
+use App\Modules\Learning\Application\Contracts\LessonNotesWriterInterface;
 use App\Modules\Learning\Application\Contracts\PronunciationAssessmentProviderInterface;
 use App\Modules\Learning\Application\Contracts\SpeechToTextProviderInterface;
 use App\Modules\Learning\Application\GrammarProgressStore;
 use App\Modules\Learning\Application\LearningStatsService;
+use App\Modules\Learning\Application\LessonStore;
 use App\Modules\Learning\Application\ReviewOutcomeHandler;
 use App\Modules\Learning\Domain\Events\ExerciseCompleted;
 use App\Modules\Learning\Infrastructure\AzurePronunciationAssessmentProvider;
@@ -25,6 +28,8 @@ class LearningServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->bind(LessonAnalysisStoreInterface::class, LessonStore::class);
+        $this->app->bind(LessonNotesWriterInterface::class, LessonStore::class);
         $this->app->bind(GrammarProgressStoreInterface::class, GrammarProgressStore::class);
         $this->app->bind(LearningStatsReaderInterface::class, LearningStatsService::class);
         $this->app->bind(ReviewOutcomeHandlerInterface::class, ReviewOutcomeHandler::class);
@@ -51,6 +56,8 @@ class LearningServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Route::middleware('api')->prefix('api')->group(app_path('Modules/Learning/Routes/lessons.php'));
+
         Route::middleware('api')
             ->prefix('api')
             ->group(app_path('Modules/Learning/Routes/progress.php'));

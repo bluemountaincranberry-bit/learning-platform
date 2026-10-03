@@ -7,7 +7,6 @@ use App\Modules\Ai\Interfaces\Http\Controllers\Admin\NodePaletteController;
 use App\Modules\Ai\Interfaces\Http\Controllers\Admin\PromptCatalogController;
 use App\Modules\Ai\Interfaces\Http\Controllers\Admin\PromptTemplateController;
 use App\Modules\Ai\Interfaces\Http\Controllers\AiConversationController;
-use App\Modules\Ai\Interfaces\Http\Controllers\LessonController;
 use App\Modules\Ai\Interfaces\Http\Controllers\RecommendedController;
 use App\Modules\Ai\Interfaces\Http\Controllers\SentencePracticeController;
 use App\Modules\Ai\Interfaces\Http\Controllers\TutorConversationController;
@@ -29,18 +28,6 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function (): void {
             ->name('api.tutor.conversations.store');
         Route::post('/tutor/conversations/{conversation}/messages', [TutorConversationController::class, 'storeMessage'])
             ->name('api.tutor.conversations.messages.store');
-    });
-
-    // "Мои занятия" (Lesson capture): same audience/gate as TutorAgent above
-    // (any non-admin student) — no separate gate needed, the check is
-    // "is this a learner", not agent-specific.
-    Route::middleware('can:access-tutor-agent')->group(function (): void {
-        Route::get('/lessons', [LessonController::class, 'index'])->name('api.lessons.index');
-        Route::post('/lessons', [LessonController::class, 'store'])->name('api.lessons.store');
-        Route::get('/lessons/{lesson}', [LessonController::class, 'show'])->name('api.lessons.show');
-        Route::get('/lessons/{lesson}/messages', [LessonController::class, 'messages'])->name('api.lessons.messages.index');
-        Route::post('/lessons/{lesson}/messages', [LessonController::class, 'storeMessage'])->name('api.lessons.messages.store');
-        Route::post('/lessons/{lesson}/analyze', [LessonController::class, 'analyze'])->name('api.lessons.analyze');
     });
 
     // Sentence practice is a learner-facing exercise available from the

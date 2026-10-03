@@ -1,55 +1,40 @@
 <?php
 
-namespace App\Modules\Ai\Interfaces\Http\Controllers;
+namespace App\Modules\Learning\Interfaces\Http\Controllers;
 
+use App\Contracts\Ai\LessonAssistant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\SendLessonMessageRequest;
-use App\Modules\Ai\Interfaces\Jobs\RunAgentTurnJob;
-use App\Modules\Ai\Interfaces\Jobs\RunLessonAnalysisJob;
-use App\Modules\Ai\Domain\Models\AgentConversation;
-use App\Modules\Ai\Domain\Models\AgentMessage;
-use App\Modules\Ai\Domain\Models\Lesson;
-use App\Modules\Ai\Domain\Models\LessonAnalysisRun;
-use App\Modules\Ai\Application\Agent\LessonAgentService;
+use App\Modules\Learning\Application\Contracts\LessonNotesWriterInterface;
+use App\Modules\Learning\Domain\Models\Lesson;
+use App\Modules\Learning\Domain\Models\LessonAnalysisRun;
 use App\Support\AiConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
-/**
- * "Мои занятия" — student-facing entry point, mirrors TutorConversationController's
- * boundary checks (feature flag, ownership, rate limit) and ContentAgentChat's
- * queued-turn shape (RunAgentTurnJob, not synchronous SSE — this agent can
- * call extract_pdf_text, which is not the "one fast SQL query" case
- * TutorConversationController's docblock justifies running inline).
- *
- * A Lesson and its AgentConversation are created together (store()) and
- * stay 1:1 for the lesson's lifetime — see Lesson::conversation().
- */
+/** Lessons belong to Learning; optional assistant work crosses the AI contract. */
 class LessonController extends Controller
 {
+    public function __construct(
+        private readonly LessonAssistant $assistant,
+        private readonly LessonNotesWriterInterface $notes,
+    ) {}
+
     public function store(Request $request): JsonResponse
     {
-        if (! AiConfig::isAgentEnabled()) {
-            return response()->json(['message' => 'AI agent feature is disabled.'], 503);
-        }
+        return DB::transaction(function () use ($request): JsonResponse {
+            $lesson = Lesson::query()->create([
+                'user_id' => $request->user()->id,
+                'status' => Lesson::STATUS_ACTIVE,
+            ]);
 
-        $lesson = Lesson::query()->create([
-            'user_id' => $request->user()->id,
-            'status' => Lesson::STATUS_ACTIVE,
-        ]);
-
-        $conversation = AgentConversation::query()->create([
-            'created_by' => $request->user()->id,
-            'lesson_id' => $lesson->id,
-            'status' => AgentConversation::STATUS_ACTIVE,
-            'agent_type' => LessonAgentService::AGENT_TYPE,
-        ]);
-
-        return response()->json([
-            'lesson_id' => $lesson->id,
-            'conversation_id' => $conversation->id,
-        ], 201);
+            return response()->json([
+                'lesson_id' => $lesson->id,
+                'conversation_id' => $this->assistant->createConversation($lesson->id, $request->user()->id),
+            ], 201);
+        });
     }
 
     public function index(Request $request): JsonResponse
@@ -83,14 +68,12 @@ class LessonController extends Controller
     {
         $this->assertOwnsLesson($lesson, $request->user()->id);
 
-        $conversation = $lesson->conversation;
-
         return response()->json([
             'id' => $lesson->id,
             'title' => $lesson->title,
             'tutor' => $lesson->tutor,
             'status' => $lesson->status,
-            'conversation_id' => $conversation?->id,
+            'conversation_id' => $this->assistant->conversationId($lesson->id),
             'analysis_status' => $lesson->latestAnalysisRun?->status,
             'lexemes' => $lesson->distinctLexemeCandidates()->map(fn ($c) => $this->lexemePayload($c))->values(),
             'grammar' => $lesson->distinctGrammarCandidates()->map(fn ($c) => $this->grammarPayload($c))->values(),
@@ -107,18 +90,7 @@ class LessonController extends Controller
     {
         $this->assertOwnsLesson($lesson, $request->user()->id);
 
-        $conversation = $lesson->conversation;
-        $messages = $conversation?->messages()
-            ->where('role', '!=', AgentMessage::ROLE_TOOL)
-            ->orderBy('created_at')
-            ->get(['id', 'role', 'content', 'attachment_name', 'created_at']) ?? collect();
-
-        $isWaiting = $messages->isNotEmpty() && $messages->last()->role === AgentMessage::ROLE_USER;
-
-        return response()->json([
-            'messages' => $messages,
-            'is_waiting' => $isWaiting,
-        ]);
+        return response()->json($this->assistant->messages($lesson->id));
     }
 
     public function storeMessage(SendLessonMessageRequest $request, Lesson $lesson): JsonResponse
@@ -140,8 +112,7 @@ class LessonController extends Controller
             return response()->json(['message' => 'Daily limit reached. Try again tomorrow.'], 429);
         }
 
-        $conversation = $lesson->conversation;
-        if ($conversation === null) {
+        if ($this->assistant->conversationId($lesson->id) === null) {
             return response()->json(['message' => 'This lesson has no conversation.'], 404);
         }
 
@@ -157,17 +128,10 @@ class LessonController extends Controller
         // as LessonAgentService's observer folds in extracted PDF text once
         // that tool call completes (see that class's docblock).
         if ($content !== '') {
-            $lesson->update(['source_text' => trim(((string) $lesson->source_text)."\n\n".$content)]);
+            $this->notes->appendNotes($lesson->id, $content);
         }
 
-        $conversation->messages()->create([
-            'role' => AgentMessage::ROLE_USER,
-            'content' => $content !== '' ? $content : null,
-            'attachment_path' => $attachmentPath,
-            'attachment_name' => $attachmentName,
-        ]);
-
-        RunAgentTurnJob::dispatch($conversation->id);
+        $this->assistant->sendMessage($lesson->id, $content, $attachmentPath, $attachmentName);
 
         return response()->json(['status' => 'queued'], 202);
     }
@@ -176,19 +140,23 @@ class LessonController extends Controller
     {
         $this->assertOwnsLesson($lesson, $request->user()->id);
 
+        if (! AiConfig::isEnabled()) {
+            return response()->json(['message' => 'AI analysis feature is disabled.'], 503);
+        }
+
         if (trim((string) $lesson->source_text) === '') {
             return response()->json(['message' => 'This lesson has no notes yet to analyze.'], 422);
         }
 
         $run = $lesson->analysisRuns()->create(['status' => LessonAnalysisRun::STATUS_PENDING]);
 
-        RunLessonAnalysisJob::dispatch($run->id);
+        $this->assistant->dispatchAnalysis($run->id);
 
         return response()->json(['run_id' => $run->id, 'status' => $run->status], 202);
     }
 
     /**
-     * @param  \App\Modules\Ai\Domain\Models\LessonLexemeCandidate  $c
+     * @param  \App\Modules\Learning\Domain\Models\LessonLexemeCandidate  $c
      * @return array<string, mixed>
      */
     private function lexemePayload($c): array
@@ -207,7 +175,7 @@ class LessonController extends Controller
     }
 
     /**
-     * @param  \App\Modules\Ai\Domain\Models\LessonGrammarCandidate  $c
+     * @param  \App\Modules\Learning\Domain\Models\LessonGrammarCandidate  $c
      * @return array<string, mixed>
      */
     private function grammarPayload($c): array

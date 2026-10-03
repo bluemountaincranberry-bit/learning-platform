@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { Plus } from 'lucide-vue-next';
 import PageState from '../components/ui/PageState.vue';
 import { useAuthStore } from '../domains/user';
-import { lessonApi, type LessonSummary } from '../domains/ai';
+import { lessonApi, type LessonSummary } from '../domains/learning';
 import UiBadge from '../shared/ui/UiBadge.vue';
 import UiButton from '../shared/ui/UiButton.vue';
 import UiCard from '../shared/ui/UiCard.vue';

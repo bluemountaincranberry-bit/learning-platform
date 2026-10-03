@@ -2,10 +2,10 @@
 
 namespace App\Modules\Ai\Interfaces\Jobs;
 
+use App\Contracts\Ai\AiErrorMessage;
 use App\Modules\Ai\Application\LessonAnalysisService;
 use App\Modules\Ai\Application\LessonCandidateMatchingService;
-use App\Contracts\Ai\AiErrorMessage;
-use App\Modules\Ai\Domain\Models\LessonAnalysisRun;
+use App\Modules\Learning\Application\Contracts\LessonAnalysisStoreInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
@@ -34,24 +34,22 @@ class RunLessonAnalysisJob implements ShouldQueue
         return ['lesson-analysis-run:'.$this->runId, 'job:run-lesson-analysis'];
     }
 
-    public function handle(LessonAnalysisService $service, LessonCandidateMatchingService $matcher): void
+    public function handle(LessonAnalysisService $service, LessonCandidateMatchingService $matcher, LessonAnalysisStoreInterface $lessons): void
     {
-        $run = LessonAnalysisRun::query()->find($this->runId);
-        if (! $run || $run->status !== LessonAnalysisRun::STATUS_PENDING) {
+        if (! $lessons->startRun($this->runId)) {
             return;
         }
-        $run->update(['status' => LessonAnalysisRun::STATUS_RUNNING, 'started_at' => now()]);
 
         try {
-            $service->analyze($run);
+            $service->analyze($this->runId);
             try {
-                $matcher->matchRun($run);
+                $matcher->matchRun($this->runId);
             } catch (Throwable $e) {
-                Log::warning('LessonCandidateMatchingService failed for lesson analysis run', ['run_id' => $run->id, 'message' => AiErrorMessage::safe($e)]);
+                Log::warning('LessonCandidateMatchingService failed for lesson analysis run', ['run_id' => $this->runId, 'message' => AiErrorMessage::safe($e)]);
             }
-            $run->update(['status' => LessonAnalysisRun::STATUS_COMPLETED, 'completed_at' => now()]);
+            $lessons->completeRun($this->runId);
         } catch (Throwable $e) {
-            $run->update(['status' => LessonAnalysisRun::STATUS_FAILED, 'completed_at' => now(), 'failure_reason' => AiErrorMessage::safe($e)]);
+            $lessons->failRun($this->runId, AiErrorMessage::safe($e));
             throw $e;
         }
     }

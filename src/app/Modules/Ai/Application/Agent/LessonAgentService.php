@@ -2,9 +2,6 @@
 
 namespace App\Modules\Ai\Application\Agent;
 
-use App\Modules\Ai\Domain\Models\AgentConversation;
-use App\Modules\Ai\Domain\Models\AgentMessage;
-use App\Modules\Ai\Domain\Models\Lesson;
 use App\Modules\Ai\Application\Agent\Contracts\AgentLoopObserver;
 use App\Modules\Ai\Application\Agent\Contracts\AgentService;
 use App\Modules\Ai\Application\Agent\Contracts\AgentTool;
@@ -16,6 +13,9 @@ use App\Modules\Ai\Application\Agent\Data\AgentToolDefinition;
 use App\Modules\Ai\Application\Agent\Tools\ExtractPdfTextTool;
 use App\Modules\Ai\Application\Agent\Tracing\SpanRecorder;
 use App\Modules\Ai\Application\Agent\Tracing\TraceContext;
+use App\Modules\Ai\Domain\Models\AgentConversation;
+use App\Modules\Ai\Domain\Models\AgentMessage;
+use App\Modules\Learning\Application\Contracts\LessonNotesWriterInterface;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -136,10 +136,9 @@ class LessonAgentService implements AgentService
                 // "Разобрать урок" sees it without the model needing a
                 // separate write tool (this agent has none, by design).
                 if ($call->name === 'extract_pdf_text' && is_string($result['text'] ?? null)) {
-                    $lesson = $this->conversation->lesson;
-                    if ($lesson instanceof Lesson) {
+                    if ($this->conversation->lesson_id !== null) {
                         $text = trim(str_replace(['<tool_output>', '</tool_output>'], '', $result['text']));
-                        $lesson->update(['source_text' => trim(((string) $lesson->source_text)."\n\n".$text)]);
+                        app(LessonNotesWriterInterface::class)->appendNotes($this->conversation->lesson_id, $text);
                     }
                 }
             }
@@ -158,7 +157,7 @@ class LessonAgentService implements AgentService
 
                 $this->conversation->messages()->create([
                     'role' => AgentMessage::ROLE_ASSISTANT,
-                    'content' => "Got a bit stuck reading that — could you try attaching it again or pasting the text directly?",
+                    'content' => 'Got a bit stuck reading that — could you try attaching it again or pasting the text directly?',
                 ]);
             }
         };
