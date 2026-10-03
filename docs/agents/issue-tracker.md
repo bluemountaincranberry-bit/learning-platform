@@ -15,7 +15,7 @@ under `.scratch/<feature-slug>/issues/NN-<slug>.md` with the same template.
 
 - Team: `Viktoryia` (id c3c3d887-b8f9-4504-91c8-ca799277a876).
 - Projects = epics: **Lesson Notebook**, **Learning Loop**, **Mobile**,
-  **Platform**. Create a project when a new epic appears (e.g. AI Platform).
+  **Platform**, **Speaking Coach**. Create a project when a new epic appears (e.g. AI Platform).
 - Labels: type (`feature`, `bug`, `research`, `tech`), module (`content`,
   `learning`, `srs`, `ai`, `user`, `spa`, `infra`), plus triage labels from
   `triage-labels.md`.

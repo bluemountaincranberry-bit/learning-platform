@@ -37,6 +37,14 @@ language should be configuration plus content, not a rewrite.
 
 If a feature does not help this loop, it is lower priority.
 
+## Speaking goal
+
+Vika wants to **speak English beautifully**, not only understand it. She
+shadows and retells TED/TEDx talks, records herself, and wants to see her
+pronunciation, intonation, rhythm, accent and fluency improve over weeks,
+with AI feedback and concrete tips. Her own recordings are worth keeping for
+"then vs now" comparison. Project: Speaking Coach (research VIK-45).
+
 ## Product principles
 
 - **Mobile first.** Every learner screen must look good and work one-handed on
