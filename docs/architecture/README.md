@@ -23,6 +23,7 @@
 | [adr/](adr/) | Architectural Decision Records — обоснования ключевых решений AI-платформы |
 | [technical-due-diligence.md](../operations/technical-due-diligence.md) | Current investor-readiness evidence, quality gates and open risks |
 | [module-ownership.md](module-ownership.md) | Persistence ownership, invariants and migration rules |
+| [lesson-photo-pdf-to-text.md](lesson-photo-pdf-to-text.md) | VIK-9: фото/сканы/PDF урока → текст (pdftotext + OpenAI vision, замеры на 7 образцах) |
 
 ## Связанный документ
 
