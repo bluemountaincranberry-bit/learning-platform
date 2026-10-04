@@ -67,3 +67,18 @@ _Avoid_: Weak rule (low confidence is not the same as due).
 A grammar rule with the same normalized title and language as another rule.
 Merging it moves everything to the kept rule and archives the duplicate.
 _Avoid_: Similar rule (when the titles differ; that is a near-duplicate and is merged only on request).
+
+**Daily session**:
+The Today round: due reviews first, then new lexemes, then an optional grammar
+round, in the learner's saved challenge.
+_Avoid_: Daily lesson, study session (when referring to Today).
+
+**Activity**:
+One completed, scored exercise in a session. A lexeme's introduction, hints
+and retries inside the same exercise are not separate activities.
+_Avoid_: Card, word (when counting session length).
+
+**More practice**:
+Practice modes reachable on demand but not used by the default daily session,
+such as transcript exercises, sentence writing and the content ready check.
+_Avoid_: Hidden modes, extra modes.
