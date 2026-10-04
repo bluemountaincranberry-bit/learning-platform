@@ -86,7 +86,7 @@ async function send() {
         schedulePoll();
     } catch (e: unknown) {
         const err = e as { response?: { status?: number; data?: { message?: string } } };
-        error.value = err.response?.data?.message ?? 'Не удалось отправить сообщение.';
+        error.value = err.response?.data?.message ?? 'Failed to send the message.';
     } finally {
         sending.value = false;
     }
@@ -100,7 +100,7 @@ async function analyzeLesson() {
         await pollAnalysis();
     } catch (e: unknown) {
         const err = e as { response?: { status?: number; data?: { message?: string } } };
-        error.value = err.response?.data?.message ?? 'Не удалось разобрать урок.';
+        error.value = err.response?.data?.message ?? 'Failed to analyze the lesson.';
         analyzing.value = false;
     }
 }
@@ -131,7 +131,7 @@ onMounted(async () => {
         schedulePoll();
     } catch (e: unknown) {
         const err = e as { response?: { status?: number; data?: { message?: string } } };
-        error.value = err.response?.data?.message ?? 'Не удалось загрузить занятие.';
+        error.value = err.response?.data?.message ?? 'Failed to load the lesson.';
     } finally {
         loading.value = false;
     }
@@ -149,11 +149,11 @@ onUnmounted(() => {
                 <UiCard>
                     <div class="flex flex-wrap items-start justify-between gap-4">
                         <UiSectionHeader
-                            :title="lesson.title || 'Занятие'"
-                            :subtitle="lesson.tutor ? `Репетитор: ${lesson.tutor}` : 'Заметки этого занятия'"
+                            :title="lesson.title || 'Lesson'"
+                            :subtitle="lesson.tutor ? `Tutor: ${lesson.tutor}` : 'Notes from this lesson'"
                         />
                         <UiButton variant="primary" :disabled="analyzing" @click="analyzeLesson">
-                            <Sparkles :size="16" /> {{ analyzing ? 'Разбираю...' : 'Разобрать урок' }}
+                            <Sparkles :size="16" /> {{ analyzing ? 'Analyzing...' : 'Analyze lesson' }}
                         </UiButton>
                     </div>
                 </UiCard>
@@ -167,8 +167,8 @@ onUnmounted(() => {
                         <div class="flex-1 overflow-y-auto p-4 space-y-3 bg-black/10">
                             <template v-if="messages.length === 0">
                                 <div class="rounded-spa-lg border border-dashed border-border-strong p-5 text-sm text-muted-foreground">
-                                    Напишите, что вы разбирали на уроке, или приложите файл с заметками — потом нажмите
-                                    «Разобрать урок», чтобы вытащить из этого слова и грамматику.
+                                    Write what you covered in the lesson or attach a file with notes, then tap
+                                    “Analyze lesson” to pull out the words and grammar.
                                 </div>
                             </template>
                             <div v-for="msg in messages" :key="msg.id" class="flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
@@ -186,7 +186,7 @@ onUnmounted(() => {
                                 <div class="rounded-spa-lg border border-border bg-surface px-4 py-3 text-sm text-muted-foreground">
                                     <span class="inline-flex items-center gap-2">
                                         <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-primary"></span>
-                                        Печатает...
+                                        Typing...
                                     </span>
                                 </div>
                             </div>
@@ -205,19 +205,19 @@ onUnmounted(() => {
                                 <UiInput
                                     v-model="inputText"
                                     type="text"
-                                    placeholder="Что вы сегодня учили?"
+                                    placeholder="What did you learn today?"
                                     :disabled="sending"
                                     @keydown.enter.prevent="send()"
                                 />
-                                <UiButton variant="primary" :disabled="!canSend" @click="send()">Отправить</UiButton>
+                                <UiButton variant="primary" :disabled="!canSend" @click="send()">Send</UiButton>
                             </div>
                         </div>
                     </div>
                 </UiCard>
 
                 <UiCard class="space-y-3">
-                    <UiSectionHeader title="Слова" :subtitle="`${lesson.lexemes.length} из этого занятия`" />
-                    <UiEmptyState v-if="lesson.lexemes.length === 0" title="Пока пусто" description="Нажмите «Разобрать урок», когда запишете заметки." />
+                    <UiSectionHeader title="Words" :subtitle="`${lesson.lexemes.length} from this lesson`" />
+                    <UiEmptyState v-if="lesson.lexemes.length === 0" title="Nothing yet" description="Tap “Analyze lesson” once you have written your notes." />
                     <div v-else class="space-y-2">
                         <div
                             v-for="w in lesson.lexemes"
@@ -236,15 +236,15 @@ onUnmounted(() => {
                                 <p v-if="w.translation" class="text-sm text-muted-foreground">{{ w.translation }}</p>
                             </div>
                             <UiBadge :tone="w.status === 'matched' ? 'primary' : 'neutral'">
-                                {{ w.status === 'matched' ? 'Уже в словаре' : 'Новое' }}
+                                {{ w.status === 'matched' ? 'Already in dictionary' : 'New' }}
                             </UiBadge>
                         </div>
                     </div>
                 </UiCard>
 
                 <UiCard class="space-y-3">
-                    <UiSectionHeader title="Грамматика" :subtitle="`${lesson.grammar.length} из этого занятия`" />
-                    <UiEmptyState v-if="lesson.grammar.length === 0" title="Пока пусто" description="Нажмите «Разобрать урок», когда запишете заметки." />
+                    <UiSectionHeader title="Grammar" :subtitle="`${lesson.grammar.length} from this lesson`" />
+                    <UiEmptyState v-if="lesson.grammar.length === 0" title="Nothing yet" description="Tap “Analyze lesson” once you have written your notes." />
                     <div v-else class="space-y-2">
                         <div
                             v-for="g in lesson.grammar"
@@ -263,7 +263,7 @@ onUnmounted(() => {
                                 <p v-if="g.summary" class="text-sm text-muted-foreground line-clamp-2">{{ g.summary }}</p>
                             </div>
                             <UiBadge :tone="g.status === 'linked' ? 'success' : 'neutral'">
-                                {{ g.status === 'linked' ? 'Добавлено в мою грамматику' : 'Новое' }}
+                                {{ g.status === 'linked' ? 'Added to My grammar' : 'New' }}
                             </UiBadge>
                         </div>
                     </div>

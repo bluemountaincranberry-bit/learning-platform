@@ -160,63 +160,63 @@ const activeFlow = computed(() => learningFlow.value?.profile ?? null);
 const activeFlowConfig = computed(() => (learningFlow.value?.config ?? {}) as Record<string, unknown>);
 const activeFlowDescription = computed(() => {
     const descriptions: Record<string, string> = {
-        balanced: 'Сбалансированно чередует новые слова, повторение, контекст и аудирование.',
-        'listening-first': 'Сильнее прокачивает понимание речи, listening и диктанты.',
-        'speaking-first': 'Быстрее переводит слова в активную речь и production.',
-        'fast-vocabulary': 'Короткие сессии и быстрый набор полезного словаря.',
-        'deep-mastery': 'Медленнее, но глубже: больше контекста, production и закрепления.',
+        balanced: 'Alternates new words, review, context and listening in a balanced mix.',
+        'listening-first': 'Puts more weight on understanding speech, listening and dictation.',
+        'speaking-first': 'Moves words into active speech and production sooner.',
+        'fast-vocabulary': 'Short sessions and fast growth of useful vocabulary.',
+        'deep-mastery': 'Slower but deeper: more context, production and reinforcement.',
     };
-    return descriptions[activeFlow.value?.slug ?? ''] ?? 'Персональный порядок практики для твоей цели.';
+    return descriptions[activeFlow.value?.slug ?? ''] ?? 'A personal practice order for your goal.';
 });
 
 function flowDescription(slug: string): string {
     const descriptions: Record<string, string> = {
-        balanced: 'Сбалансированный прогресс каждый день.',
-        'listening-first': 'Больше понимания живой речи и диктантов.',
-        'speaking-first': 'Больше активной речи и production.',
-        'fast-vocabulary': 'Быстрее набираем полезный словарь.',
-        'deep-mastery': 'Глубокое закрепление через контекст.',
+        balanced: 'Balanced progress every day.',
+        'listening-first': 'More understanding of real speech and dictation.',
+        'speaking-first': 'More active speech and production.',
+        'fast-vocabulary': 'Build useful vocabulary faster.',
+        'deep-mastery': 'Deep reinforcement through context.',
     };
-    return descriptions[slug] ?? 'Настройка adaptive practice под твою цель.';
+    return descriptions[slug] ?? 'Adaptive practice tuned to your goal.';
 }
 
 const selectedFlowProfile = computed(() => learningFlow.value?.available_profiles.find((profile) => String(profile.id) === selectedFlowId.value) ?? activeFlow.value);
 const selectedFlowDetails = computed(() => {
     const details: Record<string, { goal: string; sequence: string; algorithm: string; bestFor: string; tradeoff: string }> = {
         balanced: {
-            goal: 'Ровный прогресс без перекоса в один навык.',
-            sequence: 'Встреча со словом → узнавание → вспоминание → production → listening → speaking.',
-            algorithm: 'Система ищет самый слабый навык конкретного слова и чаще предлагает упражнение для него. Новые слова получают мягкое знакомство, а знакомые постепенно переходят к активному использованию.',
-            bestFor: 'Подходит, если хочется развивать всё понемногу и не думать о настройках.',
-            tradeoff: 'Прогресс по отдельному навыку будет медленнее, чем в специализированном flow.',
+            goal: 'Steady progress without leaning on one skill.',
+            sequence: 'Meet the word → recognition → recall → production → listening → speaking.',
+            algorithm: 'The system finds the weakest skill for each word and offers exercises for it more often. New words get a gentle introduction, and familiar ones gradually move to active use.',
+            bestFor: 'Good if you want to grow a bit of everything without thinking about settings.',
+            tradeoff: 'Progress in any single skill is slower than in a specialized flow.',
         },
         'listening-first': {
-            goal: 'Лучше понимать живую речь на слух.',
-            sequence: 'Знакомство → listening → узнавание → вспоминание → диктант → production.',
-            algorithm: 'Алгоритм увеличивает вес listening и чаще выбирает аудирование, listen-recognize и диктант. Ошибки слухового восприятия получают приоритет в следующих повторах.',
-            bestFor: 'Подходит для фильмов, YouTube, разговорной речи и ситуаций, когда слова знакомы, но речь всё ещё звучит быстро.',
-            tradeoff: 'На такое же количество времени будет меньше новых слов и письменной практики.',
+            goal: 'Understand real spoken language better.',
+            sequence: 'Introduction → listening → recognition → recall → dictation → production.',
+            algorithm: 'The algorithm raises the weight of listening and picks listening, listen-recognize and dictation more often. Listening mistakes get priority in the next reviews.',
+            bestFor: 'Good for movies, YouTube, conversation, and when you know the words but speech still sounds too fast.',
+            tradeoff: 'For the same time you get fewer new words and less written practice.',
         },
         'speaking-first': {
-            goal: 'Быстрее начать самостоятельно строить фразы.',
-            sequence: 'Знакомство → узнавание → вспоминание → production → speaking → listening.',
-            algorithm: 'Система увеличивает вес production и speaking. Слова с примерами переводятся в cloze, sentence practice и speaking раньше.',
-            bestFor: 'Подходит для общения, путешествий, интервью и активного использования языка.',
-            tradeoff: 'Сессии сложнее: точность может временно снизиться, пока формируется активный навык.',
+            goal: 'Start building your own sentences sooner.',
+            sequence: 'Introduction → recognition → recall → production → speaking → listening.',
+            algorithm: 'The system raises the weight of production and speaking. Words with examples move to cloze, sentence practice and speaking earlier.',
+            bestFor: 'Good for conversation, travel, interviews and using the language actively.',
+            tradeoff: 'Sessions are harder: accuracy may dip for a while as the active skill forms.',
         },
         'fast-vocabulary': {
-            goal: 'Быстро расширить словарный запас.',
-            sequence: 'Короткие циклы узнавания и вспоминания с минимальным количеством сложных упражнений.',
-            algorithm: 'Сессия короче, новых слов в день больше, а веса recognition и recall выше. Система быстрее проводит слово через первые стадии.',
-            bestFor: 'Подходит перед поездкой, экзаменом или когда важнее покрытие словаря, чем глубокая отработка каждого слова.',
-            tradeoff: 'Новые слова могут потребовать больше последующих повторений для настоящей уверенности.',
+            goal: 'Grow your vocabulary quickly.',
+            sequence: 'Short recognition and recall cycles with as few hard exercises as possible.',
+            algorithm: 'Sessions are shorter, there are more new words per day, and recognition and recall weigh more. The system moves each word through the early stages faster.',
+            bestFor: 'Good before a trip or an exam, or when vocabulary coverage matters more than drilling each word deeply.',
+            tradeoff: 'New words may need more reviews later before you feel truly confident.',
         },
         'deep-mastery': {
-            goal: 'Надёжно закрепить слова и уметь использовать их в контексте.',
-            sequence: 'Знакомство → узнавание → вспоминание → production → listening → speaking, с более высокой планкой успеха.',
-            algorithm: 'Система чаще возвращает слово в контексте, production и sentence practice. Целевой success rate выше, поэтому слово не считается готовым после одного удачного ответа.',
-            bestFor: 'Подходит для долгосрочного изучения, уверенного B1+ и тех слов, которые должны перейти в активную речь.',
-            tradeoff: 'Слов в день меньше, а одна сессия занимает больше времени.',
+            goal: 'Lock words in and be able to use them in context.',
+            sequence: 'Introduction → recognition → recall → production → listening → speaking, with a higher bar for success.',
+            algorithm: 'The system brings words back more often in context, production and sentence practice. The target success rate is higher, so one correct answer does not make a word done.',
+            bestFor: 'Good for long-term study, a solid B1+, and words that should become part of your active speech.',
+            tradeoff: 'Fewer words per day, and each session takes longer.',
         },
     };
     return details[selectedFlowProfile.value?.slug ?? ''] ?? details.balanced;
@@ -251,7 +251,7 @@ async function saveLearningFlow() {
             await startSession(routeContentId.value || undefined, routeLexemeIds.value, selectedPracticeMode.value);
         }
     } catch {
-        learningFlowMessage.value = 'Не удалось сохранить learning flow.';
+        learningFlowMessage.value = 'Failed to save the learning flow.';
     } finally {
         savingLearningFlow.value = false;
     }
@@ -381,7 +381,7 @@ onMounted(async () => {
         learningFlowApi.get().then((response) => {
             learningFlow.value = response;
         }).catch(() => {
-            learningFlowMessage.value = 'Не удалось загрузить learning flow.';
+            learningFlowMessage.value = 'Failed to load the learning flow.';
         }),
     ]);
 });
@@ -442,12 +442,12 @@ onMounted(async () => {
                                 <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Your learning flow</span>
                                 <UiBadge tone="primary">{{ activeFlow.name }}</UiBadge>
                             </div>
-                            <h2 class="mt-2 text-lg font-semibold text-fg">Сегодня учимся в стиле «{{ activeFlow.name }}»</h2>
+                            <h2 class="mt-2 text-lg font-semibold text-fg">Today you are learning in “{{ activeFlow.name }}” style</h2>
                             <p class="mt-1 max-w-2xl text-sm leading-5 text-muted-foreground">{{ activeFlowDescription }}</p>
                             <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-secondary">
-                                <span>{{ activeFlowConfig.session_minutes ?? 15 }} мин на сессию</span>
-                                <span>{{ activeFlowConfig.daily_new_words ?? 8 }} новых слов в день</span>
-                                <span>Цель: {{ Math.round(Number(activeFlowConfig.target_success_rate ?? 0.8) * 100) }}%</span>
+                                <span>{{ activeFlowConfig.session_minutes ?? 15 }} min per session</span>
+                                <span>{{ activeFlowConfig.daily_new_words ?? 8 }} new words per day</span>
+                                <span>Target: {{ Math.round(Number(activeFlowConfig.target_success_rate ?? 0.8) * 100) }}%</span>
                             </div>
                         </div>
                         <UiButton class="shrink-0" variant="secondary" size="sm" @click="openLearningFlow">Change learning flow</UiButton>
@@ -570,7 +570,7 @@ onMounted(async () => {
                         <div>
                             <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Adaptive practice</div>
                             <h2 id="learning-flow-title-before-session" class="mt-1 text-xl font-semibold text-fg">Choose how you want to progress</h2>
-                            <p class="mt-1 text-sm leading-5 text-muted-foreground">Flow меняет ритм и баланс упражнений. Можно попробовать любой вариант — прогресс и SRS сохраняются.</p>
+                            <p class="mt-1 text-sm leading-5 text-muted-foreground">A flow changes the pace and mix of exercises. Try any option — your progress and SRS reviews are kept.</p>
                         </div>
                         <UiButton variant="ghost" size="sm" @click="learningFlowModalOpen = false">Close</UiButton>
                     </div>
@@ -597,12 +597,12 @@ onMounted(async () => {
                         {{ showFlowDetails ? 'Hide details' : `How does ${selectedFlowProfile?.name ?? 'this flow'} work?` }}
                     </button>
                     <div v-if="showFlowDetails" class="mt-3 space-y-3 rounded-spa-lg border border-primary/20 bg-primary/5 p-4 text-sm">
-                        <div><div class="font-semibold text-fg">Главная цель</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.goal }}</p></div>
-                        <div><div class="font-semibold text-fg">Как идёт обучение</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.sequence }}</p></div>
-                        <div><div class="font-semibold text-fg">Как принимает решения adaptive-алгоритм</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.algorithm }}</p></div>
+                        <div><div class="font-semibold text-fg">Main goal</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.goal }}</p></div>
+                        <div><div class="font-semibold text-fg">How learning goes</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.sequence }}</p></div>
+                        <div><div class="font-semibold text-fg">How the adaptive algorithm decides</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.algorithm }}</p></div>
                         <div class="grid gap-3 border-t border-primary/15 pt-3 sm:grid-cols-2">
-                            <div><div class="font-semibold text-fg">Кому подходит</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.bestFor }}</p></div>
-                            <div><div class="font-semibold text-fg">Компромисс</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.tradeoff }}</p></div>
+                            <div><div class="font-semibold text-fg">Best for</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.bestFor }}</p></div>
+                            <div><div class="font-semibold text-fg">Trade-off</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.tradeoff }}</p></div>
                         </div>
                     </div>
 
@@ -637,7 +637,7 @@ onMounted(async () => {
                         <div>
                             <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Adaptive practice</div>
                             <h2 id="learning-flow-title" class="mt-1 text-xl font-semibold text-fg">Choose how you want to progress</h2>
-                            <p class="mt-1 text-sm leading-5 text-muted-foreground">Flow меняет ритм и баланс упражнений. Можно попробовать любой вариант — прогресс и SRS сохраняются.</p>
+                            <p class="mt-1 text-sm leading-5 text-muted-foreground">A flow changes the pace and mix of exercises. Try any option — your progress and SRS reviews are kept.</p>
                         </div>
                         <UiButton variant="ghost" size="sm" @click="learningFlowModalOpen = false">Close</UiButton>
                     </div>
@@ -664,12 +664,12 @@ onMounted(async () => {
                         {{ showFlowDetails ? 'Hide details' : `How does ${selectedFlowProfile?.name ?? 'this flow'} work?` }}
                     </button>
                     <div v-if="showFlowDetails" class="mt-3 space-y-3 rounded-spa-lg border border-primary/20 bg-primary/5 p-4 text-sm">
-                        <div><div class="font-semibold text-fg">Главная цель</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.goal }}</p></div>
-                        <div><div class="font-semibold text-fg">Как идёт обучение</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.sequence }}</p></div>
-                        <div><div class="font-semibold text-fg">Как принимает решения adaptive-алгоритм</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.algorithm }}</p></div>
+                        <div><div class="font-semibold text-fg">Main goal</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.goal }}</p></div>
+                        <div><div class="font-semibold text-fg">How learning goes</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.sequence }}</p></div>
+                        <div><div class="font-semibold text-fg">How the adaptive algorithm decides</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.algorithm }}</p></div>
                         <div class="grid gap-3 border-t border-primary/15 pt-3 sm:grid-cols-2">
-                            <div><div class="font-semibold text-fg">Кому подходит</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.bestFor }}</p></div>
-                            <div><div class="font-semibold text-fg">Компромисс</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.tradeoff }}</p></div>
+                            <div><div class="font-semibold text-fg">Best for</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.bestFor }}</p></div>
+                            <div><div class="font-semibold text-fg">Trade-off</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.tradeoff }}</p></div>
                         </div>
                     </div>
 
