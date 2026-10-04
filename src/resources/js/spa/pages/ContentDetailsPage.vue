@@ -62,6 +62,7 @@ const explanationModal = ref<{
     language: string | null;
     explanation: string;
     loading: boolean;
+    regenerating: boolean;
     error: string;
 } | null>(null);
 const explainTarget = ref<LexemeWithLearned | null>(null);
@@ -89,27 +90,42 @@ function practiceContext(ids: number[]) {
     router.push({ name: 'context-practice', query: { content_id: String(contentId.value), lexeme_ids: ids.join(',') } });
 }
 
-async function explainWord(lexeme: (typeof lexemes.value)[number]) {
+async function explainWord(lexeme: (typeof lexemes.value)[number], refresh = false) {
     explainTarget.value = lexeme;
-    explanationModal.value = {
-        lexemeText: lexeme.text,
-        translation: lexeme.translation ?? null,
-        language: content.value?.language ?? null,
-        explanation: '',
-        loading: true,
-        error: '',
-    };
-    const result = await explainLexeme(lexeme);
+    if (!refresh) {
+        explanationModal.value = {
+            lexemeText: lexeme.text,
+            translation: lexeme.translation ?? null,
+            language: content.value?.language ?? null,
+            explanation: '',
+            loading: true,
+            regenerating: false,
+            error: '',
+        };
+    } else if (explanationModal.value) {
+        explanationModal.value = { ...explanationModal.value, regenerating: true, error: '' };
+    }
+    const result = await explainLexeme(lexeme, refresh);
     if (explanationModal.value === null) return;
     if (result) {
-        explanationModal.value = { ...explanationModal.value, explanation: result.explanation, loading: false };
+        explanationModal.value = { ...explanationModal.value, explanation: result.explanation, loading: false, regenerating: false };
     } else {
-        explanationModal.value = { ...explanationModal.value, loading: false, error: explainError.value || 'Failed to get explanation.' };
+        explanationModal.value = { ...explanationModal.value, loading: false, regenerating: false, error: explainError.value || 'Failed to get explanation.' };
     }
 }
 
 function retryExplanation() {
     if (explainTarget.value) void explainWord(explainTarget.value);
+}
+
+function regenerateExplanation() {
+    if (explainTarget.value) void explainWord(explainTarget.value, true);
+}
+
+function toggleExplanationReview() {
+    if (!explainTarget.value) return;
+    if (explainTarget.value.in_review) void stopLearning(explainTarget.value);
+    else void startLearning(explainTarget.value);
 }
 
 const grammarRules = ref<GrammarRule[]>([]);
@@ -659,8 +675,15 @@ onMounted(() => {
                 :explanation="explanationModal.explanation"
                 :loading="explanationModal.loading"
                 :error="explanationModal.error"
+                show-review-toggle
+                :in-review="explainTarget?.in_review ?? false"
+                :review-pending="startingReviewId === explainTarget?.id"
+                show-regenerate
+                :regenerating="explanationModal.regenerating"
                 @close="explanationModal = null"
                 @retry="retryExplanation"
+                @toggle-review="toggleExplanationReview"
+                @regenerate="regenerateExplanation"
             />
         </div>
     </PageState>

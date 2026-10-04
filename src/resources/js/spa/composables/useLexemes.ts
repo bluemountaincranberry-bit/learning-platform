@@ -163,11 +163,11 @@ export function useLexemes() {
      * Request AI explanation for a lexeme. Returns payload for modal or null on error.
      * Sets explainError and aiUnavailable on 503/403.
      */
-    async function explainLexeme(lexeme: LexemeWithLearned): Promise<{ lexemeText: string; explanation: string } | null> {
+    async function explainLexeme(lexeme: LexemeWithLearned, refresh = false): Promise<{ lexemeText: string; explanation: string } | null> {
         explainingId.value = lexeme.id;
         explainError.value = '';
         try {
-            const data = await contentApi.explainLexeme(lexeme.id);
+            const data = await contentApi.explainLexeme(lexeme.id, refresh);
             return { lexemeText: lexeme.text, explanation: data.explanation };
         } catch (e: unknown) {
             const err = e as { response?: { status?: number; data?: { message?: string } } };

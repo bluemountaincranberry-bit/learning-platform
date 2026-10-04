@@ -49,6 +49,7 @@ const explanationModal = ref<{
     language: string | null;
     explanation: string;
     loading: boolean;
+    regenerating: boolean;
     error: string;
 } | null>(null);
 const explainTarget = ref<MyWordItem | null>(null);
@@ -204,23 +205,28 @@ async function markSelectedKnown() {
     }
 }
 
-async function explain(row: MyWordItem) {
+async function explain(row: MyWordItem, refresh = false) {
     if (row.content_lexeme_id === null) return;
     explainTarget.value = row;
     explainingId.value = row.id;
-    explanationModal.value = {
-        lexemeText: row.lexeme,
-        translation: row.translation ?? null,
-        language: row.language ?? null,
-        explanation: '',
-        loading: true,
-        error: '',
-    };
+    if (!refresh) {
+        explanationModal.value = {
+            lexemeText: row.lexeme,
+            translation: row.translation ?? null,
+            language: row.language ?? null,
+            explanation: '',
+            loading: true,
+            regenerating: false,
+            error: '',
+        };
+    } else if (explanationModal.value) {
+        explanationModal.value = { ...explanationModal.value, regenerating: true, error: '' };
+    }
     explainError.value = '';
     try {
-        const data = await contentApi.explainLexeme(row.content_lexeme_id);
+        const data = await contentApi.explainLexeme(row.content_lexeme_id, refresh);
         if (explanationModal.value !== null) {
-            explanationModal.value = { ...explanationModal.value, explanation: data.explanation, loading: false };
+            explanationModal.value = { ...explanationModal.value, explanation: data.explanation, loading: false, regenerating: false };
         }
     } catch (e: unknown) {
         const err = e as { response?: { status?: number; data?: { message?: string } } };
@@ -231,7 +237,7 @@ async function explain(row: MyWordItem) {
             explainError.value = err.response?.data?.message ?? 'Failed to get explanation.';
         }
         if (explanationModal.value !== null) {
-            explanationModal.value = { ...explanationModal.value, loading: false, error: explainError.value };
+            explanationModal.value = { ...explanationModal.value, loading: false, regenerating: false, error: explainError.value };
         }
     } finally {
         explainingId.value = null;
@@ -240,6 +246,10 @@ async function explain(row: MyWordItem) {
 
 function retryExplanation() {
     if (explainTarget.value) void explain(explainTarget.value);
+}
+
+function regenerateExplanation() {
+    if (explainTarget.value) void explain(explainTarget.value, true);
 }
 
 function closeExplanation() {
@@ -452,8 +462,11 @@ watch([activeStatus, filterLevel, search], () => {
             :explanation="explanationModal.explanation"
             :loading="explanationModal.loading"
             :error="explanationModal.error"
+            show-regenerate
+            :regenerating="explanationModal.regenerating"
             @close="closeExplanation"
             @retry="retryExplanation"
+            @regenerate="regenerateExplanation"
         />
     </div>
 </template>

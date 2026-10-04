@@ -145,3 +145,63 @@ test('dictionary explain returns 503 when AI feature is disabled', function () {
         ->postJson("/api/dictionary/{$word->id}/explain")
         ->assertStatus(503);
 });
+
+test('explain with refresh regenerates instead of reusing the stored variant', function () {
+    explainAiFake();
+    Queue::fake();
+    $user = explainUser();
+    $content = Content::factory()->create(['status' => 'ready', 'language' => 'en']);
+    $lexeme = $content->lexemes()->create(['type' => 'word', 'text' => 'hello', 'sort_order' => 1]);
+
+    $this->actingAs($user)->postJson("/api/lexemes/{$lexeme->id}/explain")->assertOk();
+    $this->actingAs($user)->postJson("/api/lexemes/{$lexeme->id}/explain", ['refresh' => true])->assertOk();
+
+    Http::assertSentCount(2);
+    expect(LexemeExplanation::query()->where('lexeme_id', $lexeme->fresh()->lexeme_id)->count())->toBe(1);
+});
+
+test('dictionary explanation variant can be deleted', function () {
+    explainAiFake();
+    Queue::fake();
+    $user = explainUser();
+    $content = Content::factory()->create(['status' => 'ready', 'language' => 'en']);
+    $lexeme = $content->lexemes()->create(['type' => 'word', 'text' => 'hello', 'sort_order' => 1]);
+
+    $this->actingAs($user)->postJson("/api/lexemes/{$lexeme->id}/explain")->assertOk();
+
+    $wordId = $lexeme->fresh()->lexeme_id;
+    $explanationId = LexemeExplanation::query()->where('lexeme_id', $wordId)->value('id');
+
+    $this->actingAs($user)
+        ->deleteJson("/api/dictionary/{$wordId}/explanations/{$explanationId}")
+        ->assertOk();
+
+    expect(LexemeExplanation::query()->where('lexeme_id', $wordId)->count())->toBe(0);
+
+    $this->actingAs($user)
+        ->getJson("/api/dictionary/{$wordId}")
+        ->assertOk()
+        ->assertJsonPath('lexeme.explanations', []);
+});
+
+test('deleting another word explanation variant returns 404', function () {
+    explainAiFake();
+    Queue::fake();
+    $user = explainUser();
+    $content = Content::factory()->create(['status' => 'ready', 'language' => 'en']);
+    $lexeme = $content->lexemes()->create(['type' => 'word', 'text' => 'hello', 'sort_order' => 1]);
+
+    $this->actingAs($user)->postJson("/api/lexemes/{$lexeme->id}/explain")->assertOk();
+
+    $other = Lexeme::query()->create([
+        'slug' => 'en-world',
+        'language' => 'en',
+        'lemma' => 'world',
+        'normalized_lemma' => 'world',
+    ]);
+    $explanationId = LexemeExplanation::query()->value('id');
+
+    $this->actingAs($user)
+        ->deleteJson("/api/dictionary/{$other->id}/explanations/{$explanationId}")
+        ->assertNotFound();
+});

@@ -21,10 +21,13 @@ final class LexemeExplanationService implements LexemeExplanationCapability
     /**
      * @throws AiClientException
      */
-    public function explain(string $lexemeText, ?string $language = null, ?int $contentLexemeId = null): string
+    public function explain(string $lexemeText, ?string $language = null, ?int $contentLexemeId = null, bool $refresh = false): string
     {
         $cacheKey = $contentLexemeId !== null ? $this->cacheKey($contentLexemeId, $language) : null;
-        if ($cacheKey !== null && config('ai.explain_cache_enabled', true)) {
+        if ($refresh && $cacheKey !== null) {
+            Cache::forget($cacheKey);
+        }
+        if ($cacheKey !== null && ! $refresh && config('ai.explain_cache_enabled', true)) {
             $cached = Cache::get($cacheKey);
             if (is_string($cached)) {
                 return $cached;

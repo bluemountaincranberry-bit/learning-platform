@@ -99,8 +99,11 @@ async function submit() {
                 <UiButton v-if="!isRecording && !audioBlob" class="min-h-11 w-full sm:col-span-2" size="sm" variant="primary" @click="start"><Mic :size="16" aria-hidden="true" />Record your voice</UiButton>
                 <UiButton v-else-if="isRecording" class="min-h-11 w-full sm:col-span-2" size="sm" variant="danger" @click="stop"><Square :size="15" aria-hidden="true" />Stop recording · {{ elapsedSeconds }}s</UiButton>
                 <template v-else>
-                    <UiButton class="min-h-11 w-full sm:col-span-2" size="sm" variant="secondary" @click="playRecording">
-                        <Square v-if="isPlayingBack" :size="15" aria-hidden="true" /><Volume2 v-else :size="16" aria-hidden="true" />{{ isPlayingBack ? 'Stop' : 'Listen to my recording' }}
+                    <UiButton class="min-h-11 w-full" size="sm" variant="secondary" @click="props.play?.()">
+                        <Volume2 :size="16" aria-hidden="true" />Original
+                    </UiButton>
+                    <UiButton class="min-h-11 w-full" size="sm" variant="secondary" @click="playRecording">
+                        <Square v-if="isPlayingBack" :size="15" aria-hidden="true" /><Play v-else :size="16" aria-hidden="true" />{{ isPlayingBack ? 'Stop mine' : 'My recording' }}
                     </UiButton>
                     <UiButton class="min-h-11 w-full" size="sm" variant="secondary" @click="reset"><Mic :size="16" aria-hidden="true" />Record again</UiButton>
                     <UiButton class="min-h-11 w-full" size="sm" variant="primary" :disabled="busy" @click="submit"><Check :size="16" aria-hidden="true" />{{ busy ? 'Checking…' : 'Check pronunciation' }}</UiButton>

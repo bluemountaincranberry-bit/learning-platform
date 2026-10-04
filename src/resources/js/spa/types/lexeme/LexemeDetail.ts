@@ -29,6 +29,7 @@ export interface LexemeFormItem {
 
 /** One saved AI explanation variant with its source content (null = generic, from this page). */
 export interface LexemeDetailExplanation {
+    id: number;
     explanation: string;
     content: { id: number; title: string } | null;
 }

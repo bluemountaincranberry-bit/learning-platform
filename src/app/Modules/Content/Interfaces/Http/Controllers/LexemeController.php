@@ -102,6 +102,7 @@ class LexemeController extends Controller
                 'explanations' => $word->explanations
                     ->where('language', $word->language)
                     ->map(fn (LexemeExplanation $explanation): array => [
+                        'id' => $explanation->id,
                         'explanation' => $explanation->explanation,
                         'content' => $explanation->content ? [
                             'id' => $explanation->content->id,
@@ -258,11 +259,13 @@ class LexemeController extends Controller
         $this->authorize('view', $lexeme->content);
 
         $language = $lexeme->content->language ?? null;
+        $refresh = $request->boolean('refresh');
 
         // Durable read-through per content-context: an explanation generated
         // from this content is reused; a new content gets a fresh one, so the
-        // word page can show every variant with its source.
-        $stored = $lexeme->lexeme_id !== null
+        // word page can show every variant with its source. ?refresh=1 forces
+        // a new generation and overwrites the stored variant.
+        $stored = ($lexeme->lexeme_id !== null && ! $refresh)
             ? LexemeExplanation::query()
                 ->where('lexeme_id', $lexeme->lexeme_id)
                 ->where('language', $language ?? '')
@@ -272,20 +275,22 @@ class LexemeController extends Controller
         if ($stored !== null) {
             LexemeExplanationRequested::dispatch($request->user()->id, $lexeme->id, 'study_screen');
 
-            return response()->json(['explanation' => $stored->explanation]);
+            return response()->json(['explanation' => $stored->explanation, 'explanation_id' => $stored->id]);
         }
 
         try {
-            $explanation = $this->explanationCapability->explain($lexeme->text, $language, $lexeme->id);
+            $explanation = $this->explanationCapability->explain($lexeme->text, $language, $lexeme->id, $refresh);
         } catch (AiClientException $e) {
             return response()->json(['message' => 'AI service unavailable.'], 503);
         }
 
+        $explanationId = null;
         if ($lexeme->lexeme_id !== null) {
-            LexemeExplanation::updateOrCreate(
+            $record = LexemeExplanation::updateOrCreate(
                 ['lexeme_id' => $lexeme->lexeme_id, 'language' => $language ?? '', 'content_id' => $lexeme->content_id],
                 ['explanation' => $explanation],
             );
+            $explanationId = $record->id;
         }
 
         LexemeExplanationRequested::dispatch(
@@ -294,7 +299,7 @@ class LexemeController extends Controller
             'study_screen'
         );
 
-        return response()->json(['explanation' => $explanation]);
+        return response()->json(['explanation' => $explanation, 'explanation_id' => $explanationId]);
     }
 
     /**
@@ -309,32 +314,50 @@ class LexemeController extends Controller
         }
 
         $language = $word->language ?? '';
+        $refresh = $request->boolean('refresh');
 
-        $stored = LexemeExplanation::query()
-            ->where('lexeme_id', $word->id)
-            ->where('language', $language)
-            ->whereNull('content_id')
-            ->first();
+        $stored = ! $refresh
+            ? LexemeExplanation::query()
+                ->where('lexeme_id', $word->id)
+                ->where('language', $language)
+                ->whereNull('content_id')
+                ->first()
+            : null;
         if ($stored !== null) {
             LexemeExplanationRequested::dispatch($request->user()->id, $word->id, 'word_page');
 
-            return response()->json(['explanation' => $stored->explanation]);
+            return response()->json(['explanation' => $stored->explanation, 'explanation_id' => $stored->id]);
         }
 
         try {
-            $explanation = $this->explanationCapability->explain($word->lemma, $word->language);
+            $explanation = $this->explanationCapability->explain($word->lemma, $word->language, null, $refresh);
         } catch (AiClientException $e) {
             return response()->json(['message' => 'AI service unavailable.'], 503);
         }
 
-        LexemeExplanation::updateOrCreate(
+        $record = LexemeExplanation::updateOrCreate(
             ['lexeme_id' => $word->id, 'language' => $language, 'content_id' => null],
             ['explanation' => $explanation],
         );
 
         LexemeExplanationRequested::dispatch($request->user()->id, $word->id, 'word_page');
 
-        return response()->json(['explanation' => $explanation]);
+        return response()->json(['explanation' => $explanation, 'explanation_id' => $record->id]);
+    }
+
+    /**
+     * Delete one stored explanation variant from the word page. A mismatched
+     * pair (explanation of another word) is a 404, not a silent no-op.
+     */
+    public function destroyExplanation(Request $request, Lexeme $word, LexemeExplanation $explanation): JsonResponse
+    {
+        if ($explanation->lexeme_id !== $word->id) {
+            abort(404);
+        }
+
+        $explanation->delete();
+
+        return response()->json(['ok' => true]);
     }
 
     /**

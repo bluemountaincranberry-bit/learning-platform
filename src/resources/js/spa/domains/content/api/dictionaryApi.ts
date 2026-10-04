@@ -12,7 +12,12 @@ export const dictionaryApi = {
     },
 
     /** AI explanation for a canonical word — generated on demand, then saved and reused. */
-    explain(id: string | number): Promise<{ explanation: string }> {
-        return axios.post(`/api/dictionary/${id}/explain`).then((r) => r.data);
+    explain(id: string | number, refresh = false): Promise<{ explanation: string; explanation_id: number | null }> {
+        return axios.post(`/api/dictionary/${id}/explain`, undefined, { params: refresh ? { refresh: 1 } : undefined }).then((r) => r.data);
+    },
+
+    /** Delete one stored explanation variant from the word page. */
+    deleteExplanation(wordId: string | number, explanationId: number): Promise<{ ok: boolean }> {
+        return axios.delete(`/api/dictionary/${wordId}/explanations/${explanationId}`).then((r) => r.data);
     },
 };
