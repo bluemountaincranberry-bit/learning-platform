@@ -1,4 +1,4 @@
-import { createApp } from 'vue';
+import { createApp, watch } from 'vue';
 import { createPinia } from 'pinia';
 import { VueQueryPlugin } from '@tanstack/vue-query';
 import router from './router';
@@ -7,6 +7,8 @@ import { setupAxiosInterceptors } from './infrastructure/http/axiosInterceptors'
 import { useAuthStore } from './stores/authStore';
 import { queryClient } from './infrastructure/query';
 
+import { registerPwa } from './infrastructure/pwa/registerPwa';
+
 import '../bootstrap';
 
 const app = createApp(App);
@@ -14,10 +16,21 @@ const pinia = createPinia();
 
 app.use(pinia);
 app.use(VueQueryPlugin, { queryClient });
-app.use(router);
-setupAxiosInterceptors(router);
-
-const authStore = useAuthStore();
-authStore.checkAuth();
-
-app.mount('#app');
+async function boot() {
+    const authStore = useAuthStore();
+    const synchronizeOfflineSession = await registerPwa();
+    await synchronizeOfflineSession(authStore.token).catch(() => {});
+    watch(() => authStore.token, (token) => { void synchronizeOfflineSession(token).catch(() => {}); }, { flush: 'sync' });
+    authStore.$onAction(({ name }) => {
+        if (name === 'logout' || name === 'clearAuth') void synchronizeOfflineSession(null).catch(() => {});
+    });
+    // Other tabs must not retain the previous learner's session after an account switch.
+    window.addEventListener('storage', (event) => {
+        if ((event.key === 'auth_token' || event.key === null) && localStorage.getItem('auth_token') !== authStore.token) window.location.reload();
+    });
+    setupAxiosInterceptors(router);
+    app.use(router);
+    void authStore.checkAuth();
+    app.mount('#app');
+}
+void boot();
