@@ -239,7 +239,7 @@ onUnmounted(() => {
                     <UiSectionHeader title="Words" :subtitle="`${lesson.lexemes.length} from this lesson`" />
                     <UiEmptyState v-if="lesson.lexemes.length === 0" title="Nothing yet" description="Tap “Analyze lesson” once you have written your notes." />
                     <div v-else class="space-y-2">
-                        <WordRow v-for="w in lesson.lexemes" :key="w.id" :text="w.text" :translation="w.translation" :level="w.level" :lexeme-id="w.matched_lexeme_id" :example="w.example" :examples="w.example ? [{ example: w.example, translation: w.example_translation, is_primary: true }] : []">
+                        <WordRow v-for="w in lesson.lexemes" :key="w.id" :text="w.text" :language="w.language" :translation="w.translation" :level="w.level" :lexeme-id="w.matched_lexeme_id" :example="w.example" :examples="w.example ? [{ example: w.example, translation: w.example_translation, is_primary: true }] : []">
                             <span class="text-xs text-muted-foreground">{{ w.status === 'matched' ? 'Already in your dictionary' : 'New' }}</span>
                         </WordRow>
                     </div>

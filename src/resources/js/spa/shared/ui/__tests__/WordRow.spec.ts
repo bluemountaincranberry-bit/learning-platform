@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import WordRow from '../WordRow.vue';
 
@@ -13,10 +13,12 @@ describe('WordRow', () => {
         expect(wrapper.emitted('toggleSelect')).toHaveLength(1);
         expect(wrapper.find('a').exists()).toBe(false);
         await wrapper.get('button[aria-expanded]').trigger('click');
+        await flushPromises();
         expect(wrapper.get('a').attributes('href')).toBe('/word/42');
         expect(wrapper.text()).toContain('I run daily.');
         await wrapper.get('button[aria-label="Show example translation"]').trigger('click');
         expect(wrapper.text()).toContain('Я бегаю каждый день.');
+        expect(wrapper.get('button[aria-label="Hide example translation"]').classes()).toContain('min-h-11');
     });
     it('shows an unresolved lesson word without inventing a dictionary link', () => {
         const wrapper = mount(WordRow, { props: { text: 'new phrase', defaultExpanded: true }, global: { plugins: [router] } });

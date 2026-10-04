@@ -15,6 +15,7 @@ Colors and radii are centralized in **`resources/css/app.css`** as CSS variables
 | `--spa-border`, `--spa-border-strong` | Borders |
 | `--spa-fg`, `--spa-fg-secondary` | Text (primary / secondary) |
 | `--spa-radius`, `--spa-radius-lg` | Border radius |
+| `--spa-mobile-nav-height` | Sticky learner actions clear the fixed mobile navigation |
 
 ## Tailwind classes (semantic)
 
@@ -69,13 +70,17 @@ candidate ID. Pass null for unresolved candidates; no dictionary link is invente
 Mutations still use the occurrence ID required by the current API. Hide actions
 that the page cannot perform (e.g. pending lesson candidates). `row-actions` is
 for short status badges and icon actions; use `actions` for labelled buttons.
-Source links and associations go in the expanded slots. Use 44px tap targets.
+Source links and associations go in the expanded slots. Lesson candidates carry
+their analysis run language for word and example pronunciation; no browser-language
+guess is used. Interactive controls have 44px hit areas, including the compact
+32px speech icon and example translation disclosure.
 
 ### GrammarCard
 
 Title, optional level, a one-line summary, status and independent primary/secondary
 actions. The title uses an actual RouterLink; action buttons never nest in it.
-Catalog, My grammar and lesson grammar share this presentation.
+Catalog, My grammar and lesson grammar share this presentation. `statusTone`
+is independent of the status label; pass `success` for learned rules.
 
 ```vue
 <GrammarCard :title="rule.title" :rule-id="rule.id" :level="rule.level"

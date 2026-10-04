@@ -39,7 +39,7 @@ const html = computed(() => {
 .markdown-content :deep(img) { max-width: 100%; height: auto; }
 .markdown-content :deep(pre),
 .markdown-content :deep(table) { display: block; max-width: 100%; overflow-x: auto; }
-.markdown-content :deep(a) { color: var(--color-primary); text-decoration: underline; }
+.markdown-content :deep(a) { color: var(--spa-primary); text-decoration: underline; }
 .markdown-content :deep(a.learning-mention) {
     display: inline-flex;
     align-items: center;
@@ -47,7 +47,7 @@ const html = computed(() => {
     max-width: 100%;
     padding: 0 0.5rem;
     border-radius: 0.5rem;
-    background: var(--color-primary-soft, rgb(99 102 241 / 0.12));
+    background: hsl(var(--primary) / 0.12);
     white-space: normal;
 }
 .markdown-content :deep(h1),

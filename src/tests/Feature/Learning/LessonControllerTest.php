@@ -253,3 +253,19 @@ test('another users lesson is absent from the list and cannot be read messaged o
     test()->postJson("/api/lessons/{$lesson->id}/analyze")->assertNotFound();
     Queue::assertNothingPushed();
 });
+
+test('lesson word payload preserves each analysis source language for pronunciation', function () {
+    $user = actingLessonStudent();
+    $lesson = Lesson::query()->create(['user_id' => $user->id, 'status' => Lesson::STATUS_ACTIVE]);
+    foreach (['fr', 'de'] as $language) {
+        $run = $lesson->analysisRuns()->create(['language' => $language, 'status' => 'completed']);
+        $run->lexemeCandidates()->create([
+            'text' => "word-{$language}", 'normalized_text' => "word-{$language}",
+            'type' => 'word', 'status' => 'new',
+        ]);
+    }
+
+    test()->getJson("/api/lessons/{$lesson->id}")->assertOk()
+        ->assertJsonPath('lexemes.0.language', 'de')
+        ->assertJsonPath('lexemes.1.language', 'fr');
+});

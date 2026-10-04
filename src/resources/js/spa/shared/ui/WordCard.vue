@@ -8,7 +8,7 @@ defineProps<{ text: string; lexemeId?: number | null; language?: string | null; 
 </script>
 
 <template>
-    <div class="min-w-0 space-y-2 break-words px-3 pb-3">
+    <div class="min-w-0 space-y-2 [overflow-wrap:anywhere] px-3 pb-3">
         <SpeakButton :text="text" :language="language" />
         <slot />
         <WordExamples :examples="examples" :fallback-example="example" :language="language" :truncate="false" />

@@ -4,6 +4,7 @@
 
 /* Design tokens — single source for SPA colors and spacing */
 :root {
+    --spa-mobile-nav-height: 4.75rem;
     --background: 0 0% 98%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;

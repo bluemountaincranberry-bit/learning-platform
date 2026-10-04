@@ -152,7 +152,7 @@ watch(filterStatus, () => {
 
             <template v-else>
                 <UiCard class="space-y-3">
-                    <GrammarCard v-for="row in items" :key="row.id" :title="row.title ?? 'Grammar rule'" :rule-id="row.grammar_rule_id" :level="row.level" :summary="row.summary" :status="row.status === 'learned' ? 'Learned' : 'Learning'">
+                    <GrammarCard v-for="row in items" :key="row.id" :title="row.title ?? 'Grammar rule'" :rule-id="row.grammar_rule_id" :level="row.level" :summary="row.summary" :status="row.status === 'learned' ? 'Learned' : 'Learning'" :status-tone="row.status === 'learned' ? 'success' : 'primary'">
                         <span class="text-xs text-muted-foreground">{{ row.status === 'learned' ? `Learned ${formatDate(row.learned_at ?? '')}` : `Started ${formatDate(row.started_at ?? '')}` }}</span>
                         <UiBadge v-if="row.topic" tone="neutral">{{ row.topic.name }}</UiBadge>
                         <template #actions>

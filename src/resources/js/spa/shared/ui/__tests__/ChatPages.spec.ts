@@ -3,7 +3,8 @@ import { mount, flushPromises } from '@vue/test-utils';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import ChatPage from '../../../pages/ChatPage.vue';
 import LessonDetailPage from '../../../pages/LessonDetailPage.vue';
-const api = vi.hoisted(() => ({ createConversation: vi.fn(), streamMessage: vi.fn(), get: vi.fn(), listMessages: vi.fn(), sendMessage: vi.fn() }));
+const api = vi.hoisted(() => ({ createConversation: vi.fn(), streamMessage: vi.fn(), get: vi.fn(), listMessages: vi.fn(), sendMessage: vi.fn(), speak: vi.fn() }));
+vi.mock('../../../shared/lib/speech', () => ({ isSpeechSupported: () => true, speak: api.speak }));
 vi.mock('../../../domains/ai', () => ({ tutorApi: api }));
 vi.mock('../../../domains/user', () => ({ useAuthStore: () => ({ isAuthenticated: true, canAccessTutorAgent: true }) }));
 vi.mock('../../../domains/learning', () => ({ lessonApi: api }));
@@ -63,6 +64,18 @@ describe('chat page retry seams', () => {
         await button(wrapper, 'Try again').trigger('click');
         await flushPromises();
         expect(api.sendMessage.mock.calls[1]).toEqual([3, 'Original notes', file]);
+    });
+
+    it('pronounces lesson words and examples in their source language', async () => {
+        api.get.mockResolvedValue({ id: 3, title: 'French lesson', grammar: [], lexemes: [{ id: 4, text: 'bonjour', language: 'fr', example: 'Bonjour tout le monde.', example_translation: 'Hello everyone.', status: 'new' }] });
+        api.listMessages.mockResolvedValue({ messages: [], is_waiting: false });
+        const wrapper = await renderPage(LessonDetailPage, '/lessons/3');
+        await flushPromises();
+        await wrapper.get('button[aria-label="bonjour. Show details"]').trigger('click');
+        await wrapper.get('button[aria-label="Pronounce bonjour"]').trigger('click');
+        expect(api.speak).toHaveBeenCalledWith('bonjour', 'fr');
+        await wrapper.get('button[aria-label="Pronounce Bonjour tout le monde."]').trigger('click');
+        expect(api.speak).toHaveBeenCalledWith('Bonjour tout le monde.', 'fr');
     });
 
 });
