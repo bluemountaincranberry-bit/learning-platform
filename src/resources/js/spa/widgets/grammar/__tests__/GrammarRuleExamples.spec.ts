@@ -60,6 +60,65 @@ describe('GrammarRuleExamples', () => {
         expect(wrapper.text()).toContain('AI');
     });
 
+    it('falls back to plain text when an example has no marked form', async () => {
+        api.getExamples.mockResolvedValue({
+            examples: [example(1, { target_spans: null }), example(2, { target_spans: [] })],
+            generation: { status: 'idle' },
+        });
+
+        const wrapper = mountExamples();
+        await flushPromises();
+
+        expect(wrapper.find('[data-test="example-target"]').exists()).toBe(false);
+        expect(wrapper.findAll('[data-test="example-text"]').map((node) => node.text())).toEqual(['She works 1.', 'She works 2.']);
+    });
+
+    it('shows 3 examples first and the rest on Show all', async () => {
+        api.getExamples.mockResolvedValue({ examples: [1, 2, 3, 4, 5].map((id) => example(id)), generation: { status: 'idle' } });
+
+        const wrapper = mountExamples();
+        await flushPromises();
+
+        expect(wrapper.findAll('[data-test="example"]')).toHaveLength(3);
+        const toggle = wrapper.get('[data-test="examples-toggle"]');
+        expect(toggle.text()).toContain('Show all 5 examples');
+        expect(toggle.attributes('aria-expanded')).toBe('false');
+
+        await toggle.trigger('click');
+        expect(wrapper.findAll('[data-test="example"]')).toHaveLength(5);
+        expect(wrapper.get('[data-test="examples-toggle"]').text()).toContain('Show fewer');
+        expect(wrapper.get('[data-test="examples-toggle"]').attributes('aria-expanded')).toBe('true');
+
+        await wrapper.get('[data-test="examples-toggle"]').trigger('click');
+        expect(wrapper.findAll('[data-test="example"]')).toHaveLength(3);
+    });
+
+    it('has no Show all toggle for 3 examples or fewer', async () => {
+        api.getExamples.mockResolvedValue({ examples: [1, 2, 3].map((id) => example(id)), generation: { status: 'idle' } });
+
+        const wrapper = mountExamples();
+        await flushPromises();
+
+        expect(wrapper.findAll('[data-test="example"]')).toHaveLength(3);
+        expect(wrapper.find('[data-test="examples-toggle"]').exists()).toBe(false);
+    });
+
+    it('opens the full list after More examples so new ones are visible', async () => {
+        const firstThree = [1, 2, 3].map((id) => example(id));
+        api.getExamples
+            .mockResolvedValueOnce({ examples: firstThree, generation: { status: 'idle' } })
+            .mockResolvedValueOnce({ examples: [...firstThree, example(4), example(5)], generation: { status: 'done' } });
+        api.generateExamples.mockResolvedValue({ status: 'queued' });
+
+        const wrapper = mountExamples();
+        await flushPromises();
+        await wrapper.get('[data-test="examples-more"]').trigger('click');
+        await vi.advanceTimersByTimeAsync(10);
+        await flushPromises();
+
+        expect(wrapper.findAll('[data-test="example"]')).toHaveLength(5);
+    });
+
     it('asks for more examples and polls until the batch is done', async () => {
         api.getExamples
             .mockResolvedValueOnce({ examples: [example(1)], generation: { status: 'idle' } })
