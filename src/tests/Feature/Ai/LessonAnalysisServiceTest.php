@@ -113,3 +113,45 @@ test('analyze drops an invalid CEFR level to null', function () {
 
     expect($run->lexemeCandidates()->first()->level)->toBeNull();
 });
+
+test('analyze sends every part of a long lesson to the model and merges the results', function () {
+    config(['ai.analysis.lesson_chunk_chars' => 300]);
+
+    $lines = array_map(fn ($i) => "item{$i} is a phrase to learn", range(1, 60));
+    $run = makeLessonAnalysisRun(implode("\n", $lines));
+
+    $client = Mockery::mock(AiJsonClient::class);
+    $seen = '';
+    $client->shouldReceive('completeJson')
+        ->atLeast()->times(2)
+        ->andReturnUsing(function ($system, $user) use (&$seen) {
+            $seen .= "\n".$user;
+            preg_match_all('/item(\d+)/', $user, $m);
+
+            return [
+                'lexemes' => array_map(fn ($n) => ['text' => "item{$n}", 'translation' => 'x'], $m[1]),
+                'grammar' => [],
+            ];
+        });
+
+    makeLessonAnalysisService($client)->analyze($run->id);
+
+    expect($seen)->toContain('item1 ')->toContain('item60 ')
+        ->and($run->lexemeCandidates()->count())->toBe(60);
+});
+
+test('analyze keeps going when one part of a long lesson finds nothing', function () {
+    config(['ai.analysis.lesson_chunk_chars' => 100]);
+    $run = makeLessonAnalysisRun(str_repeat('some filler words here ', 20)."\nto encourage smn to do smth");
+
+    $client = Mockery::mock(AiJsonClient::class);
+    $client->shouldReceive('completeJson')->andReturnUsing(function ($system, $user) {
+        return str_contains($user, 'encourage')
+            ? ['lexemes' => [['text' => 'to encourage smn to do smth']], 'grammar' => []]
+            : ['lexemes' => [], 'grammar' => []];
+    });
+
+    makeLessonAnalysisService($client)->analyze($run->id);
+
+    expect($run->lexemeCandidates()->pluck('text')->all())->toBe(['to encourage smn to do smth']);
+});

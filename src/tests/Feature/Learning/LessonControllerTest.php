@@ -126,7 +126,7 @@ test('storeMessage stores an attached PDF on the local disk and records it on th
     Queue::assertPushed(RunAgentTurnJob::class);
 
     $extractor = Mockery::mock(\App\Modules\Content\Application\Contracts\PdfTextExtractorInterface::class);
-    $extractor->shouldReceive('extractFromPath')->once()->andReturn('We practiced get up in the PDF.');
+    $extractor->shouldReceive('extractFromPath')->twice()->andReturn('We practiced get up in the PDF.');
     app()->instance(\App\Modules\Content\Application\Contracts\PdfTextExtractorInterface::class, $extractor);
     $client = Mockery::mock(\App\Contracts\Ai\AiToolCallingClient::class);
     $client->shouldReceive('chat')->twice()->andReturn(

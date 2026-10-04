@@ -13,12 +13,11 @@ use Illuminate\Support\Str;
 /**
  * Lesson-scoped analog of `AiContentAnalysisService`, deliberately kept
  * separate rather than generalizing that service to accept a Lesson —
- * `AiContentAnalysisService` also owns transcript-chunking and a
- * coverage-triggered auto-retry built for long video transcripts
- * (docs/architecture, task 9.1); a lesson's accumulated chat/notes text is
- * short by comparison, and reusing that machinery here would mean either
- * threading a Content-shaped abstraction through it or carrying dead
- * complexity into a simpler use case. Both services intentionally use the
+ * `AiContentAnalysisService` also owns a coverage-triggered auto-retry built
+ * for video transcripts (docs/architecture, task 9.1), which would mean
+ * threading a Content-shaped abstraction through it. Long notes and PDFs are
+ * analyzed in parts via the shared `TextChunker`, one traced call per part
+ * (docs/architecture/lesson-analysis-coverage.md). Both services intentionally use the
  * same response JSON shape (see responseSchema()) so LessonLexemeCandidate/
  * LessonGrammarCandidate mirror ContentLexemeCandidate/ContentGrammarCandidate
  * column-for-column.
@@ -37,6 +36,7 @@ class LessonAnalysisService
         private readonly TracedLlmCall $tracedCall,
         private readonly PromptRegistryInterface $promptRegistry,
         private readonly LessonAnalysisStoreInterface $lessons,
+        private readonly TextChunker $chunker = new TextChunker,
     ) {}
 
     /**
@@ -60,19 +60,29 @@ class LessonAnalysisService
             fn () => ['system' => $this->buildSystemPrompt($sourceLanguage, $translationLanguage), 'user' => '']
         );
 
-        $result = $this->tracedCall->completeJson(
-            $this->client,
-            TraceContext::newTrace(),
-            'lesson_analysis.completeJson',
-            ['feature' => 'lesson_analysis', 'run_id' => $run->id],
-            $rendered->system,
-            $text,
-            $this->responseSchema(),
-            $rendered->model,
-        );
+        // One trace per run; each part of a long document is its own traced,
+        // rate-limited call so nothing past the model's attention is dropped.
+        $trace = TraceContext::newTrace();
+        $chunks = $this->chunker->chunk($text, (int) config('ai.analysis.lesson_chunk_chars', 4000));
 
-        $lexemes = is_array($result['lexemes'] ?? null) ? $result['lexemes'] : [];
-        $grammar = is_array($result['grammar'] ?? null) ? $result['grammar'] : [];
+        $lexemes = [];
+        $grammar = [];
+
+        foreach ($chunks as $index => $chunk) {
+            $result = $this->tracedCall->completeJson(
+                $this->client,
+                $trace,
+                'lesson_analysis.completeJson',
+                ['feature' => 'lesson_analysis', 'run_id' => $run->id, 'chunk_index' => $index, 'chunk_count' => count($chunks)],
+                $rendered->system,
+                $chunk,
+                $this->responseSchema(),
+                $rendered->model,
+            );
+
+            array_push($lexemes, ...(is_array($result['lexemes'] ?? null) ? $result['lexemes'] : []));
+            array_push($grammar, ...(is_array($result['grammar'] ?? null) ? $result['grammar'] : []));
+        }
 
         if ($lexemes === [] && $grammar === []) {
             throw new AiClientException('AI analysis found no vocabulary or grammar in these notes.');
@@ -92,6 +102,8 @@ class LessonAnalysisService
             .'1. Notable words and phrases worth remembering: single words, phrasal verbs, idioms, collocations.'
             ." For each, give: a short translation into \"{$translationLanguage}\"; one example sentence with its translation into \"{$translationLanguage}\" (use an actual sentence from the notes if one is there, otherwise write a natural one); a CEFR level estimate (A1-C2); a brief note on why it stood out.\n"
             .'2. Grammar points the notes mention or demonstrate (tense usage, conditionals, passive voice, modal verbs, etc). For each: a short title, a one-sentence summary, one example sentence with its translation, a brief note.'."\n"
+            .'Be exhaustive: the notes may be a long word list or lesson handout, and the learner wants every item worth studying, not a curated handful. Return one entry for EVERY distinct word, phrase, phrasal verb, idiom or collocation that appears as an item in the text (each numbered or listed entry, each expression defined or glossed in the text), including the very last ones. Do not summarize, merge or skip items; keep the wording from the text for "text".'."
+"
             .'These are informal personal notes, not a polished transcript — extract what is genuinely there, do not invent content that is not implied by the text. If the notes barely mention grammar, return an empty grammar list rather than guessing.';
     }
 

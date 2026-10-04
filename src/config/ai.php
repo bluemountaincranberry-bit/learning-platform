@@ -164,6 +164,9 @@ return [
     'analysis' => [
         'translation_language' => env('AI_ANALYSIS_TRANSLATION_LANGUAGE', 'ru'),
         'max_transcript_chars' => (int) env('AI_ANALYSIS_MAX_TRANSCRIPT_CHARS', 8000),
+        // Lesson notes are analyzed in parts of at most this many characters,
+        // so a long handout/PDF is covered end to end (VIK-70).
+        'lesson_chunk_chars' => (int) env('AI_ANALYSIS_LESSON_CHUNK_CHARS', 4000),
         'match_threshold' => (float) env('AI_ANALYSIS_MATCH_THRESHOLD', 0.85),
         'min_lexeme_confidence' => (float) env('AI_ANALYSIS_MIN_LEXEME_CONFIDENCE', 0.7),
         // Fraction (0-1) of the transcript's distinct tokenizer-normalized words

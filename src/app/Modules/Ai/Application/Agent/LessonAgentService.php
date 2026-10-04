@@ -2,7 +2,6 @@
 
 namespace App\Modules\Ai\Application\Agent;
 
-use App\Contracts\Ai\LessonNotesWriterInterface;
 use App\Modules\Ai\Application\Agent\Contracts\AgentLoopObserver;
 use App\Modules\Ai\Application\Agent\Contracts\AgentService;
 use App\Modules\Ai\Application\Agent\Contracts\AgentTool;
@@ -130,16 +129,18 @@ class LessonAgentService implements AgentService
                     'latency_ms' => $latencyMs,
                 ]);
 
-                // Fold extracted PDF text into the lesson's accumulated
+                // Fold the PDF's full text into the lesson's accumulated
                 // notes, the same way a typed chat message does in
                 // LessonConversationController::storeMessage() — so
                 // "Разобрать урок" sees it without the model needing a
                 // separate write tool (this agent has none, by design).
+                // The model only got a bounded excerpt; the notes get all.
                 if ($call->name === 'extract_pdf_text' && is_string($result['text'] ?? null)) {
-                    if ($this->conversation->lesson_id !== null) {
-                        $text = trim(str_replace(['<tool_output>', '</tool_output>'], '', $result['text']));
-                        app(LessonNotesWriterInterface::class)->appendNotes($this->conversation->lesson_id, $text);
-                    }
+                    app(LessonPdfNotesFolder::class)->fold(
+                        $this->conversation,
+                        $call->arguments['attachment_message_id'] ?? null,
+                        str_replace(['<tool_output>', '</tool_output>'], '', $result['text']),
+                    );
                 }
             }
 
