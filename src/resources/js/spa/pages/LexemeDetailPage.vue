@@ -68,7 +68,13 @@ async function explainWord(): Promise<void> {
     explainError.value = '';
     try {
         const data = await dictionaryApi.explain(lexeme.value.id);
-        if (lexeme.value) lexeme.value = { ...lexeme.value, explanation: data.explanation };
+        if (lexeme.value) {
+            const rest = lexeme.value.explanations.filter((item) => item.content !== null);
+            lexeme.value = {
+                ...lexeme.value,
+                explanations: [...rest, { explanation: data.explanation, content: null }],
+            };
+        }
     } catch (e: unknown) {
         const err = e as { response?: { status?: number; data?: { message?: string } } };
         explainError.value = err.response?.status === 503
@@ -112,14 +118,26 @@ onMounted(loadLexeme);
             </UiCard>
 
             <UiCard class="space-y-3">
-                <UiSectionHeader title="AI explanation" subtitle="Saved once, reused everywhere" />
-                <p v-if="lexeme?.explanation" class="whitespace-pre-wrap text-sm leading-6 text-fg-secondary">{{ lexeme.explanation }}</p>
-                <div v-else class="space-y-2">
+                <UiSectionHeader title="AI explanations" subtitle="One per context where you met this word" />
+                <div v-if="lexeme && lexeme.explanations.length > 0" class="space-y-4">
+                    <div v-for="(item, index) in lexeme.explanations" :key="`${item.content?.id ?? 'general'}-${index}`" class="space-y-1.5">
+                        <RouterLink
+                            v-if="item.content"
+                            :to="{ name: 'catalog.details', params: { id: item.content.id } }"
+                            class="text-xs font-medium text-primary hover:underline"
+                        >
+                            From: {{ item.content.title }}
+                        </RouterLink>
+                        <span v-else class="text-xs font-medium text-muted-foreground">General explanation</span>
+                        <p class="whitespace-pre-wrap text-sm leading-6 text-fg-secondary">{{ item.explanation }}</p>
+                    </div>
+                </div>
+                <div class="space-y-2">
                     <p v-if="explaining" class="flex items-center gap-2 text-sm text-muted-foreground" role="status">
                         <LoaderCircle :size="16" class="animate-spin text-primary" aria-hidden="true" /> AI is explaining…
                     </p>
                     <p v-else-if="explainError" class="text-sm text-warning" role="alert">{{ explainError }}</p>
-                    <p v-else class="text-sm text-muted-foreground">No explanation yet — generate one with AI.</p>
+                    <p v-else-if="!lexeme?.explanations.length" class="text-sm text-muted-foreground">No explanation yet — generate one with AI.</p>
                     <UiButton variant="secondary" size="sm" :disabled="explaining" @click="explainWord">
                         <Lightbulb :size="14" :class="{ 'animate-pulse': explaining }" /> Explain with AI
                     </UiButton>

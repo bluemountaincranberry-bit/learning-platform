@@ -40,7 +40,7 @@ class LexemeController extends Controller
      */
     public function show(Request $request, Lexeme $word): JsonResponse
     {
-        $word->load(['translations', 'examples', 'associations.relatedLexeme', 'senses.translations', 'senses.examples', 'contentLinks', 'explanations']);
+        $word->load(['translations', 'examples', 'associations.relatedLexeme', 'senses.translations', 'senses.examples', 'contentLinks', 'explanations.content']);
 
         $translationLanguage = $request->user()?->translation_language ?? config('ai.analysis.translation_language', 'ru');
 
@@ -97,9 +97,17 @@ class LexemeController extends Controller
                         'grammar_features' => $occurrence->grammar_features,
                     ])->values()->all(),
                 'associations' => Lexeme::mapAssociations($word->associations, 50),
-                // Durable counterpart of the cached per-content explanation:
-                // generated once from any content (or this page), shown here.
-                'explanation' => $word->explanations->firstWhere('language', $word->language)?->explanation,
+                // Every stored variant with its source content, so the word
+                // page shows where each explanation was generated.
+                'explanations' => $word->explanations
+                    ->where('language', $word->language)
+                    ->map(fn (LexemeExplanation $explanation): array => [
+                        'explanation' => $explanation->explanation,
+                        'content' => $explanation->content ? [
+                            'id' => $explanation->content->id,
+                            'title' => $explanation->content->title,
+                        ] : null,
+                    ])->values()->all(),
             ],
         ]);
     }
@@ -251,12 +259,14 @@ class LexemeController extends Controller
 
         $language = $lexeme->content->language ?? null;
 
-        // Durable read-through: an explanation generated earlier (from any
-        // content, or the word page) is reused without spending AI budget.
+        // Durable read-through per content-context: an explanation generated
+        // from this content is reused; a new content gets a fresh one, so the
+        // word page can show every variant with its source.
         $stored = $lexeme->lexeme_id !== null
             ? LexemeExplanation::query()
                 ->where('lexeme_id', $lexeme->lexeme_id)
                 ->where('language', $language ?? '')
+                ->where('content_id', $lexeme->content_id)
                 ->first()
             : null;
         if ($stored !== null) {
@@ -273,7 +283,7 @@ class LexemeController extends Controller
 
         if ($lexeme->lexeme_id !== null) {
             LexemeExplanation::updateOrCreate(
-                ['lexeme_id' => $lexeme->lexeme_id, 'language' => $language ?? ''],
+                ['lexeme_id' => $lexeme->lexeme_id, 'language' => $language ?? '', 'content_id' => $lexeme->content_id],
                 ['explanation' => $explanation],
             );
         }
@@ -303,6 +313,7 @@ class LexemeController extends Controller
         $stored = LexemeExplanation::query()
             ->where('lexeme_id', $word->id)
             ->where('language', $language)
+            ->whereNull('content_id')
             ->first();
         if ($stored !== null) {
             LexemeExplanationRequested::dispatch($request->user()->id, $word->id, 'word_page');
@@ -317,7 +328,7 @@ class LexemeController extends Controller
         }
 
         LexemeExplanation::updateOrCreate(
-            ['lexeme_id' => $word->id, 'language' => $language],
+            ['lexeme_id' => $word->id, 'language' => $language, 'content_id' => null],
             ['explanation' => $explanation],
         );
 

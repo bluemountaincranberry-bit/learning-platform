@@ -13,4 +13,9 @@ class LexemeExplanation extends Model
     {
         return $this->belongsTo(Lexeme::class);
     }
+
+    public function content(): BelongsTo
+    {
+        return $this->belongsTo(Content::class);
+    }
 }

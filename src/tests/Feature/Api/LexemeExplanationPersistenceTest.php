@@ -73,7 +73,7 @@ test('dictionary show includes the stored explanation', function () {
     explainAiFake();
     Queue::fake();
     $user = explainUser();
-    $content = Content::factory()->create(['status' => 'ready', 'language' => 'en']);
+    $content = Content::factory()->create(['status' => 'ready', 'language' => 'en', 'title' => 'Test video']);
     $lexeme = $content->lexemes()->create(['type' => 'word', 'text' => 'hello', 'sort_order' => 1]);
 
     $this->actingAs($user)->postJson("/api/lexemes/{$lexeme->id}/explain")->assertOk();
@@ -82,7 +82,34 @@ test('dictionary show includes the stored explanation', function () {
     $this->actingAs($user)
         ->getJson("/api/dictionary/{$wordId}")
         ->assertOk()
-        ->assertJsonPath('lexeme.explanation', 'A greeting.');
+        ->assertJsonPath('lexeme.explanations.0.explanation', 'A greeting.')
+        ->assertJsonPath('lexeme.explanations.0.content.id', $content->id)
+        ->assertJsonPath('lexeme.explanations.0.content.title', 'Test video');
+});
+
+test('explain from another content generates a separate variant', function () {
+    explainAiFake();
+    Queue::fake();
+    Config::set('ai.explain_cache_enabled', false);
+    $user = explainUser();
+    $first = Content::factory()->create(['status' => 'ready', 'language' => 'en']);
+    $second = Content::factory()->create(['status' => 'ready', 'language' => 'en']);
+    $firstLexeme = $first->lexemes()->create(['type' => 'word', 'text' => 'hello', 'sort_order' => 1]);
+    $secondLexeme = $second->lexemes()->create(['type' => 'word', 'text' => 'hello', 'sort_order' => 1]);
+
+    // Same canonical word on both contents.
+    $secondLexeme->update(['lexeme_id' => $firstLexeme->fresh()->lexeme_id]);
+
+    $this->actingAs($user)->postJson("/api/lexemes/{$firstLexeme->id}/explain")->assertOk();
+    $this->actingAs($user)->postJson("/api/lexemes/{$secondLexeme->id}/explain")->assertOk();
+
+    Http::assertSentCount(2);
+    expect(LexemeExplanation::query()->where('lexeme_id', $firstLexeme->fresh()->lexeme_id)->count())->toBe(2);
+
+    $wordId = $firstLexeme->fresh()->lexeme_id;
+    $response = $this->actingAs($user)->getJson("/api/dictionary/{$wordId}")->assertOk();
+    $contents = collect($response->json('lexeme.explanations'))->pluck('content.id')->sort()->values()->all();
+    expect($contents)->toBe([$first->id, $second->id]);
 });
 
 test('dictionary explain generates and stores an explanation for the word page', function () {
