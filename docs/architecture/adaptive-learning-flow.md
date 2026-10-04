@@ -1,5 +1,7 @@
 # Adaptive learning flow
 
+Продуктовые правила и инварианты: [adaptive-learning-flow-rules.md](adaptive-learning-flow-rules.md).
+
 ## Решение
 
 `Adaptive Practice` является оркестратором учебных активностей. Он выбирает
