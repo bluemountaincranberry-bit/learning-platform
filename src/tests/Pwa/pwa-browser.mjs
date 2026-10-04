@@ -39,6 +39,7 @@ const server = http.createServer(async (request, response) => {
     let body = await readFile(file);
     if (extname(file) === '.html') body = Buffer.from(body.toString().replace('<head>', `<head><meta name="fixture-release" content="${release}">`).replace(mainPath, release > 1 ? releaseMain : mainPath));
     if (path === '/sw.js' && release > 1) body = Buffer.from(body.toString().replace(/const VERSION = "[a-f0-9]+";/, `const VERSION = "browser-release-${release}";`).replaceAll(mainPath, releaseMain));
+    if (extname(file) === '.js' && path !== '/sw.js' && release > 1) body = Buffer.from(body.toString().replaceAll(mainPath.split('/').at(-1), releaseMain.split('/').at(-1)));
     response.end(body);
 });
 await new Promise((done) => server.listen(0, '127.0.0.1', done));
