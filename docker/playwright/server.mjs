@@ -170,11 +170,13 @@ async function extractTranscript({ url, language }) {
 
 async function extractNodeTranscript({ url, language }) {
   const items = await fetchNodeTranscript(url, language ? { lang: language } : undefined);
+  // The `youtube-transcript` package reports offset/duration in milliseconds,
+  // unlike the Python youtube-transcript-api (seconds). No unit conversion.
   const segments = items
     .filter((item) => typeof item.text === 'string' && item.text.trim() !== '')
     .map((item, index) => ({
-      startMs: Math.round(Number(item.offset || 0) * 1000),
-      endMs: Math.round((Number(item.offset || 0) + Number(item.duration || 0)) * 1000),
+      startMs: Math.round(Number(item.offset || 0)),
+      endMs: Math.round(Number(item.offset || 0) + Number(item.duration || 0)),
       text: item.text.trim(),
       sourceKey: String(index),
     }));
