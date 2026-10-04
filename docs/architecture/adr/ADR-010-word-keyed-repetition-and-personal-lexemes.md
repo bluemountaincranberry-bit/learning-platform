@@ -173,7 +173,7 @@ mutation; restored-data reconciliation and idempotent rerun.
 
 Product assumptions are recorded in
 [DECISIONS.md](../../../.agents/skills/product-owner/DECISIONS.md) under VIK-5.
-This ADR does not decide grammar SRS (VIK-10), a new scheduling algorithm,
+This ADR does not decide grammar repetition (see ADR-012), a new scheduling algorithm,
 or lesson ownership (VIK-7). Live-data counts and ambiguous legacy keys remain
 unverified until VIK-11's dry run. The ADR is merged with Vika’s authorization. VIK-11 may proceed using this
 decision; live-data migration still requires its dry-run preservation checks.

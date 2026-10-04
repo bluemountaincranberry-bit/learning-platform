@@ -311,7 +311,7 @@ no fixed-height clipping. Actual layout verification belongs to VIK-30.
   not the word round's 10/20/30. Share the challenge preference, remember count
   per round kind, and omit focus/point badges in grammar (points are out of its
   scope). Its Practice button remains the direct action from the rule card.
-  No automatic grammar scheduling change before VIK-10 resolves it. The sheet
+  Grammar scheduling follows VIK-10 ([ADR-012](../architecture/adr/ADR-012-grammar-rule-repetition-schedule.md)). The sheet
   pattern and feedback are shared; grammar has its own instructional sequence.
 - VIK-30 implements the plan, preference persistence, challenge points and
   fallback contracts above. Tests: every challenge × focus, each entry source,

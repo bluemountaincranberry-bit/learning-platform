@@ -54,6 +54,15 @@ The identity of a content's external source (e.g. one YouTube video), equal
 for every URL form of that source. The catalog holds one content per source key.
 _Avoid_: Source URL (when meaning identity).
 
+**Grammar review**:
+A counted practice round on a grammar rule in My grammar. Its score sets when
+the rule is due again. A rule is scheduled as a whole; its exercises are not.
+_Avoid_: Grammar card, exercise review.
+
+**Due rule**:
+A My grammar rule whose next practice date has arrived (learner-local day).
+_Avoid_: Weak rule (low confidence is not the same as due).
+
 **Duplicate rule**:
 A grammar rule with the same normalized title and language as another rule.
 Merging it moves everything to the kept rule and archives the duplicate.

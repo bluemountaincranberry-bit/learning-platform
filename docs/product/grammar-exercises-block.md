@@ -4,7 +4,7 @@ Design for practicing one grammar rule. Implementation: VIK-31.
 Mockup (open in a browser, phone width): [mockups/grammar-exercises-block.html](mockups/grammar-exercises-block.html).
 
 Related: VIK-29 (start-learning flow, Easy/Medium/Hard), VIK-32 (hint → retry →
-answer), VIK-10 (grammar repetition, still open), VIK-26 (personal rules).
+answer), VIK-10 (grammar repetition, [ADR-012](../architecture/adr/ADR-012-grammar-rule-repetition-schedule.md)), VIK-26 (personal rules).
 
 ## Today
 
@@ -130,10 +130,14 @@ Learning module; listeners do the secondary work):
 - `GrammarConfidenceService` recalculates `confidence_calculated`; My grammar
   and the rule page show it as "Practice says 72%";
 - "last practiced" + last score shown on the start card and in My grammar;
-- **if VIK-10 says yes**: `user_grammar_rules.next_practice_at` moves along
-  1 → 3 → 7 → 14 days on a score ≥ 80%, stays on the current step for
-  60–79%, and returns to 1 day below 60%. Due rules appear in Today. If VIK-10
-  says no, nothing is scheduled; the rest is unchanged.
+- **grammar review** (VIK-10, [ADR-012](../architecture/adr/ADR-012-grammar-rule-repetition-schedule.md)):
+  the round's score becomes one rating that moves `next_practice_at` on the
+  My grammar row: < 60% **Again** (1 day), 60–79% **Hold** (same interval),
+  ≥ 80% **Got it** (new → 1 → 3 days, then × ease), ≥ 90% on Medium/Hard
+  **Easy**. Intervals keep growing up to 90 days. Only the first finished round
+  per rule per day with ≥ 3 scored items counts. Practice mistakes and `pre`
+  exams don't count. Practicing early never shortens the schedule. The result
+  screen shows the next date ("Next practice in 3 days").
 
 ## Entry points
 
@@ -143,8 +147,8 @@ started.
 | Where | What it shows |
 |---|---|
 | Rule page | The exercises block replaces "No exercises yet": start card + **Practice**. On phone a sticky **Practice** button stays at the bottom while reading. |
-| My grammar | Each row: rule, confidence, last practiced, a **Practice** button. |
-| Today | "Rule of the day" card: a due rule (if VIK-10 yes), else the My grammar rule with the lowest confidence. Not shown when My grammar is empty. |
+| My grammar | Each row: rule, confidence, last practiced, "Due today" / "Next practice in N days", a **Practice** button. Due rules first. |
+| Today | "Rule of the day" card, Medium · 5: the most overdue due rule (at most one new rule per day), else "Extra practice" on the lowest-confidence learning rule. "N more rules due" after the round. Not shown when My grammar is empty. Rules: ADR-012 § Today. |
 | Lesson / content page grammar block | Each rule row links to the rule page and has **Practice**. Mixed rounds over several rules are out of scope for VIK-31. |
 
 ## Out of scope

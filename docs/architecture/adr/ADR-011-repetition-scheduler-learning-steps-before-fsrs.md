@@ -54,7 +54,7 @@ uses these rules.
    history column is fine; schema changes need no approval) so metrics and a
    future FSRS fit can separate step outcomes from day-level ones.
 
-Grammar repetition (VIK-10) may reuse the seam. This ADR does not decide it.
+Grammar repetition reuses the seam: see ADR-012 (VIK-10).
 
 ## Measurement plan
 
