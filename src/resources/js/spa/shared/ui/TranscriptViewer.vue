@@ -152,26 +152,28 @@ watch(
                             <span>{{ formatDuration(segment.start_ms) }}</span>
                         </button>
 
-                        <!-- Words area -->
-                        <div v-if="mode !== 'native'" class="flex-1 min-w-0 text-sm leading-6 text-fg" @mouseup.stop="onSegmentMouseUp($event, segment)">
-                            <template v-for="word in words(segment)" :key="`${segment.id}-${word.start}`">
-                                <span class="whitespace-pre">{{ word.leading }}</span>
-                                <span
-                                    class="cursor-pointer rounded px-0.5 underline decoration-dotted underline-offset-2"
-                                    :class="word.lexemeId ? 'text-primary' : 'text-fg/80 hover:text-primary'"
-                                    :data-start="word.start"
-                                    :data-end="word.end"
-                                    @click.stop="onWordClick(word, segment)"
-                                >{{ word.text }}</span>
-                            </template>
-                        </div>
+                        <!-- Words area + native translation stacked one under another -->
+                        <div class="min-w-0 flex-1 space-y-1.5">
+                            <div v-if="mode !== 'native'" class="text-sm leading-6 text-fg" @mouseup.stop="onSegmentMouseUp($event, segment)">
+                                <template v-for="word in words(segment)" :key="`${segment.id}-${word.start}`">
+                                    <span class="whitespace-pre">{{ word.leading }}</span>
+                                    <span
+                                        class="cursor-pointer rounded px-0.5 underline decoration-dotted underline-offset-2"
+                                        :class="word.lexemeId ? 'text-primary' : 'text-fg/80 hover:text-primary'"
+                                        :data-start="word.start"
+                                        :data-end="word.end"
+                                        @click.stop="onWordClick(word, segment)"
+                                    >{{ word.text }}</span>
+                                </template>
+                            </div>
 
-                        <!-- Native translation -->
-                        <div v-if="mode === 'native' || mode === 'both'" class="flex-1 min-w-0">
-                            <span v-if="nativeTranslations?.[segment.id]" class="mt-1 block pl-10 text-xs text-muted-foreground">
-                                {{ nativeTranslations[segment.id] }}
-                            </span>
-                            <span v-else class="mt-1 block pl-10 text-xs text-muted-foreground">Translation unavailable</span>
+                            <!-- Native translation -->
+                            <div v-if="mode === 'native' || mode === 'both'">
+                                <span v-if="nativeTranslations?.[segment.id]" class="block border-l-2 border-primary/30 pl-2 text-xs leading-5 text-muted-foreground">
+                                    {{ nativeTranslations[segment.id] }}
+                                </span>
+                                <span v-else class="block text-xs text-muted-foreground">Translation unavailable</span>
+                            </div>
                         </div>
                     </div>
                 </div>
