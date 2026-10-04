@@ -2,6 +2,26 @@
 
 namespace App\Modules\Ai;
 
+use App\Contracts\Ai\AiAnalysisRunDispatcher;
+use App\Contracts\Ai\AiClientInterface;
+use App\Contracts\Ai\AiJsonClient;
+use App\Contracts\Ai\AiStreamingChatClient;
+use App\Contracts\Ai\AiToolCallingClient;
+use App\Contracts\Ai\ChatAiServiceInterface;
+use App\Contracts\Ai\ContentAnalysisCapability;
+use App\Contracts\Ai\ContentExamGenerationCapability;
+use App\Contracts\Ai\ContextSentenceGenerationCapability;
+use App\Contracts\Ai\EmbeddingsClientInterface;
+use App\Contracts\Ai\LessonAssistant;
+use App\Contracts\Ai\LexemeEnrichmentCapability;
+use App\Contracts\Ai\LexemeEnrichmentDispatcher;
+use App\Contracts\Ai\LexemeExplanationCapability;
+use App\Contracts\Ai\LexemeMetadataSuggestionCapability;
+use App\Contracts\Ai\LexemeTranslationCapability;
+use App\Contracts\Ai\ManualLexemeCandidateCapability;
+use App\Contracts\Ai\PromptRegistryInterface;
+use App\Contracts\Ai\SentenceAnswerGradingCapability;
+use App\Contracts\Ai\SentenceGenerationCapability;
 use App\Modules\Ai\Application\Agent\AgentLoop;
 use App\Modules\Ai\Application\Agent\ContentAgentService;
 use App\Modules\Ai\Application\Agent\Contracts\AgentTool;
@@ -28,30 +48,12 @@ use App\Modules\Ai\Application\Capabilities\LexemeTranslationService;
 use App\Modules\Ai\Application\Capabilities\SentenceAnswerGradingService;
 use App\Modules\Ai\Application\Capabilities\SentenceGenerationService;
 use App\Modules\Ai\Application\ChatContextAiService;
+use App\Modules\Ai\Application\LessonAssistantService;
 use App\Modules\Ai\Application\LexemeEnrichmentService;
 use App\Modules\Ai\Application\ManualLexemeCandidateService;
 use App\Modules\Ai\Application\PromptRegistryService;
 use App\Modules\Ai\Application\QueuedLexemeEnrichmentDispatcher;
 use App\Modules\Ai\Application\SentencePracticeService;
-use App\Contracts\Ai\AiAnalysisRunDispatcher;
-use App\Contracts\Ai\AiClientInterface;
-use App\Contracts\Ai\AiJsonClient;
-use App\Contracts\Ai\AiStreamingChatClient;
-use App\Contracts\Ai\AiToolCallingClient;
-use App\Contracts\Ai\ChatAiServiceInterface;
-use App\Contracts\Ai\ContentAnalysisCapability;
-use App\Contracts\Ai\ContentExamGenerationCapability;
-use App\Contracts\Ai\ContextSentenceGenerationCapability;
-use App\Contracts\Ai\EmbeddingsClientInterface;
-use App\Contracts\Ai\LexemeEnrichmentCapability;
-use App\Contracts\Ai\LexemeEnrichmentDispatcher;
-use App\Contracts\Ai\LexemeExplanationCapability;
-use App\Contracts\Ai\LexemeMetadataSuggestionCapability;
-use App\Contracts\Ai\LexemeTranslationCapability;
-use App\Contracts\Ai\ManualLexemeCandidateCapability;
-use App\Contracts\Ai\PromptRegistryInterface;
-use App\Contracts\Ai\SentenceAnswerGradingCapability;
-use App\Contracts\Ai\SentenceGenerationCapability;
 use App\Modules\Ai\Infrastructure\AiProviderFactory;
 use App\Modules\Ai\Infrastructure\ElasticsearchClient;
 use App\Modules\Ai\Infrastructure\OllamaClient;
@@ -64,6 +66,7 @@ class AiServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->bind(LessonAssistant::class, LessonAssistantService::class);
         $this->app->singleton(AiProviderFactory::class, fn () => new AiProviderFactory(
             provider: (string) config('ai.provider', 'openai'),
             openAiApiKey: (string) (config('ai.openai.api_key') ?? ''),

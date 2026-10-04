@@ -19,7 +19,7 @@ const props = withDefaults(
         };
         label?: string;
         variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
-        size?: 'default' | 'sm' | 'lg' | 'icon';
+        size?: 'default' | 'sm' | 'lg' | 'icon' | 'touch' | 'icon-touch';
     }>(),
     {
         label: 'Ask AI',

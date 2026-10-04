@@ -1,15 +1,15 @@
 <?php
 
+use App\Contracts\Ai\EmbeddingsClientInterface;
 use App\Modules\Ai\Application\CandidateMatchingService;
 use App\Modules\Ai\Application\LessonCandidateMatchingService;
-use App\Contracts\Ai\EmbeddingsClientInterface;
 use App\Modules\Ai\Domain\Models\GrammarRuleEmbedding;
-use App\Modules\Ai\Domain\Models\Lesson;
-use App\Modules\Ai\Domain\Models\LessonAnalysisRun;
 use App\Modules\Content\Application\GrammarProgressService;
 use App\Modules\Content\Domain\Models\GrammarRule;
 use App\Modules\Content\Domain\Models\GrammarTopic;
 use App\Modules\Content\Domain\Models\Lexeme;
+use App\Modules\Learning\Domain\Models\Lesson;
+use App\Modules\Learning\Domain\Models\LessonAnalysisRun;
 use App\Modules\Learning\Domain\Models\UserGrammarRule;
 use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,7 +28,8 @@ function lessonMatcher(EmbeddingsClientInterface $embeddings): LessonCandidateMa
 {
     return new LessonCandidateMatchingService(
         new CandidateMatchingService($embeddings),
-        app(GrammarProgressService::class)
+        app(GrammarProgressService::class),
+        app(\App\Contracts\Ai\LessonAnalysisStoreInterface::class)
     );
 }
 
@@ -43,7 +44,7 @@ test('a matched lexeme candidate is marked matched but never auto-linked into us
     $embeddings->shouldNotReceive('embed');
     $embeddings->shouldNotReceive('embedBatch');
 
-    lessonMatcher($embeddings)->matchRun($run);
+    lessonMatcher($embeddings)->matchRun($run->id);
 
     $candidate->refresh();
     expect($candidate->matched_lexeme_id)->toBe($lexeme->id)
@@ -61,7 +62,7 @@ test('an unmatched lexeme candidate is marked new', function () {
     $embeddings = Mockery::mock(EmbeddingsClientInterface::class);
     $embeddings->shouldNotReceive('embed');
 
-    lessonMatcher($embeddings)->matchRun($run);
+    lessonMatcher($embeddings)->matchRun($run->id);
 
     $candidate->refresh();
     expect($candidate->matched_lexeme_id)->toBeNull()
@@ -81,7 +82,7 @@ test('a matched grammar candidate is auto-linked into the lesson owner\'s UserGr
     $embeddings = Mockery::mock(EmbeddingsClientInterface::class);
     $embeddings->shouldReceive('embed')->once()->andReturn([1.0, 0.0]);
 
-    lessonMatcher($embeddings)->matchRun($run);
+    lessonMatcher($embeddings)->matchRun($run->id);
 
     $candidate->refresh();
     expect($candidate->matched_grammar_rule_id)->toBe($rule->id)
@@ -97,7 +98,7 @@ test('an unmatched grammar candidate is marked new and links nothing', function 
     $embeddings = Mockery::mock(EmbeddingsClientInterface::class);
     $embeddings->shouldNotReceive('embed');
 
-    lessonMatcher($embeddings)->matchRun($run);
+    lessonMatcher($embeddings)->matchRun($run->id);
 
     $candidate->refresh();
     expect($candidate->matched_grammar_rule_id)->toBeNull()

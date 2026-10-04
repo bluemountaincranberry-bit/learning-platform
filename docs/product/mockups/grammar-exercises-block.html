@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grammar Exercises Mockup</title>
+<!-- VIK-40 mockup. Static, throwaway. Each frame is a 390px phone screen. Spec: ../grammar-exercises-block.md -->
+<style>
+  :root {
+    --bg: #eef0f3; --phone: #ffffff; --fg: #17191c; --muted: #6b7280; --border: #e2e5ea;
+    --soft: #f5f6f8; --primary: #4f46e5; --primary-fg: #fff; --ok: #059669; --ok-bg: #ecfdf5;
+    --bad: #e11d48; --bad-bg: #fff1f2; --hint: #b45309; --hint-bg: #fffbeb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b0c0f; --phone: #16181d; --fg: #eceef2; --muted: #9aa1ad; --border: #2a2e36;
+      --soft: #1d2027; --primary: #818cf8; --primary-fg: #0b0c0f; --ok: #34d399; --ok-bg: #0f2a22;
+      --bad: #fb7185; --bad-bg: #2d1219; --hint: #fbbf24; --hint-bg: #2a2110;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b0c0f; --phone: #16181d; --fg: #eceef2; --muted: #9aa1ad; --border: #2a2e36;
+    --soft: #1d2027; --primary: #818cf8; --primary-fg: #0b0c0f; --ok: #34d399; --ok-bg: #0f2a22;
+    --bad: #fb7185; --bad-bg: #2d1219; --hint: #fbbf24; --hint-bg: #2a2110;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header.doc { max-width: 1280px; margin: 0 auto; padding: 24px 16px 8px; }
+  header.doc h1 { margin: 0 0 4px; font-size: 20px; }
+  header.doc p { margin: 0; color: var(--muted); font-size: 14px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; padding: 16px; }
+  figure { margin: 0; width: 390px; max-width: 100%; }
+  figcaption { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+  figcaption b { color: var(--fg); }
+  .phone { position: relative; width: 100%; height: 780px; background: var(--phone); border: 1px solid var(--border);
+           border-radius: 28px; overflow: hidden; display: flex; flex-direction: column; }
+  .status { height: 28px; flex: none; }
+  .top { display: flex; align-items: center; gap: 12px; padding: 4px 16px 10px; }
+  .x { font-size: 22px; color: var(--muted); width: 24px; }
+  .bar { flex: 1; height: 8px; border-radius: 99px; background: var(--soft); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--primary); border-radius: 99px; }
+  .count { font-size: 13px; color: var(--muted); }
+  .dots { color: var(--muted); font-size: 20px; }
+  .body { flex: 1; padding: 8px 16px; overflow: hidden; }
+  .foot { padding: 12px 16px 20px; flex: none; display: grid; gap: 8px; }
+  .rule-link { font-size: 13px; color: var(--primary); text-decoration: none; }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 14px 0 6px; }
+  .prompt { font-size: 21px; line-height: 1.35; margin: 4px 0 18px; }
+  .gap { display: inline-block; min-width: 84px; border-bottom: 2px solid var(--primary); }
+  .btn { display: block; width: 100%; padding: 14px; border-radius: 14px; border: 0; font: inherit; font-weight: 600;
+         text-align: center; background: var(--primary); color: var(--primary-fg); }
+  .btn.sec { background: var(--soft); color: var(--fg); }
+  .btn.ghost { background: transparent; color: var(--primary); padding: 6px; font-weight: 500; }
+  .opt { padding: 13px 14px; border: 1px solid var(--border); border-radius: 14px; margin-bottom: 8px; background: var(--soft); }
+  .opt.struck { text-decoration: line-through; color: var(--muted); opacity: .6; }
+  .opt.right { border-color: var(--ok); background: var(--ok-bg); color: var(--ok); }
+  .input { padding: 13px 14px; border: 2px solid var(--border); border-radius: 14px; font-size: 17px; }
+  .input.bad { border-color: var(--bad); }
+  .input.ok { border-color: var(--ok); }
+  .panel { border-radius: 14px; padding: 12px 14px; margin-top: 14px; font-size: 14px; }
+  .panel.hint { background: var(--hint-bg); color: var(--hint); }
+  .panel.ok { background: var(--ok-bg); color: var(--ok); }
+  .panel.bad { background: var(--bad-bg); color: var(--fg); }
+  .panel b { display: block; margin-bottom: 2px; }
+  .panel .ans { color: var(--ok); font-weight: 600; font-size: 16px; }
+  .chip { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 99px; background: var(--soft);
+          color: var(--muted); border: 1px solid var(--border); }
+  .tiles { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tile { padding: 10px 13px; border-radius: 12px; background: var(--soft); border: 1px solid var(--border); font-size: 16px; }
+  .tile.used { opacity: .25; }
+  .answer-line { min-height: 54px; border-bottom: 2px solid var(--border); margin-bottom: 18px; display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 8px; }
+  .card { border: 1px solid var(--border); border-radius: 18px; padding: 14px; margin-bottom: 12px; }
+  .card h3 { margin: 0 0 8px; font-size: 16px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .score { font-size: 44px; font-weight: 700; margin: 8px 0 0; }
+  .miss { border-top: 1px solid var(--border); padding: 10px 0; font-size: 14px; }
+  .miss .ans { color: var(--ok); font-weight: 600; }
+  .miss s { color: var(--bad); }
+  .meter { height: 8px; border-radius: 99px; background: var(--soft); overflow: hidden; margin-top: 6px; }
+  .meter i { display: block; height: 100%; background: var(--ok); }
+  .sheet-bg { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--phone); border-radius: 22px 22px 0 0; padding: 10px 16px 20px; }
+  .grab { width: 40px; height: 5px; border-radius: 99px; background: var(--border); margin: 0 auto 12px; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .seg div { border: 1px solid var(--border); border-radius: 12px; padding: 10px 8px; text-align: center; background: var(--soft); font-size: 14px; }
+  .seg div small { display: block; color: var(--muted); font-size: 11px; }
+  .seg .on { border: 2px solid var(--primary); }
+  .dim { opacity: .45; }
+  .spinner { width: 40px; height: 40px; border-radius: 50%; border: 4px solid var(--soft); border-top-color: var(--primary); margin: 120px auto 20px; }
+  .center { text-align: center; }
+  .sticky { position: absolute; left: 16px; right: 16px; bottom: 20px; }
+  .note { max-width: 390px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+<header class="doc">
+  <h1>Grammar exercises block: phone mockups</h1>
+  <p>VIK-40 · each frame is a 390px phone screen · spec in <code>docs/product/grammar-exercises-block.md</code></p>
+</header>
+
+<div class="grid">
+
+  <!-- 1. Rule page -->
+  <figure>
+    <figcaption><b>1. Rule page:</b> block at the end + sticky Practice</figcaption>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="top"><span class="x">‹</span><span class="muted">Grammar</span></div>
+      <div class="body">
+        <div class="dim">
+          <h2 style="margin:0 0 4px;font-size:22px">Present Perfect</h2>
+          <p class="muted" style="margin:0 0 12px">Past actions connected to now: experience, result, unfinished time.</p>
+          <div class="card"><h3>Examples</h3>
+            <div class="muted">I have seen this film twice.</div>
+            <div class="muted">She has lost her keys.</div>
+          </div>
+        </div>
+        <div class="card" style="border-color:var(--primary)">
+          <h3>Practice this rule</h3>
+          <div>Medium · 10 exercises · ~4 min</div>
+          <div class="muted">Last time 7/10 · 2 days ago</div>
+          <div style="margin-top:12px"><button class="btn">Practice</button></div>
+          <div class="row" style="margin-top:6px">
+            <button class="btn ghost" style="width:auto">Change</button>
+            <span class="muted">Practice says 72%</span>
+          </div>
+        </div>
+      </div>
+      <div class="sticky dim"><button class="btn">Practice</button></div>
+    </div>
+    <p class="note">The sticky button shows while reading the explanation and hides once the block is on screen. The 3 lines above the button: title, setting, last result.</p>
+  </figure>
+
+  <!-- 2. Change sheet -->
+  <figure>
+    <figcaption><b>2. Change:</b> same sheet as VIK-29</figcaption>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="body dim"><h2 style="margin:0;font-size:22px">Present Perfect</h2></div>
+      <div class="sheet-bg"></div>
+      <div class="sheet">
+        <div class="grab"></div>
+        <div class="label" style="margin-top:0">Level</div>
+        <div class="seg">
+          <div>Easy<small>choose · build</small></div>
+          <div class="on">Medium<small>easy → hard</small></div>
+          <div>Hard<small>type · transform · fix</small></div>
+        </div>
+        <div class="label">Exercises</div>
+        <div class="seg">
+          <div>5</div><div class="on">10</div><div>15</div>
+        </div>
+        <div style="margin-top:18px"><button class="btn">Practice</button></div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- 3. Preparing -->
+  <figure>
+    <figcaption><b>3. No exercises yet:</b> generated on tap</figcaption>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="top"><span class="x">×</span><span class="count">Present Perfect</span></div>
+      <div class="body center">
+        <div class="spinner"></div>
+        <div style="font-weight:600">Preparing exercises…</div>
+        <div class="muted">Usually about 10 seconds.<br>The round starts as soon as 5 are ready.</div>
+      </div>
+      <div class="foot"><button class="btn ghost">Read the rule meanwhile</button></div>
+    </div>
+    <p class="note">AI is down and the pool is empty: "Exercises can't be prepared right now" + Try again. The rule itself still opens.</p>
+  </figure>
+
+  <!-- 4. Choose the form, first wrong -->
+  <figure>
+    <figcaption><b>4. Choose the form (Easy):</b> 1st wrong → hint</figcaption>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="top"><span class="x">×</span><div class="bar"><i style="width:10%"></i></div><span class="count">1 / 10</span><span class="dots">⋯</span></div>
+      <div class="body">
+        <a class="rule-link" href="#">Present Perfect ›</a> <span class="chip">AI</span>
+        <div class="prompt">I <span class="gap">&nbsp;</span> this film twice.</div>
+        <div class="opt struck">saw</div>
+        <div class="opt">have seen</div>
+        <div class="opt">have saw</div>
+        <div class="opt">seen</div>
+        <div class="panel hint"><b>Hint</b>"Twice" counts experience up to now. Which tense joins the past to now?</div>
+      </div>
+      <div class="foot"><button class="btn ghost">Show answer</button></div>
+    </div>
+    <p class="note">The wrong option is struck out; tapping another option is the retry.</p>
+  </figure>
+
+  <!-- 5. Build the sentence -->
+  <figure>
+    <figcaption><b>5. Build the sentence (Easy)</b></figcaption>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="top"><span class="x">×</span><div class="bar"><i style="width:30%"></i></div><span class="count">3 / 10</span><span class="dots">⋯</span></div>
+      <div class="body">
+        <a class="rule-link" href="#">Present Perfect ›</a>
+        <div class="label">Make a question</div>
+        <div class="answer-line">
+          <span class="tile">Have</span><span class="tile">you</span>
+        </div>
+        <div class="tiles">
+          <span class="tile">been</span><span class="tile used">you</span><span class="tile">to Japan?</span>
+          <span class="tile used">Have</span><span class="tile">ever</span>
+        </div>
+      </div>
+      <div class="foot"><button class="btn">Check</button></div>
+    </div>
+  </figure>
+
+  <!-- 6. Fill the gap, answer shown -->
+  <figure>
+    <figcaption><b>6. Fill the gap (Hard):</b> 2nd wrong → answer</figcaption>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="top"><span class="x">×</span><div class="bar"><i style="width:50%"></i></div><span class="count">5 / 10</span><span class="dots">⋯</span></div>
+      <div class="body">
+        <a class="rule-link" href="#">Present Perfect ›</a>
+        <div class="prompt">She <span class="gap">&nbsp;</span> (lose) her keys, so she can't get in.</div>
+        <div class="input bad">has losed</div>
+        <div class="panel bad">
+          <b>Answer</b>
+          <div class="ans">has lost</div>
+          <div class="muted" style="margin-top:4px">A past action with a result now; "lose" is irregular: lose – lost – lost.</div>
+          <a class="rule-link" href="#">See rule ›</a>
+        </div>
+      </div>
+      <div class="foot"><button class="btn">Next</button></div>
+    </div>
+    <p class="note">Before this: 1st wrong → hint "Irregular verb: think of its 3rd form" + Try again.</p>
+  </figure>
+
+  <!-- 7. Transform, correct -->
+  <figure>
+    <figcaption><b>7. Transform (Hard):</b> correct first try</figcaption>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="top"><span class="x">×</span><div class="bar"><i style="width:70%"></i></div><span class="count">7 / 10</span><span class="dots">⋯</span></div>
+      <div class="body">
+        <a class="rule-link" href="#">Present Perfect ›</a>
+        <div class="label">Make it a question</div>
+        <div class="prompt">They have finished the report.</div>
+        <div class="input ok">Have they finished the report?</div>
+        <div class="panel ok"><b>Correct</b>Questions put have/has before the subject.</div>
+      </div>
+      <div class="foot"><button class="btn">Next</button></div>
+    </div>
+  </figure>
+
+  <!-- 8. Fix the mistake + report menu -->
+  <figure>
+    <figcaption><b>8. Fix the mistake (Hard)</b> + ⋯ menu</figcaption>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="top"><span class="x">×</span><div class="bar"><i style="width:90%"></i></div><span class="count">9 / 10</span><span class="dots">⋯</span></div>
+      <div class="body">
+        <a class="rule-link" href="#">Present Perfect ›</a>
+        <div class="label">Fix the mistake</div>
+        <div class="prompt">I have seen him yesterday.</div>
+        <div class="input">I saw him yesterday.</div>
+      </div>
+      <div class="foot"><button class="btn">Check</button></div>
+      <div class="sheet-bg"></div>
+      <div class="sheet">
+        <div class="grab"></div>
+        <button class="btn sec" style="margin-bottom:8px">Report a bad exercise</button>
+        <button class="btn ghost">Skip</button>
+      </div>
+    </div>
+    <p class="note">Report hides it for Vika right away; the round brings in the next one.</p>
+  </figure>
+
+  <!-- 9. Result -->
+  <figure>
+    <figcaption><b>9. Result</b></figcaption>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="top"><span class="x">×</span><span class="count">Present Perfect · Medium</span></div>
+      <div class="body">
+        <div class="score">80%</div>
+        <div class="muted">7 first try · 2 after a hint · 1 missed</div>
+        <div class="card" style="margin-top:14px">
+          <div class="row"><span>Practice says</span><span><span class="muted">72% →</span> <b>78%</b></span></div>
+          <div class="meter"><i style="width:78%"></i></div>
+          <div class="muted" style="margin-top:8px">In My grammar · next practice in 3 days</div>
+        </div>
+        <div class="label">To review</div>
+        <div class="miss">She <s>has losed</s> <span class="ans">has lost</span> her keys.</div>
+        <div class="miss"><s>Did you ever be</s> <span class="ans">Have you ever been</span> to Japan?</div>
+      </div>
+      <div class="foot">
+        <button class="btn">Practice mistakes</button>
+        <button class="btn sec">Done</button>
+        <button class="btn ghost">Mark as learned</button>
+      </div>
+    </div>
+    <p class="note">"next practice in 3 days" only if VIK-10 adds grammar repetition. "Mark as learned" only at ≥ 80% on Medium/Hard.</p>
+  </figure>
+
+</div>
+</body>
+</html>

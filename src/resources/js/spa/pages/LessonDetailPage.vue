@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { Paperclip, Sparkles } from 'lucide-vue-next';
 import PageState from '../components/ui/PageState.vue';
 import { useAuthStore } from '../domains/user';
-import { lessonApi, type LessonDetail, type LessonMessage } from '../domains/ai';
+import { lessonApi, type LessonDetail, type LessonMessage } from '../domains/learning';
 import UiBadge from '../shared/ui/UiBadge.vue';
 import UiButton from '../shared/ui/UiButton.vue';
 import UiCard from '../shared/ui/UiCard.vue';

@@ -2,10 +2,8 @@
 
 namespace App\Modules\Ai\Application;
 
-use App\Modules\Ai\Domain\Models\Lesson;
-use App\Modules\Ai\Domain\Models\LessonAnalysisRun;
-use App\Modules\Ai\Domain\Models\LessonGrammarCandidate;
-use App\Modules\Ai\Domain\Models\LessonLexemeCandidate;
+use App\Contracts\Ai\LessonAnalysisContext;
+use App\Contracts\Ai\LessonAnalysisStoreInterface;
 use App\Modules\Content\Application\Contracts\GrammarProgressServiceInterface;
 
 /**
@@ -41,48 +39,44 @@ class LessonCandidateMatchingService
     public function __construct(
         private readonly CandidateMatchingService $matcher,
         private readonly GrammarProgressServiceInterface $grammarProgress,
+        private readonly LessonAnalysisStoreInterface $lessons,
     ) {}
 
-    public function matchRun(LessonAnalysisRun $run): void
+    public function matchRun(int $runId): void
     {
-        $lesson = $run->lesson;
+        $lesson = $this->lessons->getRun($runId);
+        if ($lesson === null) {
+            return;
+        }
 
-        foreach ($run->lexemeCandidates as $candidate) {
+        foreach ($this->lessons->lexemeCandidates($runId) as $candidate) {
             $this->matchLexemeCandidate($candidate, $lesson);
         }
 
-        foreach ($run->grammarCandidates as $candidate) {
+        foreach ($this->lessons->grammarCandidates($runId) as $candidate) {
             $this->matchGrammarCandidate($candidate, $lesson);
         }
     }
 
-    private function matchLexemeCandidate(LessonLexemeCandidate $candidate, Lesson $lesson): void
+    private function matchLexemeCandidate(array $candidate, LessonAnalysisContext $lesson): void
     {
         $result = $this->matcher->findBestLexemeMatch(
-            $candidate->normalized_text,
-            $candidate->text,
-            $lesson->language ?? 'en'
+            $candidate['normalized_text'],
+            $candidate['text'],
+            $lesson->language
         );
 
-        $candidate->update([
-            'matched_lexeme_id' => $result['lexeme_id'],
-            'match_score' => $result['score'],
-            'status' => $result['lexeme_id'] !== null ? LessonLexemeCandidate::STATUS_MATCHED : LessonLexemeCandidate::STATUS_NEW,
-        ]);
+        $this->lessons->updateLexemeMatch($candidate['id'], $result['lexeme_id'], $result['score']);
     }
 
-    private function matchGrammarCandidate(LessonGrammarCandidate $candidate, Lesson $lesson): void
+    private function matchGrammarCandidate(array $candidate, LessonAnalysisContext $lesson): void
     {
-        $result = $this->matcher->findBestGrammarMatch($candidate->title, (string) $candidate->summary);
+        $result = $this->matcher->findBestGrammarMatch($candidate['title'], (string) $candidate['summary']);
 
-        $candidate->update([
-            'matched_grammar_rule_id' => $result['grammar_rule_id'],
-            'match_score' => $result['score'],
-            'status' => $result['grammar_rule_id'] !== null ? LessonGrammarCandidate::STATUS_LINKED : LessonGrammarCandidate::STATUS_NEW,
-        ]);
+        $this->lessons->updateGrammarMatch($candidate['id'], $result['grammar_rule_id'], $result['score']);
 
         if ($result['grammar_rule_id'] !== null) {
-            $this->grammarProgress->startLearningById($result['grammar_rule_id'], $lesson->user_id);
+            $this->grammarProgress->startLearningById($result['grammar_rule_id'], $lesson->userId);
         }
     }
 }

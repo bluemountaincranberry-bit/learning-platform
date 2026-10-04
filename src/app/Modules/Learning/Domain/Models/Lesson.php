@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Modules\Ai\Domain\Models;
+namespace App\Modules\Learning\Domain\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -16,11 +16,6 @@ class Lesson extends Model
     public const STATUS_ARCHIVED = 'archived';
 
     public const STATUSES = [self::STATUS_ACTIVE, self::STATUS_ARCHIVED];
-
-    public function conversation(): HasOne
-    {
-        return $this->hasOne(AgentConversation::class);
-    }
 
     public function analysisRuns(): HasMany
     {

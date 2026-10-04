@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Modules\Ai\Domain\Models;
+namespace App\Modules\Learning\Domain\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;

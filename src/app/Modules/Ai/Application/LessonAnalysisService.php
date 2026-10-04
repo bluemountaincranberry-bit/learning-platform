@@ -2,14 +2,12 @@
 
 namespace App\Modules\Ai\Application;
 
+use App\Contracts\Ai\AiJsonClient;
+use App\Contracts\Ai\LessonAnalysisStoreInterface;
+use App\Contracts\Ai\PromptRegistryInterface;
 use App\Exceptions\AiClientException;
-use App\Modules\Ai\Domain\Models\LessonAnalysisRun;
-use App\Modules\Ai\Domain\Models\LessonGrammarCandidate;
-use App\Modules\Ai\Domain\Models\LessonLexemeCandidate;
 use App\Modules\Ai\Application\Agent\Tracing\TraceContext;
 use App\Modules\Ai\Application\Agent\Tracing\TracedLlmCall;
-use App\Contracts\Ai\AiJsonClient;
-use App\Contracts\Ai\PromptRegistryInterface;
 use Illuminate\Support\Str;
 
 /**
@@ -38,22 +36,23 @@ class LessonAnalysisService
         private readonly AiJsonClient $client,
         private readonly TracedLlmCall $tracedCall,
         private readonly PromptRegistryInterface $promptRegistry,
+        private readonly LessonAnalysisStoreInterface $lessons,
     ) {}
 
     /**
      * @throws AiClientException
      */
-    public function analyze(LessonAnalysisRun $run): void
+    public function analyze(int $runId): void
     {
-        $lesson = $run->lesson;
-        $text = trim((string) ($lesson->source_text ?? ''));
+        $run = $this->lessons->getRun($runId);
+        $text = trim($run?->sourceText ?? '');
 
         if ($text === '') {
             throw new AiClientException('This lesson has no notes yet to analyze.');
         }
 
         $translationLanguage = config('ai.analysis.translation_language', 'ru');
-        $sourceLanguage = $lesson->language ?? 'en';
+        $sourceLanguage = $run->language;
 
         $rendered = $this->promptRegistry->resolve(
             'lesson_analysis_system_prompt',
@@ -79,13 +78,11 @@ class LessonAnalysisService
             throw new AiClientException('AI analysis found no vocabulary or grammar in these notes.');
         }
 
-        foreach ($this->dedupeByField($lexemes, 'text') as $item) {
-            $this->createLexemeCandidate($run, $item);
-        }
-
-        foreach ($this->dedupeByField($grammar, 'title') as $item) {
-            $this->createGrammarCandidate($run, $item);
-        }
+        $this->lessons->persistCandidates(
+            $runId,
+            array_values(array_filter(array_map($this->lexemeAttributes(...), $this->dedupeByField($lexemes, 'text')))),
+            array_values(array_filter(array_map($this->grammarAttributes(...), $this->dedupeByField($grammar, 'title')))),
+        );
     }
 
     private function buildSystemPrompt(string $sourceLanguage, string $translationLanguage): string
@@ -148,51 +145,46 @@ class LessonAnalysisService
     /**
      * @param  mixed  $item
      */
-    private function createLexemeCandidate(LessonAnalysisRun $run, $item): void
+    private function lexemeAttributes($item): ?array
     {
         if (! is_array($item) || ! is_string($item['text'] ?? null) || trim($item['text']) === '') {
-            return;
+            return null;
         }
 
         $text = trim($item['text']);
-        $type = is_string($item['type'] ?? null) && in_array($item['type'], LessonLexemeCandidate::TYPES, true)
-            ? $item['type']
-            : LessonLexemeCandidate::TYPE_WORD;
         $level = is_string($item['level'] ?? null) && preg_match('/^[ABC][12]$/', $item['level'])
             ? $item['level']
             : null;
 
-        $run->lexemeCandidates()->create([
+        return [
             'text' => $text,
             'normalized_text' => Str::lower($text),
-            'type' => $type,
+            'type' => $item['type'] ?? null,
             'level' => $level,
             'translation' => is_string($item['translation'] ?? null) ? $item['translation'] : null,
             'example' => is_string($item['example'] ?? null) ? $item['example'] : null,
             'example_translation' => is_string($item['example_translation'] ?? null) ? $item['example_translation'] : null,
             'note' => is_string($item['note'] ?? null) ? $item['note'] : null,
             'confidence' => is_numeric($item['confidence'] ?? null) ? (float) $item['confidence'] : null,
-            'status' => LessonLexemeCandidate::STATUS_PENDING,
-        ]);
+        ];
     }
 
     /**
      * @param  mixed  $item
      */
-    private function createGrammarCandidate(LessonAnalysisRun $run, $item): void
+    private function grammarAttributes($item): ?array
     {
         if (! is_array($item) || ! is_string($item['title'] ?? null) || trim($item['title']) === '') {
-            return;
+            return null;
         }
 
-        $run->grammarCandidates()->create([
+        return [
             'title' => trim($item['title']),
             'summary' => is_string($item['summary'] ?? null) ? $item['summary'] : null,
             'example' => is_string($item['example'] ?? null) ? $item['example'] : null,
             'example_translation' => is_string($item['example_translation'] ?? null) ? $item['example_translation'] : null,
             'note' => is_string($item['note'] ?? null) ? $item['note'] : null,
             'confidence' => is_numeric($item['confidence'] ?? null) ? (float) $item['confidence'] : null,
-            'status' => LessonGrammarCandidate::STATUS_PENDING,
-        ]);
+        ];
     }
 }

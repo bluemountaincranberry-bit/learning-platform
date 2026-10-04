@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import PageState from '../components/ui/PageState.vue';
-import { useAuthStore, useProfileStore } from '../domains/user';
+import { useAuthStore } from '../domains/user';
 import { useContent, useLexemes } from '../domains/content';
 import AskAiButton from '../shared/ui/AskAiButton.vue';
 import UiBadge from '../shared/ui/UiBadge.vue';
@@ -10,8 +10,6 @@ import UiButton from '../shared/ui/UiButton.vue';
 import UiDialog from '../shared/ui/UiDialog.vue';
 import UiCard from '../shared/ui/UiCard.vue';
 import UiEmptyState from '../shared/ui/UiEmptyState.vue';
-import UiInput from '../shared/ui/UiInput.vue';
-import UiSectionHeader from '../shared/ui/UiSectionHeader.vue';
 import WordListItem from '../shared/ui/WordListItem.vue';
 import WordListToolbar from '../shared/ui/WordListToolbar.vue';
 import type { LexemeWithLearned } from '../types';
@@ -19,8 +17,6 @@ import type { LexemeWithLearned } from '../types';
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
-const profileStore = useProfileStore();
-const defaultLevel = computed(() => profileStore.profile?.user.current_level ?? null);
 
 const contentId = computed(() => String(route.params.id));
 const { loading: contentLoading, error: contentError, content, loadContent } = useContent();
@@ -53,8 +49,6 @@ const {
 const loading = computed(() => contentLoading.value || lexemesLoading.value);
 const error = computed(() => contentError.value || lexemesError.value);
 const explanationModal = ref<{ lexemeText: string; explanation: string } | null>(null);
-
-const searchQuery = ref('');
 
 // Task 7.8: level filter, status filter, "select all", and the bulk-action
 // bar now live in WordListToolbar.vue (shared with ContentDetailsPage.vue).
@@ -128,9 +122,6 @@ onMounted(async () => {
         router.push({ name: 'login', query: { redirect: route.fullPath } });
         return;
     }
-    if (!profileStore.profile) {
-        profileStore.fetchProfile();
-    }
     await loadContent(contentId.value);
     if (content.value) {
         try {
@@ -174,7 +165,7 @@ onMounted(async () => {
 
                     <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                         <UiButton class="w-full sm:w-auto" variant="secondary" size="sm" @click="router.push({ name: 'catalog.details', params: { id: contentId } })">Back to content</UiButton>
-                        <AskAiButton v-if="content" class="w-full sm:w-auto" :context="aiContext" size="sm" />
+                        <AskAiButton v-if="content" class="w-full sm:w-auto" :context="aiContext" label="Explain with AI" size="sm" />
                     </div>
                 </div>
 
@@ -188,56 +179,50 @@ onMounted(async () => {
                 <p v-if="explainError" class="text-sm text-warning" role="alert">{{ explainError }}</p>
             </UiCard>
 
-            <UiCard class="space-y-3">
-                <UiSectionHeader title="Words" subtitle="Tap a word to open its dictionary page, tap a sentence to see its translation" />
-
+            <!-- VIK-38: edge-to-edge on phones (bleeds through main's px-4), card from sm up. -->
+            <section class="-mx-4 sm:mx-0 sm:rounded-xl sm:border sm:border-border sm:bg-card sm:p-5">
                 <WordListToolbar
                     :lexemes="lexemes"
                     v-model:selected-ids="selectedIds"
                     :bulk-mark-learned="bulkMarkLearned"
                     :bulk-start-learning="bulkStartLearning"
                     :bulk-action-pending="bulkActionPending"
-                    :search-query="searchQuery"
-                    :default-level="defaultLevel"
                     @update:filtered="filteredLexemes = $event"
                     @practice-selected="practiceSelected"
                     @practice-context="practiceContext"
                 >
-                    <template #search>
-                        <UiInput v-model="searchQuery" type="search" placeholder="Search words..." />
-                    </template>
-                </WordListToolbar>
-
-                <div v-if="filteredLexemes.length > 0" class="space-y-2">
-                    <WordListItem
-                        v-for="lexeme in filteredLexemes"
-                        :key="lexeme.id"
-                        :lexeme="lexeme"
-                        :language="content?.language"
-                        :marking="markingId === lexeme.id"
-                        :starting-review="startingReviewId === lexeme.id"
-                        :explaining="explainingId === lexeme.id"
-                        :fetching-examples="fetchingExamplesId === lexeme.id"
-                        :ai-unavailable="aiUnavailable"
-                        selectable
-                        :selected="selectedIds.has(lexeme.id)"
-                        @mark-learned="markLearned"
-                        @unmark-learned="unmarkLearned"
-                        @start-review="startReview"
-                        @stop-review="stopReview"
-                        @explain="explain"
-                        @toggle-select="toggleSelect"
-                        @skip="skip"
-                        @unskip="unskip"
-                        @more-examples="fetchMoreExamples"
+                    <div v-if="filteredLexemes.length > 0" class="mt-2 divide-y divide-border border-y border-border sm:overflow-hidden sm:rounded-lg sm:border">
+                        <WordListItem
+                            v-for="lexeme in filteredLexemes"
+                            :key="lexeme.id"
+                            :lexeme="lexeme"
+                            :language="content?.language"
+                            :marking="markingId === lexeme.id"
+                            :starting-review="startingReviewId === lexeme.id"
+                            :explaining="explainingId === lexeme.id"
+                            :fetching-examples="fetchingExamplesId === lexeme.id"
+                            :ai-unavailable="aiUnavailable"
+                            selectable
+                            :selected="selectedIds.has(lexeme.id)"
+                            @mark-learned="markLearned"
+                            @unmark-learned="unmarkLearned"
+                            @start-review="startReview"
+                            @stop-review="stopReview"
+                            @explain="explain"
+                            @toggle-select="toggleSelect"
+                            @skip="skip"
+                            @unskip="unskip"
+                            @more-examples="fetchMoreExamples"
+                        />
+                    </div>
+                    <UiEmptyState
+                        v-else
+                        class="mx-4 mt-3 sm:mx-0"
+                        :title="lexemes.length === 0 ? 'Nothing to learn here yet' : 'No words match'"
+                        :description="lexemes.length === 0 ? 'Either all words are already learned or the content has no extracted units.' : 'Try a different filter or search term.'"
                     />
-                </div>
-                <UiEmptyState
-                    v-else
-                    :title="lexemes.length === 0 ? 'Nothing to learn here yet' : 'No words match'"
-                    :description="lexemes.length === 0 ? 'Either all words are already learned or the content has no extracted units.' : 'Try a different filter or search term.'"
-                />
-            </UiCard>
+                </WordListToolbar>
+            </section>
 
             <UiDialog :open="Boolean(explanationModal)" :title="explanationModal?.lexemeText ?? 'Explanation'" @close="closeExplanation">
                 <p v-if="explanationModal" class="whitespace-pre-wrap text-sm leading-6 text-fg-secondary">{{ explanationModal.explanation }}</p>

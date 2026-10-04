@@ -1,0 +1,284 @@
+{
+ "measured_on": "2026-10-03",
+ "accuracy": [
+  {
+   "sample": "s1",
+   "method": "basic",
+   "cer": 100.0,
+   "word_acc": 9.9
+  },
+  {
+   "sample": "s1",
+   "method": "pdftotext",
+   "cer": 0.0,
+   "word_acc": 100.0
+  },
+  {
+   "sample": "s2",
+   "method": "basic",
+   "cer": 100.0,
+   "word_acc": 0.0
+  },
+  {
+   "sample": "s2",
+   "method": "gpt-4.1-mini",
+   "cer": 0.0,
+   "word_acc": 100.0
+  },
+  {
+   "sample": "s2",
+   "method": "gpt-4o-mini",
+   "cer": 1.1,
+   "word_acc": 100.0
+  },
+  {
+   "sample": "s2",
+   "method": "gpt-5.4-mini",
+   "cer": 0.4,
+   "word_acc": 99.2
+  },
+  {
+   "sample": "s2",
+   "method": "pdftotext",
+   "cer": 100.0,
+   "word_acc": 0.0
+  },
+  {
+   "sample": "s2",
+   "method": "tesseract",
+   "cer": 2.2,
+   "word_acc": 91.6
+  },
+  {
+   "sample": "s3",
+   "method": "gpt-4.1-mini",
+   "cer": 0.0,
+   "word_acc": 100.0
+  },
+  {
+   "sample": "s3",
+   "method": "gpt-4o-mini",
+   "cer": 0.0,
+   "word_acc": 100.0
+  },
+  {
+   "sample": "s3",
+   "method": "gpt-5.4-mini",
+   "cer": 0.0,
+   "word_acc": 100.0
+  },
+  {
+   "sample": "s3",
+   "method": "tesseract",
+   "cer": 11.8,
+   "word_acc": 96.5
+  },
+  {
+   "sample": "s4",
+   "method": "gpt-4.1-mini",
+   "cer": 0.0,
+   "word_acc": 100.0
+  },
+  {
+   "sample": "s4",
+   "method": "gpt-4o-mini",
+   "cer": 0.0,
+   "word_acc": 100.0
+  },
+  {
+   "sample": "s4",
+   "method": "gpt-5.4-mini",
+   "cer": 0.6,
+   "word_acc": 100.0
+  },
+  {
+   "sample": "s4",
+   "method": "tesseract",
+   "cer": 12.3,
+   "word_acc": 61.3
+  },
+  {
+   "sample": "s5",
+   "method": "gpt-4.1-mini",
+   "cer": 1.4,
+   "word_acc": 93.1
+  },
+  {
+   "sample": "s5",
+   "method": "gpt-4o-mini",
+   "cer": 3.4,
+   "word_acc": 93.1
+  },
+  {
+   "sample": "s5",
+   "method": "gpt-5.4-mini",
+   "cer": 1.0,
+   "word_acc": 94.8
+  },
+  {
+   "sample": "s5",
+   "method": "tesseract",
+   "cer": 47.1,
+   "word_acc": 24.1
+  },
+  {
+   "sample": "s6",
+   "method": "basic",
+   "cer": 99.5,
+   "word_acc": 0.0
+  },
+  {
+   "sample": "s6",
+   "method": "pdftotext",
+   "cer": 48.0,
+   "word_acc": 100.0
+  },
+  {
+   "sample": "s7",
+   "method": "basic",
+   "cer": 100.0,
+   "word_acc": 0.0
+  },
+  {
+   "sample": "s7",
+   "method": "pdftotext",
+   "cer": 100.0,
+   "word_acc": 0.0
+  },
+  {
+   "sample": "s7",
+   "method": "tesseract",
+   "cer": 22.5,
+   "word_acc": 95.3
+  }
+ ],
+ "openai_runs": [
+  {
+   "model": "gpt-4o-mini",
+   "resolved": "gpt-4o-mini-2024-07-18",
+   "sample": "s2",
+   "ms": 5078,
+   "prompt_tokens": 36894,
+   "completion_tokens": 208,
+   "reasoning_tokens": 0
+  },
+  {
+   "model": "gpt-4o-mini",
+   "resolved": "gpt-4o-mini-2024-07-18",
+   "sample": "s3",
+   "ms": 2763,
+   "prompt_tokens": 25560,
+   "completion_tokens": 127,
+   "reasoning_tokens": 0
+  },
+  {
+   "model": "gpt-4o-mini",
+   "resolved": "gpt-4o-mini-2024-07-18",
+   "sample": "s4",
+   "ms": 2378,
+   "prompt_tokens": 36894,
+   "completion_tokens": 57,
+   "reasoning_tokens": 0
+  },
+  {
+   "model": "gpt-4o-mini",
+   "resolved": "gpt-4o-mini-2024-07-18",
+   "sample": "s5",
+   "ms": 2531,
+   "prompt_tokens": 19893,
+   "completion_tokens": 102,
+   "reasoning_tokens": 0
+  },
+  {
+   "model": "gpt-4.1-mini",
+   "resolved": "gpt-4.1-mini-2025-04-14",
+   "sample": "s2",
+   "ms": 2910,
+   "prompt_tokens": 3533,
+   "completion_tokens": 196,
+   "reasoning_tokens": 0
+  },
+  {
+   "model": "gpt-4.1-mini",
+   "resolved": "gpt-4.1-mini-2025-04-14",
+   "sample": "s3",
+   "ms": 1668,
+   "prompt_tokens": 2952,
+   "completion_tokens": 120,
+   "reasoning_tokens": 0
+  },
+  {
+   "model": "gpt-4.1-mini",
+   "resolved": "gpt-4.1-mini-2025-04-14",
+   "sample": "s4",
+   "ms": 1455,
+   "prompt_tokens": 2651,
+   "completion_tokens": 57,
+   "reasoning_tokens": 0
+  },
+  {
+   "model": "gpt-4.1-mini",
+   "resolved": "gpt-4.1-mini-2025-04-14",
+   "sample": "s5",
+   "ms": 1467,
+   "prompt_tokens": 1147,
+   "completion_tokens": 98,
+   "reasoning_tokens": 0
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "resolved": "gpt-5.4-mini-2026-03-17",
+   "sample": "s2",
+   "ms": 3012,
+   "prompt_tokens": 2632,
+   "completion_tokens": 322,
+   "reasoning_tokens": 120
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "resolved": "gpt-5.4-mini-2026-03-17",
+   "sample": "s3",
+   "ms": 1746,
+   "prompt_tokens": 2201,
+   "completion_tokens": 160,
+   "reasoning_tokens": 30
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "resolved": "gpt-5.4-mini-2026-03-17",
+   "sample": "s4",
+   "ms": 1830,
+   "prompt_tokens": 1978,
+   "completion_tokens": 141,
+   "reasoning_tokens": 75
+  },
+  {
+   "model": "gpt-5.4-mini",
+   "resolved": "gpt-5.4-mini-2026-03-17",
+   "sample": "s5",
+   "ms": 3112,
+   "prompt_tokens": 864,
+   "completion_tokens": 309,
+   "reasoning_tokens": 201
+  }
+ ],
+ "tesseract_ms": {
+  "s2": 1478,
+  "s3": 410,
+  "s4": 375,
+  "s5": 398,
+  "s7": 3280
+ },
+ "pdftotext_ms": {
+  "s1": 15,
+  "s2": 13,
+  "s6": 31,
+  "s7": 14
+ },
+ "old_extractor_ms": {
+  "s1": 2.1,
+  "s2": 1.8,
+  "s6": 11.8,
+  "s7": 0.6
+ }
+}

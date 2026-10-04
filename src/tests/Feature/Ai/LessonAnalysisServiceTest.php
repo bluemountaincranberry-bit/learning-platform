@@ -1,17 +1,17 @@
 <?php
 
-use App\Exceptions\AiClientException;
-use App\Modules\Ai\Domain\Models\Lesson;
-use App\Modules\Ai\Domain\Models\LessonAnalysisRun;
-use App\Modules\Ai\Application\Agent\Tracing\TracedLlmCall;
-use App\Modules\Ai\Application\LessonAnalysisService;
 use App\Contracts\Ai\AiJsonClient;
 use App\Contracts\Ai\PromptRegistryInterface;
+use App\Exceptions\AiClientException;
+use App\Modules\Ai\Application\Agent\Tracing\TracedLlmCall;
+use App\Modules\Ai\Application\LessonAnalysisService;
+use App\Modules\Learning\Domain\Models\Lesson;
+use App\Modules\Learning\Domain\Models\LessonAnalysisRun;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 function makeLessonAnalysisService(AiJsonClient $client): LessonAnalysisService
 {
-    return new LessonAnalysisService($client, app(TracedLlmCall::class), app(PromptRegistryInterface::class));
+    return new LessonAnalysisService($client, app(TracedLlmCall::class), app(PromptRegistryInterface::class), app(\App\Contracts\Ai\LessonAnalysisStoreInterface::class));
 }
 
 uses(RefreshDatabase::class);
@@ -50,7 +50,7 @@ test('analyze persists lexeme and grammar candidates from a valid AI response', 
             ],
         ]);
 
-    makeLessonAnalysisService($client)->analyze($run);
+    makeLessonAnalysisService($client)->analyze($run->id);
 
     expect($run->lexemeCandidates()->count())->toBe(1)
         ->and($run->grammarCandidates()->count())->toBe(1);
@@ -70,7 +70,7 @@ test('analyze throws when the lesson has no notes yet', function () {
     $client = Mockery::mock(AiJsonClient::class);
     $client->shouldNotReceive('completeJson');
 
-    makeLessonAnalysisService($client)->analyze($run);
+    makeLessonAnalysisService($client)->analyze($run->id);
 })->throws(AiClientException::class, 'no notes');
 
 test('analyze throws when the AI response has no usable candidates', function () {
@@ -79,7 +79,7 @@ test('analyze throws when the AI response has no usable candidates', function ()
     $client = Mockery::mock(AiJsonClient::class);
     $client->shouldReceive('completeJson')->once()->andReturn(['lexemes' => [], 'grammar' => []]);
 
-    makeLessonAnalysisService($client)->analyze($run);
+    makeLessonAnalysisService($client)->analyze($run->id);
 })->throws(AiClientException::class, 'no vocabulary or grammar');
 
 test('analyze dedupes candidates by text/title', function () {
@@ -94,7 +94,7 @@ test('analyze dedupes candidates by text/title', function () {
         'grammar' => [],
     ]);
 
-    makeLessonAnalysisService($client)->analyze($run);
+    makeLessonAnalysisService($client)->analyze($run->id);
 
     expect($run->lexemeCandidates()->count())->toBe(1)
         ->and($run->lexemeCandidates()->first()->translation)->toBe('first wins');
@@ -109,7 +109,7 @@ test('analyze drops an invalid CEFR level to null', function () {
         'grammar' => [],
     ]);
 
-    makeLessonAnalysisService($client)->analyze($run);
+    makeLessonAnalysisService($client)->analyze($run->id);
 
     expect($run->lexemeCandidates()->first()->level)->toBeNull();
 });

@@ -15,7 +15,7 @@ under `.scratch/<feature-slug>/issues/NN-<slug>.md` with the same template.
 
 - Team: `Viktoryia` (id c3c3d887-b8f9-4504-91c8-ca799277a876).
 - Projects = epics: **Lesson Notebook**, **Learning Loop**, **Mobile**,
-  **Platform**. Create a project when a new epic appears (e.g. AI Platform).
+  **Platform**, **Speaking Coach**. Create a project when a new epic appears (e.g. AI Platform).
 - Labels: type (`feature`, `bug`, `research`, `tech`), module (`content`,
   `learning`, `srs`, `ai`, `user`, `spa`, `infra`), plus triage labels from
   `triage-labels.md`.
@@ -30,8 +30,8 @@ under `.scratch/<feature-slug>/issues/NN-<slug>.md` with the same template.
 | Todo | unstarted | Specified and unblocked — an agent may take it (if `ready-for-agent`) | agent, when its blockers are Done |
 | In Progress | started | Agent or Vika is working on it | agent on claim |
 | Needs Input | started | Agent stopped with questions in a comment; waits for Vika | agent; Vika answers in a comment and moves it back to Todo |
-| In Review | started | Work pushed on the ticket branch, report in a comment | agent on finish |
-| Done | completed | Vika reviewed and merged | Vika |
+| In Review | started | Work pushed, but something blocks auto-merge (see the comment) | agent on finish |
+| Done | completed | Merged to `main` (agent auto-merge or Vika) | agent / Vika |
 | Canceled / Duplicate | canceled | Not doing | Vika |
 
 ## Ticket template

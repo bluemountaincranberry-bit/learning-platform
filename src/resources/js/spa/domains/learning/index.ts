@@ -26,3 +26,6 @@ export type {
     TrainingSelectedLexemeItem,
     TrainingSelectedLexemesResponse,
 } from '../../types/api/TrainingReviewQueueResponse';
+
+export { lessonApi } from './api/lessonApi';
+export type { LessonSummary, LessonDetail, LessonMessage } from './api/lessonApi';

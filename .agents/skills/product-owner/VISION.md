@@ -36,6 +36,14 @@ language should be configuration plus content, not a rewrite.
 
 If a feature does not help this loop, it is lower priority.
 
+## Speaking goal
+
+Vika wants to **speak English beautifully**, not only understand it. She
+shadows and retells TED/TEDx talks, records herself, and wants to see her
+pronunciation, intonation, rhythm, accent and fluency improve over weeks,
+with AI feedback and concrete tips. Her own recordings are worth keeping for
+"then vs now" comparison. Project: Speaking Coach (research VIK-45).
+
 ## Product principles
 
 - **Mobile first.** Every learner screen must look good and work one-handed on
@@ -83,8 +91,9 @@ they also serve the product. Technology for its own sake is not a goal.
 - Quality is part of the work: tests, clear module boundaries, documented
   decisions.
 - Hard stop-lines only: agents never publish to the live catalog without a
-  human, never push or merge to `main`, never delete user data. Everything else
-  is the agent's call, with a report.
+  human and never delete user data. Agents merge to `main` through the
+  `linear-work` merge gate (see AGENTS.md); unresolved questions go to In Review.
+  Everything else is the agent's call, with a report.
 - Agent skills: the whole `mattpocock/skills` library is the base; on a
   conflict Matt's skill wins and our own skill or rule is rewritten.
 

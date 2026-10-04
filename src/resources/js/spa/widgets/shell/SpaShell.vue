@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import {
@@ -9,6 +9,7 @@ import {
     GraduationCap,
     LayoutDashboard,
     MessageCircle,
+    MoreHorizontal,
     NotebookPen,
     NotebookText,
     Settings as SettingsIcon,
@@ -18,6 +19,7 @@ import { useAuth } from '../../domains/user';
 import { useProfileStore } from '../../domains/user';
 import UiBadge from '../../shared/ui/UiBadge.vue';
 import UiButton from '../../shared/ui/UiButton.vue';
+import UiDialog from '../../shared/ui/UiDialog.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -70,12 +72,41 @@ const allNavItems = [
 // canAccessTutorAgent defaults to true (roles start empty) so a guest or a
 // not-yet-loaded-roles student still sees the item; it only ever hides it,
 // never wrongly shows it to staff, once /api/auth/me has answered.
-// "Мои занятия" (LessonController) shares that same access-tutor-agent gate
-// on the backend — same audience (student, not staff), same reasoning.
-const STAFF_ONLY_HIDDEN = ['chat', 'lessons'];
+// Lessons are available to every authenticated user, including staff.
+const STAFF_ONLY_HIDDEN = ['chat'];
 const navItems = computed(() =>
     allNavItems.filter((item) => !STAFF_ONLY_HIDDEN.includes(item.name) || canAccessTutorAgent.value)
 );
+
+const moreOpen = ref(false);
+const moreMenu = ref<HTMLElement | null>(null);
+const mobileNavItems = [
+    { name: 'dashboard', label: 'Today', icon: LayoutDashboard },
+    { name: 'lessons', label: 'Lessons', icon: NotebookText },
+    { name: 'my-words', label: 'Words', icon: BookMarked },
+    { name: 'repetitions', label: 'Practice', icon: Dumbbell },
+];
+const moreDestinations = ['catalog', 'grammar', 'my-grammar', 'my-progress', 'chat', 'settings'];
+const moreNavItems = computed(() => navItems.value.filter((item) => moreDestinations.includes(item.name)));
+
+function isMobileDestinationActive(name: string): boolean {
+    if (route.name === name) return true;
+    if (name === 'lessons') return section.value === 'lessons';
+    if (name === 'my-words') return route.name === 'word.details';
+    if (name === 'repetitions') return section.value === 'review';
+    if (name === 'grammar') return section.value === 'grammar';
+    if (name === 'catalog') return section.value === 'catalog' || String(route.name).startsWith('catalog.');
+    return false;
+}
+
+const moreActive = computed(() => moreNavItems.value.some((item) => isMobileDestinationActive(item.name)));
+watch(() => route.fullPath, () => { moreOpen.value = false; });
+// Start on a menu link so the shared dialog traps Tab in both directions.
+watch(moreOpen, async (open) => {
+    if (!open) return;
+    await nextTick();
+    moreMenu.value?.querySelector<HTMLAnchorElement>('a')?.focus();
+}, { flush: 'post' });
 </script>
 
 <template>
@@ -131,7 +162,7 @@ const navItems = computed(() =>
                 </div>
             </aside>
 
-            <div class="flex min-w-0 flex-1 flex-col pb-20 lg:pb-0">
+            <div class="flex min-w-0 flex-1 flex-col pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
                 <header class="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75">
                     <div class="flex items-center justify-between gap-4 px-4 py-4 lg:px-8">
                         <div class="min-w-0">
@@ -159,28 +190,50 @@ const navItems = computed(() =>
             </div>
         </div>
 
-        <nav class="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 shadow-[0_-8px_28px_rgba(15,23,42,0.06)] backdrop-blur lg:hidden">
-            <div class="relative">
-                <div class="flex gap-1 overflow-x-auto px-2 py-1.5">
-                    <RouterLink
-                        v-for="item in navItems"
-                        :key="item.name"
-                        :to="{ name: item.name }"
-                        class="flex w-16 shrink-0 flex-col items-center gap-0.5 rounded-sm px-1 py-1.5 text-center transition-colors"
-                        :class="route.name === item.name ? 'bg-primary/10 text-primary' : 'text-fg-secondary'"
-                    >
-                        <component :is="item.icon" :size="20" />
-                        <span class="w-full truncate text-[10px] leading-tight">{{ item.label }}</span>
-                    </RouterLink>
-                </div>
-                <!-- Hints there's more to scroll to when not every destination fits on screen at once. -->
-                <div
-                    v-if="navItems.length > 5"
-                    class="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent"
-                    aria-hidden="true"
-                ></div>
+        <nav aria-label="Mobile navigation" class="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_28px_rgba(15,23,42,0.06)] backdrop-blur lg:hidden">
+            <div class="grid grid-cols-5 gap-1 px-2 py-1.5">
+                <RouterLink
+                    v-for="item in mobileNavItems"
+                    :key="item.name"
+                    :to="{ name: item.name }"
+                    :aria-current="isMobileDestinationActive(item.name) ? 'page' : undefined"
+                    class="flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-sm px-1 py-1.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    :class="isMobileDestinationActive(item.name) ? 'bg-primary/10 text-primary' : 'text-fg-secondary hover:bg-surface-alt'"
+                >
+                    <component :is="item.icon" :size="20" aria-hidden="true" />
+                    <span class="text-[11px] leading-tight">{{ item.label }}</span>
+                </RouterLink>
+                <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    :aria-expanded="moreOpen"
+                    :aria-current="moreActive ? 'true' : undefined"
+                    class="flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-sm px-1 py-1.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    :class="moreActive || moreOpen ? 'bg-primary/10 text-primary' : 'text-fg-secondary hover:bg-surface-alt'"
+                    @click="moreOpen = true"
+                >
+                    <MoreHorizontal :size="20" aria-hidden="true" />
+                    <span class="text-[11px] leading-tight">More</span>
+                </button>
             </div>
         </nav>
+
+        <UiDialog :open="moreOpen" title="More" sheet @close="moreOpen = false">
+            <nav ref="moreMenu" aria-label="More destinations" class="space-y-1">
+                <RouterLink
+                    v-for="item in moreNavItems"
+                    :key="item.name"
+                    :to="{ name: item.name }"
+                    :aria-current="isMobileDestinationActive(item.name) ? 'page' : undefined"
+                    class="flex min-h-11 items-center gap-3 rounded-spa px-3 py-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    :class="isMobileDestinationActive(item.name) ? 'bg-primary/10 text-primary' : 'text-fg-secondary hover:bg-surface-alt'"
+                    @click="moreOpen = false"
+                >
+                    <component :is="item.icon" :size="20" aria-hidden="true" />
+                    <span>{{ item.label }}</span>
+                </RouterLink>
+            </nav>
+        </UiDialog>
     </div>
 </template>
 

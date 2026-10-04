@@ -18,7 +18,7 @@ wait-what, wayfinder, wizard, writing-beats, writing-for-agents,
 writing-fragments, writing-shape. Таблица «какой скилл для чего» — в `AGENTS.md`.
 
 **Переписали:**
-- `AGENTS.md` — коротко: принципы, три стоп-линии, таблица скиллов, команды, блок `## Agent skills` в формате Matt.
+- `AGENTS.md` — коротко: принципы, стоп-линии и merge gate, таблица скиллов, команды, блок `## Agent skills` в формате Matt.
 - `PROJECT_CONTEXT.md` — единое актуальное описание проекта (вобрало `project-overview.md`, `profiles/project.md` и принципы из `engineering-principles.md`).
 - `docs/architecture/engineering-principles.md` — сведён к указателю на действующие принципы и заметке о смене курса: на него ссылаются ADR-004, AI-roadmap и комментарии в `src/`.
 - `engineering/coding-standards.md` (новый) — стандарты Laravel, SPA и тестов в позитивной форме; их читает `code-review`. Собран из `engineering/skills/*` и `testing-policy.md`.
@@ -92,3 +92,12 @@ writing-fragments, writing-shape. Таблица «какой скилл для 
 
 Встроенные скиллы Anthropic (`pdf`, `docx`, `xlsx`, `pptx`, `skill-creator` и т.п.)
 не конфликтуют, их можно оставить.
+
+## Согласование и слияние (2026-10-04)
+
+Вика разрешила слияние VIK-44 и автоматический merge через `linear-work`.
+Правило согласовано в `AGENTS.md`, `PROJECT_CONTEXT.md`, `VISION.md` и
+`DECISIONS.md`; `linear-work` сохраняет merge gate и отдельные коммиты,
+когда удаление должно откатываться независимо. Обзор из удалённого
+`project-overview.md` заменён `PROJECT_CONTEXT.md`; решение VIK-5 сохранено
+в ADR-010 и логе product-owner.
