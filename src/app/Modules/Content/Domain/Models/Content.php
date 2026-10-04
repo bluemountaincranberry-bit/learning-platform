@@ -2,6 +2,7 @@
 
 namespace App\Modules\Content\Domain\Models;
 
+use App\Modules\Content\Domain\ContentSourceKey;
 use App\Modules\Content\Rules\ContentStatusRules;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,14 @@ class Content extends Model
     }
 
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        // VIK-16: the source identity used for dedup is derived from the URL.
+        static::saving(function (Content $content): void {
+            $content->source_key = ContentSourceKey::for((string) $content->type, $content->source_url);
+        });
+    }
 
     protected function casts(): array
     {

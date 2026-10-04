@@ -9,6 +9,8 @@ use App\Modules\Content\Application\AcceptedCandidateWriter;
 use App\Modules\Content\Application\CandidateAnalysisStore;
 use App\Modules\Content\Application\CandidateMatchStore;
 use App\Modules\Content\Application\CandidateModeration;
+use App\Modules\Content\Application\CatalogDuplicates\ForeignKeyGraph;
+use App\Modules\Content\Application\CatalogDuplicates\GrammarRuleMerger;
 use App\Modules\Content\Application\ContentAnalysisSourceReader;
 use App\Modules\Content\Application\ContentLexemeReferenceReader;
 use App\Modules\Content\Application\ContentResetOperations;
@@ -39,6 +41,7 @@ use App\Modules\Content\Application\Contracts\GrammarProgressServiceInterface;
 use App\Modules\Content\Application\Contracts\GrammarRuleExampleGenerationsInterface;
 use App\Modules\Content\Application\Contracts\GrammarRuleExampleReaderInterface;
 use App\Modules\Content\Application\Contracts\GrammarRuleExampleWriterInterface;
+use App\Modules\Content\Application\Contracts\GrammarRuleMergeParticipant;
 use App\Modules\Content\Application\Contracts\GrammarRuleTitleReaderInterface;
 use App\Modules\Content\Application\Contracts\GraphTestContentFactoryInterface;
 use App\Modules\Content\Application\Contracts\LearnedLexemeCatalogInterface;
@@ -193,6 +196,10 @@ class ContentServiceProvider extends ServiceProvider
         $this->app->bind(LexemeServiceInterface::class, LexemeService::class);
         $this->app->bind(PdfTextExtractorInterface::class, PopplerPdfTextExtractor::class);
         $this->app->bind(SubtitleTextExtractorInterface::class, SrtVttSubtitleTextExtractor::class);
+        $this->app->bind(GrammarRuleMerger::class, fn ($app): GrammarRuleMerger => new GrammarRuleMerger(
+            $app->make(ForeignKeyGraph::class),
+            $app->tagged(GrammarRuleMergeParticipant::TAG),
+        ));
     }
 
     public function boot(): void

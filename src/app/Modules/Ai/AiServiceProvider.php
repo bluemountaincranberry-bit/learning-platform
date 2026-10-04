@@ -49,6 +49,7 @@ use App\Modules\Ai\Application\Capabilities\LexemeTranslationService;
 use App\Modules\Ai\Application\Capabilities\SentenceAnswerGradingService;
 use App\Modules\Ai\Application\Capabilities\SentenceGenerationService;
 use App\Modules\Ai\Application\ChatContextAiService;
+use App\Modules\Ai\Application\GrammarRuleEmbeddingMergeParticipant;
 use App\Modules\Ai\Application\LessonAssistantService;
 use App\Modules\Ai\Application\LexemeEnrichmentService;
 use App\Modules\Ai\Application\ManualLexemeCandidateService;
@@ -61,6 +62,7 @@ use App\Modules\Ai\Infrastructure\ElasticsearchClient;
 use App\Modules\Ai\Infrastructure\OllamaClient;
 use App\Modules\Ai\Infrastructure\OpenAiClient;
 use App\Modules\Ai\Infrastructure\OpenAiEmbeddingsClient;
+use App\Modules\Content\Application\Contracts\GrammarRuleMergeParticipant;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -69,6 +71,7 @@ class AiServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(LessonAssistant::class, LessonAssistantService::class);
+        $this->app->tag([GrammarRuleEmbeddingMergeParticipant::class], GrammarRuleMergeParticipant::TAG);
         $this->app->singleton(AiProviderFactory::class, fn () => new AiProviderFactory(
             provider: (string) config('ai.provider', 'openai'),
             openAiApiKey: (string) (config('ai.openai.api_key') ?? ''),

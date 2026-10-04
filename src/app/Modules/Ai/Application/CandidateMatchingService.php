@@ -39,7 +39,7 @@ class CandidateMatchingService
         $language = $this->contentSources->get((int) $run->content_id)?->language ?? 'en';
 
         $this->matchLexemeCandidates($this->candidateStore->lexemeCandidates((int) $run->id), $language);
-        $this->matchGrammarCandidates($this->candidateStore->grammarCandidates((int) $run->id));
+        $this->matchGrammarCandidates($this->candidateStore->grammarCandidates((int) $run->id), $language);
     }
 
     /**
@@ -95,11 +95,31 @@ class CandidateMatchingService
     }
 
     /**
+     * VIK-16: an exact title match (same language, case/spacing ignored)
+     * wins before any embedding call. The title+summary embedding alone
+     * missed same-titled rules whenever the AI wrote a new summary
+     * ("Passive Voice" scored 0.758 against "Passive Voice"), and matched
+     * nothing at all for rules whose embedding was not computed yet.
+     *
      * @param  array<int, array{id:int, title:string, summary:?string}>  $candidates
      */
-    private function matchGrammarCandidates(array $candidates): void
+    private function matchGrammarCandidates(array $candidates, string $language): void
     {
-        if ($candidates === []) {
+        $needsEmbedding = [];
+
+        foreach ($candidates as $candidate) {
+            $exact = $this->candidateStore->exactGrammarRuleId($candidate['title'], $language);
+
+            if ($exact !== null) {
+                $this->candidateStore->updateGrammarMatch($candidate['id'], $exact, 1.0);
+
+                continue;
+            }
+
+            $needsEmbedding[] = $candidate;
+        }
+
+        if ($needsEmbedding === []) {
             return;
         }
 
@@ -111,11 +131,11 @@ class CandidateMatchingService
         }
 
         $vectors = $this->embeddings->embedBatch(
-            array_map(fn (array $candidate) => trim($candidate['title'].' '.$candidate['summary']), $candidates)
+            array_map(fn (array $candidate) => trim($candidate['title'].' '.$candidate['summary']), $needsEmbedding)
         );
         $threshold = (float) config('ai.analysis.match_threshold', 0.85);
 
-        foreach (array_values($candidates) as $i => $candidate) {
+        foreach ($needsEmbedding as $i => $candidate) {
             [$bestId, $bestScore] = $this->bestMatch($vectors[$i] ?? [], $rows, fn ($row) => $row->grammar_rule_id);
 
             $this->candidateStore->updateGrammarMatch(
@@ -192,8 +212,14 @@ class CandidateMatchingService
      *
      * @return array{grammar_rule_id: ?int, score: ?float}
      */
-    public function findBestGrammarMatch(string $title, string $summary): array
+    public function findBestGrammarMatch(string $title, string $summary, string $language): array
     {
+        $exact = $this->candidateStore->exactGrammarRuleId($title, $language);
+
+        if ($exact !== null) {
+            return ['grammar_rule_id' => $exact, 'score' => 1.0];
+        }
+
         $modelVersion = config('ai.embeddings.model', 'text-embedding-3-small');
         $rows = GrammarRuleEmbedding::query()->where('model_version', $modelVersion)->get();
 

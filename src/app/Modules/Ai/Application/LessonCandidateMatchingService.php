@@ -71,7 +71,7 @@ class LessonCandidateMatchingService
 
     private function matchGrammarCandidate(array $candidate, LessonAnalysisContext $lesson): void
     {
-        $result = $this->matcher->findBestGrammarMatch($candidate['title'], (string) $candidate['summary']);
+        $result = $this->matcher->findBestGrammarMatch($candidate['title'], (string) $candidate['summary'], $lesson->language);
 
         $this->lessons->updateGrammarMatch($candidate['id'], $result['grammar_rule_id'], $result['score']);
 

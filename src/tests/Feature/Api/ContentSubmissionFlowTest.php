@@ -124,3 +124,45 @@ test('retry after failure goes through pipeline to ready', function () {
     $content->refresh();
     expect($content->status)->toBe('ready');
 });
+
+test('VIK-16: the same YouTube video under another URL form is not added twice, whoever submits it', function () {
+    Queue::fake();
+    $existing = Content::query()->create([
+        'type' => 'youtube', 'title' => 'Adele - Someone Like You', 'language' => 'en',
+        'origin' => 'user-submitted', 'status' => 'ready',
+        'source_url' => 'https://www.youtube.com/watch?v=hLQl3WQQoQ0&list=RDhLQl3WQQoQ0&start_radio=1',
+    ]);
+    expect($existing->source_key)->toBe('youtube:hLQl3WQQoQ0');
+
+    Sanctum::actingAs(User::factory()->create(), [], 'sanctum');
+
+    foreach (['https://youtu.be/hLQl3WQQoQ0?si=DsaRPbipwo4dATTd', 'https://m.youtube.com/shorts/hLQl3WQQoQ0'] as $url) {
+        $this->postJson('/api/content/submit-youtube', ['language' => 'en', 'title' => 'x', 'source_url' => $url])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.source_url.0', 'This video is already in the catalog: "Adele - Someone Like You".');
+    }
+
+    expect(Content::query()->count())->toBe(1);
+    Queue::assertNothingPushed();
+});
+
+test('VIK-16: a duplicate of someone else\'s private submission does not reveal its title', function () {
+    Content::query()->create([
+        'type' => 'youtube', 'title' => 'Private pending video', 'language' => 'en',
+        'origin' => 'user-submitted', 'status' => 'pending', 'created_by' => User::factory()->create()->id,
+        'source_url' => 'https://youtu.be/hLQl3WQQoQ0',
+    ]);
+    Sanctum::actingAs(User::factory()->create(), [], 'sanctum');
+
+    $this->postJson('/api/content/submit-youtube', ['language' => 'en', 'title' => 'x', 'source_url' => 'https://www.youtube.com/watch?v=hLQl3WQQoQ0'])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.source_url.0', 'This video is already in the catalog.');
+});
+
+test('VIK-16: a YouTube link that names no single video is rejected', function () {
+    Sanctum::actingAs(User::factory()->create(), [], 'sanctum');
+
+    $this->postJson('/api/content/submit-youtube', ['language' => 'en', 'title' => 'x', 'source_url' => 'https://www.youtube.com/@TED'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('source_url');
+});

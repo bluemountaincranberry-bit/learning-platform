@@ -159,7 +159,7 @@ test('grammar candidate matches via title and summary embedding', function () {
         'model_version' => 'text-embedding-3-small',
     ]);
     $candidate = $run->grammarCandidates()->create([
-        'title' => 'Present Perfect Continuous',
+        'title' => 'Present Perfect Progressive',
         'summary' => 'unfinished past action',
         'status' => 'pending',
     ]);
@@ -172,6 +172,64 @@ test('grammar candidate matches via title and summary embedding', function () {
     $candidate->refresh();
     expect($candidate->matched_grammar_rule_id)->toBe($rule->id)
         ->and($candidate->match_score)->toBe(1.0);
+});
+
+// --- VIK-16: same rule title = same rule, before any embedding ---
+
+function makeRuleForMatching(string $title, string $language = 'en', string $status = GrammarRule::STATUS_PUBLISHED): GrammarRule
+{
+    $topic = GrammarTopic::query()->firstOrCreate(['slug' => 'topic-'.$language], ['language' => $language, 'name' => 'Topic', 'status' => 'active']);
+
+    return GrammarRule::query()->create([
+        'topic_id' => $topic->id, 'slug' => str()->slug($title).'-'.str()->random(4), 'language' => $language,
+        'title' => $title, 'status' => $status,
+    ]);
+}
+
+test('VIK-16: a grammar candidate with an existing title (case, spacing, punctuation ignored) matches exactly without embeddings', function () {
+    $run = makeRunForMatching();
+    $rule = makeRuleForMatching('First Conditional');
+    $candidate = $run->grammarCandidates()->create(['title' => '  first   CONDITIONAL. ', 'summary' => 'new words', 'status' => 'pending']);
+
+    $embeddings = Mockery::mock(EmbeddingsClientInterface::class);
+    $embeddings->shouldNotReceive('embedBatch');
+
+    (new CandidateMatchingService($embeddings))->matchRun($run);
+
+    expect($candidate->refresh()->matched_grammar_rule_id)->toBe($rule->id)
+        ->and($candidate->match_score)->toBe(1.0);
+});
+
+test('VIK-16: exact grammar title match ignores other languages and archived (merged-away) rules', function () {
+    $run = makeRunForMatching();
+    makeRuleForMatching('Passive Voice', 'de');
+    makeRuleForMatching('Passive Voice', 'en', GrammarRule::STATUS_ARCHIVED);
+    $candidate = $run->grammarCandidates()->create(['title' => 'Passive Voice', 'summary' => 's', 'status' => 'pending']);
+
+    $embeddings = Mockery::mock(EmbeddingsClientInterface::class);
+    $embeddings->shouldNotReceive('embedBatch');
+
+    (new CandidateMatchingService($embeddings))->matchRun($run);
+
+    expect($candidate->refresh()->matched_grammar_rule_id)->toBeNull();
+});
+
+test('VIK-16: only grammar candidates without an exact title match are sent to embeddings', function () {
+    config(['ai.analysis.match_threshold' => 0.8]);
+    $run = makeRunForMatching();
+    $exact = makeRuleForMatching('Passive Voice');
+    $other = makeRuleForMatching('Present Perfect');
+    GrammarRuleEmbedding::query()->create(['grammar_rule_id' => $other->id, 'embedding' => [1.0, 0.0], 'model_version' => 'text-embedding-3-small']);
+    $run->grammarCandidates()->create(['title' => 'Passive voice', 'summary' => 'x', 'status' => 'pending']);
+    $run->grammarCandidates()->create(['title' => 'Present Perfect Tense', 'summary' => 'y', 'status' => 'pending']);
+
+    $embeddings = Mockery::mock(EmbeddingsClientInterface::class);
+    $embeddings->shouldReceive('embedBatch')->once()->with(['Present Perfect Tense y'])->andReturn([[1.0, 0.0]]);
+
+    (new CandidateMatchingService($embeddings))->matchRun($run);
+
+    expect($run->grammarCandidates()->where('title', 'Passive voice')->value('matched_grammar_rule_id'))->toBe($exact->id)
+        ->and($run->grammarCandidates()->where('title', 'Present Perfect Tense')->value('matched_grammar_rule_id'))->toBe($other->id);
 });
 
 // --- Task 10.1: match by lemma, not the raw inflected occurrence text ---

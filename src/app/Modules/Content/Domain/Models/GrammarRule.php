@@ -2,6 +2,7 @@
 
 namespace App\Modules\Content\Domain\Models;
 
+use App\Modules\Content\Domain\GrammarRuleTitle;
 use App\Support\HasRevisions;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,6 +26,14 @@ class GrammarRule extends Model
     public const STATUS_ARCHIVED = 'archived';
 
     public const STATUSES = [self::STATUS_DRAFT, self::STATUS_REVIEW, self::STATUS_PUBLISHED, self::STATUS_ARCHIVED];
+
+    protected static function booted(): void
+    {
+        // VIK-16: the title identity used for dedup is derived, never typed.
+        static::saving(function (GrammarRule $rule): void {
+            $rule->normalized_title = GrammarRuleTitle::normalize((string) $rule->title);
+        });
+    }
 
     public function topic(): BelongsTo
     {

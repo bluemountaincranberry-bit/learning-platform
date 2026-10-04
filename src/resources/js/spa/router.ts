@@ -114,13 +114,13 @@ const routes: RouteRecordRaw[] = [
         path: '/lessons',
         name: 'lessons',
         component: () => import('./pages/LessonsPage.vue'),
-        meta: { requiresAuth: true, title: 'Мои занятия', section: 'lessons' } as RouteMeta,
+        meta: { requiresAuth: true, title: 'My lessons', section: 'lessons' } as RouteMeta,
     },
     {
         path: '/lessons/:id',
         name: 'lesson.details',
         component: () => import('./pages/LessonDetailPage.vue'),
-        meta: { requiresAuth: true, title: 'Занятие', section: 'lessons' } as RouteMeta,
+        meta: { requiresAuth: true, title: 'Lesson', section: 'lessons' } as RouteMeta,
     },
     {
         path: '/my-progress',

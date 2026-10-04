@@ -3,8 +3,10 @@
 namespace App\Modules\Content\Application;
 
 use App\Modules\Content\Application\Contracts\CandidateMatchStoreInterface;
+use App\Modules\Content\Domain\GrammarRuleTitle;
 use App\Modules\Content\Domain\Models\ContentGrammarCandidate;
 use App\Modules\Content\Domain\Models\ContentLexemeCandidate;
+use App\Modules\Content\Domain\Models\GrammarRule;
 use App\Modules\Content\Domain\Models\Lexeme;
 
 class CandidateMatchStore implements CandidateMatchStoreInterface
@@ -35,6 +37,23 @@ class CandidateMatchStore implements CandidateMatchStoreInterface
     {
         return Lexeme::query()->where('language', $language)
             ->where('normalized_lemma', $normalizedLemma)->value('id');
+    }
+
+    public function exactGrammarRuleId(string $title, string $language): ?int
+    {
+        $normalized = GrammarRuleTitle::normalize($title);
+        if ($normalized === '') {
+            return null;
+        }
+
+        $id = GrammarRule::query()
+            ->where('language', $language)
+            ->where('normalized_title', $normalized)
+            ->where('status', '!=', GrammarRule::STATUS_ARCHIVED)
+            ->orderBy('id')
+            ->value('id');
+
+        return $id === null ? null : (int) $id;
     }
 
     public function lexemeIdsForLanguage(string $language): array

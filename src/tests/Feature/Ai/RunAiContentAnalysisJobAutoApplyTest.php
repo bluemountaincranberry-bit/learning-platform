@@ -6,6 +6,8 @@ use App\Modules\Content\Domain\Models\Content;
 use App\Modules\Content\Domain\Models\ContentLexemeCandidate;
 use App\Modules\Content\Domain\Models\Lexeme;
 use App\Contracts\Ai\AiJsonClient;
+use App\Contracts\Ai\EmbeddingsClientInterface;
+use App\Modules\Content\Domain\Models\GrammarRule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -93,4 +95,36 @@ test('regression: auto-applying the same word from two different contents never 
     $lexeme = Lexeme::query()->where('language', 'en')->where('normalized_lemma', 'run')->first();
     expect($contentA->lexemes()->where('lexeme_id', $lexeme->id)->exists())->toBeTrue();
     expect($contentB->lexemes()->where('lexeme_id', $lexeme->id)->exists())->toBeTrue();
+});
+
+test('regression VIK-16: re-running analysis that proposes an existing rule title with a new summary links the existing rule instead of creating a duplicate', function () {
+    // The incident: "Passive Voice" was proposed again with a freshly
+    // generated summary; its title+summary embedding scored 0.758 against the
+    // existing "Passive Voice" rule (< 0.85), so Apply created a second rule.
+    // Disagreeing vectors reproduce "embeddings exist but miss the match".
+    $embeddings = Mockery::mock(EmbeddingsClientInterface::class);
+    $embeddings->shouldReceive('embed')->andReturn([0.0, 1.0]);
+    $embeddings->shouldReceive('embedBatch')->andReturnUsing(fn (array $texts) => array_fill(0, count($texts), [1.0, 0.0]));
+    $this->app->instance(EmbeddingsClientInterface::class, $embeddings);
+
+    $content = makeContentWithTranscript('Video', 'If it rains, we will stay home.');
+
+    foreach ([
+        ['First Conditional', 'Real possibility in the future.'],
+        [' first  conditional ', 'Used for likely results of a condition.'],
+    ] as [$title, $summary]) {
+        $run = $content->analysisRuns()->create(['status' => AiAnalysisRun::STATUS_PENDING]);
+        $client = Mockery::mock(AiJsonClient::class);
+        $client->shouldReceive('completeJson')->once()->andReturn([
+            'lexemes' => [],
+            'grammar' => [['title' => $title, 'summary' => $summary, 'example' => 'If it rains, we will stay home.', 'confidence' => 0.9]],
+        ]);
+        $this->app->instance(AiJsonClient::class, $client);
+        app()->call([new RunAiContentAnalysisJob($run->id), 'handle']);
+        expect($run->refresh()->status)->toBe(AiAnalysisRun::STATUS_COMPLETED);
+    }
+
+    $rules = GrammarRule::query()->get();
+    expect($rules)->toHaveCount(1)
+        ->and($content->grammarRules()->pluck('grammar_rules.id')->all())->toBe([$rules->first()->id]);
 });

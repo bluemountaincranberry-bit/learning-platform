@@ -170,6 +170,7 @@ test('submit youtube validates required fields and url format', function () {
 });
 
 test('duplicate youtube submission by same user is rejected', function () {
+    \Illuminate\Support\Facades\Queue::fake();
     Role::firstOrCreate(['name' => 'user', 'guard_name' => 'web']);
 
     $user = User::factory()->create();
