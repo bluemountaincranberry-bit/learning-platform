@@ -32,6 +32,9 @@ test('analyze persists lexeme and grammar candidates from a valid AI response', 
     $run = makeLessonAnalysisRun();
 
     $client = Mockery::mock(AiJsonClient::class);
+    $client->shouldReceive('completeJson')->once()
+        ->with(Mockery::any(), Mockery::on(fn ($u) => str_contains($u, 'ALREADY EXTRACTED')), Mockery::type('array'), null)
+        ->andReturn(['lexemes' => []]);
     $client->shouldReceive('completeJson')
         ->once()
         ->with(
@@ -77,7 +80,7 @@ test('analyze throws when the AI response has no usable candidates', function ()
     $run = makeLessonAnalysisRun();
 
     $client = Mockery::mock(AiJsonClient::class);
-    $client->shouldReceive('completeJson')->once()->andReturn(['lexemes' => [], 'grammar' => []]);
+    $client->shouldReceive('completeJson')->twice()  ->andReturn(['lexemes' => [], 'grammar' => []]);
 
     makeLessonAnalysisService($client)->analyze($run->id);
 })->throws(AiClientException::class, 'no vocabulary or grammar');
@@ -86,7 +89,7 @@ test('analyze dedupes candidates by text/title', function () {
     $run = makeLessonAnalysisRun();
 
     $client = Mockery::mock(AiJsonClient::class);
-    $client->shouldReceive('completeJson')->once()->andReturn([
+    $client->shouldReceive('completeJson')->twice()  ->andReturn([
         'lexemes' => [
             ['text' => 'run', 'translation' => 'first wins'],
             ['text' => 'RUN', 'translation' => 'should be ignored'],
@@ -104,7 +107,7 @@ test('analyze drops an invalid CEFR level to null', function () {
     $run = makeLessonAnalysisRun();
 
     $client = Mockery::mock(AiJsonClient::class);
-    $client->shouldReceive('completeJson')->once()->andReturn([
+    $client->shouldReceive('completeJson')->twice()  ->andReturn([
         'lexemes' => [['text' => 'word', 'level' => 'not-a-level']],
         'grammar' => [],
     ]);
@@ -154,4 +157,59 @@ test('analyze keeps going when one part of a long lesson finds nothing', functio
     makeLessonAnalysisService($client)->analyze($run->id);
 
     expect($run->lexemeCandidates()->pluck('text')->all())->toBe(['to encourage smn to do smth']);
+});
+
+test('analyze treats curly/straight apostrophes and trailing punctuation as the same item', function () {
+    $run = makeLessonAnalysisRun();
+
+    $client = Mockery::mock(AiJsonClient::class);
+    $client->shouldReceive('completeJson')->twice()  ->andReturn([
+        'lexemes' => [
+            ['text' => 'You’ve got a point.', 'translation' => 'first'],
+            ['text' => "You've got a point", 'translation' => 'dup'],
+            ['text' => 'On balance, …', 'translation' => 'second'],
+            ['text' => 'On balance,', 'translation' => 'dup'],
+        ],
+        'grammar' => [],
+    ]);
+
+    makeLessonAnalysisService($client)->analyze($run->id);
+
+    expect($run->lexemeCandidates()->pluck('translation')->all())->toBe(['first', 'second']);
+});
+
+test('analyze adds the glossed expressions found by the bonus pass', function () {
+    $run = makeLessonAnalysisRun('Her doctor warned of heavy physical exertion (тяжёлая нагрузка).');
+
+    $client = Mockery::mock(AiJsonClient::class);
+    $client->shouldReceive('completeJson')->andReturnUsing(function ($system, $user) {
+        if (str_contains($user, 'ALREADY EXTRACTED')) {
+            expect($user)->toContain('- heavy load');
+
+            return ['lexemes' => [['text' => 'exertion', 'note' => 'from the example', 'confidence' => 0.8]]];
+        }
+
+        return ['lexemes' => [['text' => 'heavy load']], 'grammar' => []];
+    });
+
+    makeLessonAnalysisService($client)->analyze($run->id);
+
+    expect($run->lexemeCandidates()->orderBy('id')->pluck('text')->all())->toBe(['heavy load', 'exertion']);
+});
+
+test('analyze keeps the main list when the bonus pass fails', function () {
+    $run = makeLessonAnalysisRun();
+
+    $client = Mockery::mock(AiJsonClient::class);
+    $client->shouldReceive('completeJson')->andReturnUsing(function ($system, $user) {
+        if (str_contains($user, 'ALREADY EXTRACTED')) {
+            throw new AiClientException('timeout');
+        }
+
+        return ['lexemes' => [['text' => 'get up']], 'grammar' => []];
+    });
+
+    makeLessonAnalysisService($client)->analyze($run->id);
+
+    expect($run->lexemeCandidates()->pluck('text')->all())->toBe(['get up']);
 });

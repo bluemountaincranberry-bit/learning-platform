@@ -196,7 +196,7 @@ test('queued analysis persists Learning results that remain readable with AI dis
     $user = actingLessonStudent();
     $lesson = Lesson::query()->create(['user_id' => $user->id, 'source_text' => 'We practiced get up.']);
     $client = Mockery::mock(\App\Contracts\Ai\AiJsonClient::class);
-    $client->shouldReceive('completeJson')->once()->andReturn([
+    $client->shouldReceive('completeJson')->twice()->andReturn([
         'lexemes' => [['text' => 'get up', 'type' => 'phrasal_verb', 'translation' => 'вставать']],
         'grammar' => [],
     ]);

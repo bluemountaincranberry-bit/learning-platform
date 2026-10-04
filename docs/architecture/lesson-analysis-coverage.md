@@ -27,20 +27,24 @@ Three independent causes, in the order the text travels:
   the chat model.
 - **Analysis in parts.** `LessonAnalysisService` splits the notes with
   `TextChunker` (whole words, prefers line breaks) into parts of
-  `ai.analysis.lesson_chunk_chars` (default 4000, env
+  `ai.analysis.lesson_chunk_chars` (default 2500, env
   `AI_ANALYSIS_LESSON_CHUNK_CHARS`), makes one traced call per part and merges
   the results; the existing dedupe by text/title and embedding matching
   against earlier candidates still apply. The model context per call stays
   bounded regardless of document length.
+- **Second pass for bonus items.** After the main pass of each part, a short
+  separate call (`lesson_analysis.bonus.completeJson`) gets the part plus the
+  already extracted list and returns only extra expressions that the material
+  itself highlights or glosses in its examples/remarks (e.g. a translation in
+  brackets). It is separate because one combined prompt measurably lost
+  entries from the main list (recall fell from 54/54 to 45/54). A failing
+  bonus call is logged and ignored. Bonus items carry lower confidence.
 - **Exhaustive prompt.** The system prompt now asks for one entry per listed
   item, including the last ones, instead of a curated handful.
-- Not done (possible follow-up): an independent second "what did we miss"
-  pass. Add it only if the live recall below is not good enough.
 
 ## Cost
 
-Calls grow linearly with length: the 16 000-character fixture is ~5 calls of
-≤ 4000 characters instead of 1. Each call is traced (`lesson_analysis.completeJson`
+Calls grow linearly with length: the 16 000-character fixture is ~7 parts, 2 calls each (main + bonus), instead of 1 call. Measured on the real provider: ~75–85 s for the fixture, ~155 s for lesson 4 as a queued job. Each call is traced (`lesson_analysis.completeJson`
 with `chunk_index` / `chunk_count`) and goes through the same client and rate
 limiting as before. Expected cost ≈ the number of parts × one analysis call.
 
@@ -57,7 +61,7 @@ limiting as before. Expected cost ≈ the number of parts × one analysis call.
   repeat; the learner confirms candidates anyway.
 - A stored override of `lesson_analysis_system_prompt` in the prompt registry
   replaces the built-in prompt and so the "be exhaustive" wording.
-- Live recall and real cost have not been measured yet (needs provider access).
+- Measured live (OpenAI, gpt default): main list 54/54 of the fixture, ~65–68 items in total with bonus items; bonus recall on the 3 known glossed expressions is 1–2 of 3 (the check requires ≥ 1). Token cost was not recorded.
 
 ## How coverage is measured
 
@@ -69,7 +73,7 @@ items of the PDF (distinctive opening words). `LessonAnalysisCoverageTest`:
   if any item (including the last, "Playing devil's advocate") is not
   delivered to the model. This catches truncation / chunking regressions.
 - **On demand** (`AI_COVERAGE_EVAL=1`): runs the real provider and requires
-  recall ≥ `AI_COVERAGE_MIN_RECALL` (default 0.9), listing the missing items.
+  recall ≥ `AI_COVERAGE_MIN_RECALL` (default 0.95), listing the missing items.
 
 ```bash
 AI_COVERAGE_EVAL=1 make test ARGS="--filter=LessonAnalysisCoverageTest"

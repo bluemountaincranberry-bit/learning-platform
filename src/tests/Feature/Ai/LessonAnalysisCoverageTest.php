@@ -85,6 +85,17 @@ test('every item of a long PDF, including the last, reaches the model', function
         ->and($run->lexemeCandidates()->pluck('text')->all())->toContain("playing devil's advocate");
 });
 
+test('live model also offers the glossed expressions hidden in the examples', function () {
+    [$text] = coverageFixture();
+    $bonus = json_decode(file_get_contents(base_path('tests/Fixtures/pdf/wordlist-unit-1d.expected.json')), true)['bonus_items'];
+
+    $run = coverageRun($text);
+    app(LessonAnalysisService::class)->analyze($run->id);
+
+    [$recall, $missing] = coverageRecall($run, $bonus);
+    expect($recall)->toBeGreaterThanOrEqual(0.33, 'missing bonus: '.implode('; ', $missing));
+})->skip(fn () => ! env('AI_COVERAGE_EVAL'), 'Set AI_COVERAGE_EVAL=1 to run against the real provider.');
+
 test('live model finds substantially all items of the PDF word list', function () {
     [$text, $expected] = coverageFixture();
 
@@ -92,5 +103,5 @@ test('live model finds substantially all items of the PDF word list', function (
     app(LessonAnalysisService::class)->analyze($run->id);
 
     [$recall, $missing] = coverageRecall($run, $expected);
-    expect($recall)->toBeGreaterThanOrEqual((float) env('AI_COVERAGE_MIN_RECALL', 0.9), 'missing: '.implode('; ', $missing));
+    expect($recall)->toBeGreaterThanOrEqual((float) env('AI_COVERAGE_MIN_RECALL', 0.95), 'missing: '.implode('; ', $missing).' | found '.$run->lexemeCandidates()->count().': '.$run->lexemeCandidates()->pluck('text')->implode(' | '));
 })->skip(fn () => ! env('AI_COVERAGE_EVAL'), 'Set AI_COVERAGE_EVAL=1 to run against the real provider.');

@@ -1,6 +1,6 @@
 {
   "kind": "words_and_phrases",
-  "note": "Distinctive opening words of each of the 54 numbered items in wordlist-unit-1d.pdf; an item counts as found when a candidate's normalized text contains the key.",
+  "note": "Distinctive opening words of each of the 54 numbered items in wordlist-unit-1d.pdf; an item counts as found when a candidate's normalized text contains the key. bonus_items are glossed expressions from the examples that should also be offered.",
   "items": [
     "to encourage smn",
     "to discourage smn",
@@ -56,5 +56,10 @@
     "that's a great proposal",
     "to take a step back",
     "playing devil's advocate"
+  ],
+  "bonus_items": [
+    "exertion",
+    "water off a duck",
+    "fixed term"
   ]
 }

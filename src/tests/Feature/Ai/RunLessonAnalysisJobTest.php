@@ -34,7 +34,7 @@ test('same queued lesson analysis succeeds after a transient provider failure', 
     $run = queuedLessonRun();
     $client = Mockery::mock(AiJsonClient::class);
     $client->shouldReceive('completeJson')->once()->andThrow(new AiClientException('Provider unavailable'));
-    $client->shouldReceive('completeJson')->once()->andReturn([
+    $client->shouldReceive('completeJson')->twice()->andReturn([
         'lexemes' => [['text' => 'get up']], 'grammar' => [['title' => 'Present Perfect']],
     ]);
     app()->instance(AiJsonClient::class, $client);
@@ -74,7 +74,7 @@ test('permanent failure exhausts attempts and fresh duplicate deliveries cannot 
 test('candidate persistence failure rolls back the batch and queued retry creates each candidate once', function () {
     $run = queuedLessonRun();
     $client = Mockery::mock(AiJsonClient::class);
-    $client->shouldReceive('completeJson')->twice()->andReturn([
+    $client->shouldReceive('completeJson')->times(4)->andReturn([
         'lexemes' => [['text' => 'get up']], 'grammar' => [['title' => 'Present Perfect']],
     ]);
     app()->instance(AiJsonClient::class, $client);
@@ -113,7 +113,7 @@ test('retry retains previously persisted candidates and ignores delivery while r
     // An actual retry payload has already used its first attempt.
     \Illuminate\Support\Facades\DB::table('jobs')->update(['attempts' => 1]);
     $client = Mockery::mock(AiJsonClient::class);
-    $client->shouldReceive('completeJson')->once()->andReturnUsing(function () use ($run) {
+    $client->shouldReceive('completeJson')->twice()->andReturnUsing(function () use ($run) {
         app()->call([new RunLessonAnalysisJob($run->id), 'handle']);
 
         return ['lexemes' => [['text' => 'GET UP']], 'grammar' => [['title' => 'Present Perfect']]];
