@@ -4,7 +4,9 @@ Design for practicing one grammar rule. Implementation: VIK-31.
 Mockup (open in a browser, phone width): [mockups/grammar-exercises-block.html](mockups/grammar-exercises-block.html).
 
 Related: VIK-29 (start-learning flow, Easy/Medium/Hard), VIK-32 (hint → retry →
-answer), VIK-10 (grammar repetition, [ADR-012](../architecture/adr/ADR-012-grammar-rule-repetition-schedule.md)), VIK-26 (personal rules).
+answer), VIK-10 (grammar repetition,
+[ADR-012](../architecture/adr/ADR-012-grammar-rule-repetition-schedule.md)),
+VIK-26 (personal rules).
 
 ## Today
 
@@ -132,9 +134,8 @@ Learning module; listeners do the secondary work):
 - "last practiced" + last score shown on the start card and in My grammar;
 - **grammar review** (VIK-10, [ADR-012](../architecture/adr/ADR-012-grammar-rule-repetition-schedule.md)):
   the round's score becomes one rating that moves `next_practice_at` on the
-  My grammar row: < 60% **Again** (1 day), 60–79% **Hold** (same interval),
-  ≥ 80% **Got it** (new → 1 → 3 days, then × ease), ≥ 90% on Medium/Hard
-  **Easy**. Intervals keep growing up to 90 days. Only the first finished round
+  My grammar row (Again / Hold / Got it / Easy by score, thresholds in
+  ADR-012 rule 4). Intervals start at 1 → 3 days and grow up to 90 days. Only the first finished round
   per rule per day with ≥ 3 scored items counts. Practice mistakes and `pre`
   exams don't count. Practicing early never shortens the schedule. The result
   screen shows the next date ("Next practice in 3 days").

@@ -55,8 +55,8 @@ for every URL form of that source. The catalog holds one content per source key.
 _Avoid_: Source URL (when meaning identity).
 
 **Grammar review**:
-A counted practice round on a grammar rule in My grammar. Its score sets when
-the rule is due again. A rule is scheduled as a whole; its exercises are not.
+A counted practice round (or content post exam) on a grammar rule in My
+grammar. Its score sets when the rule is due again. A rule is scheduled as a whole; its exercises are not.
 _Avoid_: Grammar card, exercise review.
 
 **Due rule**:

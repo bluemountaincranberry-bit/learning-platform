@@ -34,17 +34,18 @@ scheduled. Each review round takes fresh exercises from the rule's pool.
 
    | Score | Rating | Next |
    |---|---|---|
-   | < 60% | **Again** | Lapse: 1 day, ease −0.2 (floor 1.3), `lapse_count` +1. A new rule stays new. |
-   | 60–79% | **Hold** | Same interval again (min 1 day). Ease unchanged. A new rule stays new. |
+   | < 60% | **Again** | Lapse: 1 day, ease −0.2 (floor 1.3), `lapse_count` +1. A new rule stays new and is due tomorrow. |
+   | 60–79% | **Hold** | Same interval again (min 1 day). Ease unchanged. A new rule stays new and is due tomorrow. |
    | ≥ 80% | **Got it** | New → 1 day; second pass → 3 days; then interval × ease. |
    | ≥ 90% on a Medium or Hard round | **Easy** | New → 3 days; then interval × ease × 1.3, ease +0.15. |
 
-   An Easy-level round (recognition only) gives at most Got it. Hold is the
+   Ratings are stored as `again | hold | got_it | easy`. An Easy-level round
+   (recognition only) gives at most Got it. Hold is the
    one grammar-specific rating. A 70% round shows partial control, so the rule
    neither grows nor lapses.
-5. **Elapsed time, not schedule.** As ADR-011 rule 4: a pass grows from the
-   real time since the last counted review,
-   `next = max(current, round(elapsed_days × factor))`. Practicing early never
+5. **Elapsed time, not schedule.** The graduation steps (1 day, then 3 days)
+   are fixed. After them, as ADR-011 rule 4, a pass grows from the real time
+   since the last counted review: `next = max(current, round(elapsed_days × factor))`. Practicing early never
    shortens a schedule. A late pass grows from the longer gap. Again is a lapse
    whenever it happens.
 6. **Cap.** `interval_days` ≤ 90, so every rule returns at least once a
@@ -55,22 +56,22 @@ scheduled. Each review round takes fresh exercises from the rule's pool.
    result screen says the rule needs practice again.
 8. **Due.** A rule is due when `next_practice_at` ≤ the end of the learner's
    local day (`users.timezone`, else app timezone).
-9. **History.** Each counted attempt stores its `schedule_rating`
-   (`again | hold | good | easy`). Uncounted attempts store `null`. The attempt
+9. **History.** Each counted attempt stores its `schedule_rating`. Uncounted attempts store `null`. The attempt
    rows plus this column are enough to replay and re-fit (FSRS later).
 
 ## Today and My grammar
 
 - **Rule of the day** (VIK-47): the due rule with the largest
   `overdue_days / interval_days`, then the lowest confidence, then the earliest
-  added. Reviewed rules come before new ones. At most **one new rule per day**
+  added. Reviewed rules come before new ones. New rules go in the order they
+  were added (a lesson's rules in lesson order). At most **one new rule per day**
   enters through Today, so six rules saved from one lesson don't arrive as a
   wall. The others stay available in My grammar.
 - The Today round is **Medium · 5** (one of each type). It counts as a review.
   After it, if more rules are due: "N more rules due" → the next rule. Never
   forced.
 - **Nothing due** → "Extra practice": the `learning` rule with the lowest
-  confidence not practiced in the last 24 h. Elapsed rule 5 keeps the early
+  confidence not practiced today (learner-local day). Elapsed rule 5 keeps the early
   round from distorting its schedule. My grammar empty → no card.
 - **No exercises and AI down** → skip to the next due rule that has exercises.
   The skipped rule stays due.
@@ -119,7 +120,10 @@ FSRS now (deferred) and confidence-only selection (no time dimension).
   Hold and reset stay. The growth and the cap change.
 - Implementation: VIK-65 (Learning + Srs, after VIK-31). VIK-47 (Today)
   uses its due-rule query.
-- Extends ADR-011 with one rating (Hold) used only by grammar. Word reviews
-  keep the three ratings.
+- Differs from ADR-011 in two places, both on purpose:
+  - Grammar adds one rating, Hold. Word reviews keep their three ratings.
+  - Grammar has no 10-minute learning or relearning step. The round already
+    gives several retrievals of the rule, and **Practice mistakes** is the
+    same-session relearn. Again → due tomorrow.
 - Mixed rounds over several due rules (interleaving) are the evidence-backed
   next step. They are a separate follow-up and not part of this decision.
