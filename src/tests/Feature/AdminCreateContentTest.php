@@ -47,6 +47,29 @@ test('creating youtube content with a source url starts the pipeline automatical
     Queue::assertPushed(FetchTranscriptJob::class, fn (FetchTranscriptJob $job) => $job->contentId === $content->id);
 });
 
+test('VIK-16: creating youtube content for a video already in the catalog is a form error, not a second content', function () {
+    Queue::fake();
+    actingAdminForCreateContent();
+    Content::query()->create([
+        'type' => 'youtube', 'title' => 'Existing', 'language' => 'en', 'origin' => 'curated', 'status' => 'ready',
+        'source_url' => 'https://youtu.be/dQw4w9WgXcQ?si=abc',
+    ]);
+
+    Livewire::test(CreateContent::class)
+        ->fillForm([
+            'type' => 'youtube',
+            'title' => 'Same video',
+            'source_url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RD',
+            'language' => 'en',
+            'origin' => 'curated',
+        ])
+        ->call('create')
+        ->assertHasFormErrors(['source_url']);
+
+    expect(Content::query()->count())->toBe(1);
+    Queue::assertNothingPushed();
+});
+
 test('creating content with source text tokenizes it automatically', function () {
     Queue::fake();
     actingAdminForCreateContent();

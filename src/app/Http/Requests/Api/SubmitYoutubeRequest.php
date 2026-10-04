@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Modules\Content\Rules\NewYoutubeVideo;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class SubmitYoutubeRequest extends FormRequest
 {
@@ -22,12 +22,8 @@ class SubmitYoutubeRequest extends FormRequest
             'source_url' => [
                 'required',
                 'url',
-                'regex:/youtube\.com|youtu\.be/',
-                Rule::unique('contents', 'source_url')->where(
-                    fn ($query) => $query
-                        ->where('created_by', $this->user()->id)
-                        ->where('origin', 'user-submitted')
-                ),
+                'max:255',
+                new NewYoutubeVideo,
             ],
             'language' => ['required', 'string', 'size:2'],
             'level' => ['nullable', 'string', 'max:4'],

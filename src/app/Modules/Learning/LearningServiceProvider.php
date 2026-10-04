@@ -5,8 +5,10 @@ namespace App\Modules\Learning;
 use App\Contracts\Ai\LessonAnalysisStoreInterface;
 use App\Contracts\Ai\LessonNotesWriterInterface;
 use App\Modules\Content\Application\Contracts\GrammarProgressStoreInterface;
+use App\Modules\Content\Application\Contracts\GrammarRuleMergeParticipant;
 use App\Modules\Learning\Application\Contracts\PronunciationAssessmentProviderInterface;
 use App\Modules\Learning\Application\Contracts\SpeechToTextProviderInterface;
+use App\Modules\Learning\Application\GrammarProgressMergeParticipant;
 use App\Modules\Learning\Application\GrammarProgressStore;
 use App\Modules\Learning\Application\LearningStatsService;
 use App\Modules\Learning\Application\LessonStore;
@@ -31,6 +33,7 @@ class LearningServiceProvider extends ServiceProvider
         $this->app->bind(LessonAnalysisStoreInterface::class, LessonStore::class);
         $this->app->bind(LessonNotesWriterInterface::class, LessonStore::class);
         $this->app->bind(GrammarProgressStoreInterface::class, GrammarProgressStore::class);
+        $this->app->tag([GrammarProgressMergeParticipant::class], GrammarRuleMergeParticipant::TAG);
         $this->app->bind(LearningStatsReaderInterface::class, LearningStatsService::class);
         $this->app->bind(ReviewOutcomeHandlerInterface::class, ReviewOutcomeHandler::class);
         $this->app->bind(SpeechToTextProviderInterface::class, function (): SpeechToTextProviderInterface {

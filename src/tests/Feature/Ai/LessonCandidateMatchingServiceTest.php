@@ -77,7 +77,7 @@ test('a matched grammar candidate is auto-linked into the lesson owner\'s UserGr
         'topic_id' => $topic->id, 'slug' => 'present-perfect', 'language' => 'en', 'title' => 'Present Perfect', 'status' => GrammarRule::STATUS_PUBLISHED,
     ]);
     GrammarRuleEmbedding::query()->create(['grammar_rule_id' => $rule->id, 'embedding' => [1.0, 0.0], 'model_version' => 'text-embedding-3-small']);
-    $candidate = $run->grammarCandidates()->create(['title' => 'Present Perfect', 'summary' => 'unfinished past action', 'status' => 'pending']);
+    $candidate = $run->grammarCandidates()->create(['title' => 'Present Perfect Tense', 'summary' => 'unfinished past action', 'status' => 'pending']);
 
     $embeddings = Mockery::mock(EmbeddingsClientInterface::class);
     $embeddings->shouldReceive('embed')->once()->andReturn([1.0, 0.0]);
@@ -89,6 +89,23 @@ test('a matched grammar candidate is auto-linked into the lesson owner\'s UserGr
         ->and($candidate->status)->toBe('linked');
 
     expect(UserGrammarRule::query()->where('user_id', $run->lesson->user_id)->where('grammar_rule_id', $rule->id)->exists())->toBeTrue();
+});
+
+test('VIK-16: a grammar candidate with an existing rule title links it without an embedding call', function () {
+    $run = makeLessonRunForMatching();
+    $topic = GrammarTopic::query()->create(['slug' => 'perfect', 'language' => 'en', 'name' => 'Perfect', 'status' => 'active']);
+    $rule = GrammarRule::query()->create([
+        'topic_id' => $topic->id, 'slug' => 'present-perfect', 'language' => 'en', 'title' => 'Present Perfect', 'status' => GrammarRule::STATUS_PUBLISHED,
+    ]);
+    $candidate = $run->grammarCandidates()->create(['title' => 'present perfect', 'summary' => 'a different summary', 'status' => 'pending']);
+
+    $embeddings = Mockery::mock(EmbeddingsClientInterface::class);
+    $embeddings->shouldNotReceive('embed');
+
+    lessonMatcher($embeddings)->matchRun($run->id);
+
+    expect($candidate->refresh()->matched_grammar_rule_id)->toBe($rule->id)
+        ->and($candidate->match_score)->toBe(1.0);
 });
 
 test('an unmatched grammar candidate is marked new and links nothing', function () {

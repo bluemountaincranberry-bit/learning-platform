@@ -12,6 +12,12 @@ interface CandidateMatchStoreInterface
 
     public function exactLexemeId(string $normalizedLemma, string $language): ?int;
 
+    /**
+     * VIK-16: the live (non-archived) rule with the same title identity in
+     * this language, oldest first. Archived rules are merged-away duplicates.
+     */
+    public function exactGrammarRuleId(string $title, string $language): ?int;
+
     /** @return array<int, int> */
     public function lexemeIdsForLanguage(string $language): array;
 

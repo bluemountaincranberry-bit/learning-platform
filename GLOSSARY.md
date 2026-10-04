@@ -48,3 +48,13 @@ _Avoid_: Mistake (when referring to the scheduling event).
 The share of lexemes a learner still remembers after a given time without
 practising them.
 _Avoid_: Accuracy (when referring to remembering over time).
+
+**Source key**:
+The identity of a content's external source (e.g. one YouTube video), equal
+for every URL form of that source. The catalog holds one content per source key.
+_Avoid_: Source URL (when meaning identity).
+
+**Duplicate rule**:
+A grammar rule with the same normalized title and language as another rule.
+Merging it moves everything to the kept rule and archives the duplicate.
+_Avoid_: Similar rule (when the titles differ; that is a near-duplicate and is merged only on request).
