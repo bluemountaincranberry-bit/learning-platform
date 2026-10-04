@@ -32,3 +32,7 @@ Basic Excise File
 **/.claude/agent-memory-local
 **/.claude/first-run
 **/.claude/assistant-daemon-state.json
+
+# Local agent run artifacts and workspace MCP connection settings.
+**/.claude/parallel-runs/
+/.codex/config.toml
