@@ -1,4 +1,12 @@
-export type { GrammarRule, GrammarRuleExample, GrammarRuleTopic } from './GrammarRule';
+export type {
+    GrammarRule,
+    GrammarRuleExample,
+    GrammarRuleExampleKind,
+    GrammarRuleExampleGenerationStatus,
+    GrammarRuleExampleRequestStatus,
+    GrammarRuleExamplesResponse,
+    GrammarRuleTopic,
+} from './GrammarRule';
 export type { GrammarRuleListParams } from './GrammarRuleListParams';
 export type { GrammarRuleListResponse } from './GrammarRuleListResponse';
 export type { GrammarRuleOneResponse } from './GrammarRuleOneResponse';

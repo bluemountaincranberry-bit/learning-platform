@@ -10,6 +10,10 @@ export type { BulkLexemeActionResponse, BulkLexemeActionResult } from './lexeme'
 export type {
     GrammarRule,
     GrammarRuleExample,
+    GrammarRuleExampleKind,
+    GrammarRuleExampleGenerationStatus,
+    GrammarRuleExampleRequestStatus,
+    GrammarRuleExamplesResponse,
     GrammarRuleTopic,
     GrammarRuleListParams,
     GrammarRuleListResponse,

@@ -8,6 +8,7 @@ import UiBadge from '../shared/ui/UiBadge.vue';
 import UiButton from '../shared/ui/UiButton.vue';
 import UiCard from '../shared/ui/UiCard.vue';
 import UiSectionHeader from '../shared/ui/UiSectionHeader.vue';
+import GrammarRuleExamples from '../widgets/grammar/GrammarRuleExamples.vue';
 import MarkdownContent from '../shared/ui/MarkdownContent.vue';
 import ExercisePractice from '../widgets/grammar/ExercisePractice.vue';
 import { grammarApi } from '../domains/content';
@@ -139,17 +140,15 @@ onMounted(loadRule);
                 <MarkdownContent :content="rule?.body" />
             </UiCard>
 
-            <UiCard v-if="rule?.examples && rule.examples.length > 0" class="space-y-4">
+            <UiCard v-if="rule" class="space-y-4">
                 <UiSectionHeader title="Examples" />
                 <div class="space-y-3">
-                    <div
-                        v-for="(example, index) in rule.examples"
-                        :key="index"
-                        class="rounded-spa border border-border bg-black/10 p-3"
-                    >
-                        <div class="text-sm text-fg">{{ example.example }}</div>
-                        <div v-if="example.translation" class="mt-1 text-sm text-muted">{{ example.translation }}</div>
-                    </div>
+                    <GrammarRuleExamples
+                        :rule-id="rule.id"
+                        :initial-examples="rule.examples ?? []"
+                        :language="rule.language"
+                        :authenticated="authStore.isAuthenticated"
+                    />
                 </div>
             </UiCard>
 

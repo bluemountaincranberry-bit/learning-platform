@@ -6,12 +6,13 @@ use App\Modules\Content\Interfaces\Http\Controllers\AdminGrammarTopicController;
 use App\Modules\Content\Interfaces\Http\Controllers\AdminLexemeController;
 use App\Modules\Content\Interfaces\Http\Controllers\ContentAiSuggestionsController;
 use App\Modules\Content\Interfaces\Http\Controllers\ContentController;
-use App\Modules\Content\Interfaces\Http\Controllers\TranscriptController;
-use App\Modules\Content\Interfaces\Http\Controllers\TranscriptTranslationController;
 use App\Modules\Content\Interfaces\Http\Controllers\ContentGrammarPreExamController;
 use App\Modules\Content\Interfaces\Http\Controllers\ContentReadinessController;
 use App\Modules\Content\Interfaces\Http\Controllers\GrammarRuleController;
+use App\Modules\Content\Interfaces\Http\Controllers\GrammarRuleExampleController;
 use App\Modules\Content\Interfaces\Http\Controllers\LexemeController;
+use App\Modules\Content\Interfaces\Http\Controllers\TranscriptController;
+use App\Modules\Content\Interfaces\Http\Controllers\TranscriptTranslationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/content/categories', [ContentController::class, 'categories'])->name('api.content.categories');
@@ -24,6 +25,7 @@ Route::get('/content/{content}/transcript', [TranscriptController::class, 'index
 Route::get('/content/{content}/grammar-rules', [GrammarRuleController::class, 'forContent'])->name('api.content.grammar-rules');
 
 Route::get('/grammar-rules', [GrammarRuleController::class, 'index'])->name('api.grammar-rules.index');
+Route::get('/grammar-rules/{rule}/examples', [GrammarRuleExampleController::class, 'index'])->name('api.grammar-rules.examples');
 Route::get('/grammar-rules/{rule}', [GrammarRuleController::class, 'show'])->name('api.grammar-rules.show');
 Route::get('/grammar-rules/{rule}/exercises', [GrammarRuleController::class, 'exercises'])->name('api.grammar-rules.exercises');
 
@@ -67,6 +69,14 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function (): void {
     Route::post('/grammar-rules/{rule}/mark-learned', [GrammarRuleController::class, 'markLearned'])->name('api.grammar-rules.mark-learned');
     Route::post('/grammar-rules/{rule}/unmark-learned', [GrammarRuleController::class, 'unmarkLearned'])->name('api.grammar-rules.unmark-learned');
     Route::post('/grammar-rules/{rule}/confidence', [GrammarRuleController::class, 'setConfidence'])->name('api.grammar-rules.confidence');
+    // VIK-39: "More examples" — per-rule daily batches are limited in
+    // GrammarRuleExampleGenerations; ai.rate_limit caps the learner's total.
+    Route::post('/grammar-rules/{rule}/examples/generate', [GrammarRuleExampleController::class, 'generate'])
+        ->middleware('ai.rate_limit:explain')
+        ->name('api.grammar-rules.examples.generate');
+    Route::post('/grammar-rules/{rule}/examples/{example}/hide', [GrammarRuleExampleController::class, 'hide'])
+        ->whereNumber('example')
+        ->name('api.grammar-rules.examples.hide');
 
     // EPIC 9 (tasks 9.2/9.3): review/accept AI candidates, user-facing (the
     // content's own submitter — ContentPolicy::reviewAiSuggestions()), not

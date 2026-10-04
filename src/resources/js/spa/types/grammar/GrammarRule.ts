@@ -2,10 +2,31 @@
  * Grammar rule entity as returned by the public API (GrammarRuleResource).
  * Learner-facing shape — no admin-only fields like coverage_state/counts.
  */
+export type GrammarRuleExampleKind = 'affirmative' | 'negative' | 'question' | 'mistake';
+
 export interface GrammarRuleExample {
+    id: number;
     example: string;
     translation: string | null;
+    kind: GrammarRuleExampleKind | null;
+    /** For kind = mistake: the typical wrong sentence learners write. */
+    mistake: string | null;
+    /** The grammar form inside `example`: [start, end) offsets in characters (code points). Null when not marked. */
+    target_spans: [number, number][] | null;
+    origin: 'admin' | 'ai' | 'content';
+    /** Taken from a video/lesson (real context). */
+    from_content: boolean;
 }
+
+export type GrammarRuleExampleGenerationStatus = 'idle' | 'queued' | 'running' | 'done' | 'failed';
+
+export interface GrammarRuleExamplesResponse {
+    examples: GrammarRuleExample[];
+    generation: { status: GrammarRuleExampleGenerationStatus };
+}
+
+/** queued/active = examples are on the way; limited = daily batches used up; unavailable = AI off. */
+export type GrammarRuleExampleRequestStatus = 'queued' | 'active' | 'limited' | 'unavailable';
 
 export interface GrammarRuleTopic {
     id: number;

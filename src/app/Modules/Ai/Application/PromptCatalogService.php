@@ -2,7 +2,6 @@
 
 namespace App\Modules\Ai\Application;
 
-use App\Modules\Ai\Domain\Models\PromptTemplate;
 use App\Modules\Ai\Application\Agent\ContentAgentService;
 use App\Modules\Ai\Application\Agent\Contracts\AgentTool;
 use App\Modules\Ai\Application\Agent\Data\AgentBlueprint;
@@ -10,6 +9,7 @@ use App\Modules\Ai\Application\Agent\GrammarAgentService;
 use App\Modules\Ai\Application\Agent\LessonAgentService;
 use App\Modules\Ai\Application\Agent\ReviewAgentService;
 use App\Modules\Ai\Application\Agent\StudentTutorAgentService;
+use App\Modules\Ai\Domain\Models\PromptTemplate;
 use Illuminate\Support\Str;
 
 /**
@@ -71,6 +71,7 @@ final class PromptCatalogService
                 ['key' => 'field_edit_grammar_rule_system_prompt', 'agent_type' => null, 'label' => 'Черновик грамматического правила (админка)', 'description' => 'GrammarRuleAiContentBuilder — кнопка "AI: Draft/Improve" на странице грамматического правила.'],
                 ['key' => 'field_edit_lexeme_enrichment_system_prompt', 'agent_type' => null, 'label' => 'Обогащение слова (админка + автоматически)', 'description' => 'LexemeEnrichmentPromptBuilder — кнопка "AI: Enrich" на странице канонического слова, и EnrichLexemeAssociationsJob для каждой новой леммы (типизированные связи/примеры/перевод).'],
                 ['key' => 'grammar_exercises_system_prompt', 'agent_type' => null, 'label' => 'Генерация упражнений', 'description' => 'AiGrammarExerciseService — генерация практических упражнений для грамматического правила.'],
+                ['key' => 'grammar_examples_system_prompt', 'agent_type' => null, 'label' => 'Примеры к грамматическому правилу', 'description' => 'AiGrammarRuleExampleService — "More examples" на странице правила и команда grammar:backfill-examples: 6–8 примеров с выделенной формой и переводом.'],
             ],
         ],
         [

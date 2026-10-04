@@ -29,10 +29,7 @@ class GrammarRuleResource extends JsonResource
                 'id' => $this->topic->id,
                 'name' => $this->topic->name,
             ]),
-            'examples' => $this->whenLoaded('examples', fn () => $this->examples->map(fn ($example): array => [
-                'example' => $example->example,
-                'translation' => $example->translation,
-            ])->values()),
+            'examples' => $this->whenLoaded('examples', fn () => GrammarRuleExampleResource::collection($this->examples->values())),
             'in_my_list' => $this->when(isset($this->in_my_list), fn (): bool => (bool) $this->in_my_list),
             'learned' => $this->when(isset($this->learned), fn (): bool => (bool) $this->learned),
             // Gated on in_my_list rather than isset($this->confidence_manual)

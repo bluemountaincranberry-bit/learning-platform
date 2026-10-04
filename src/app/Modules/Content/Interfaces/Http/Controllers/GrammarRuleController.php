@@ -8,6 +8,7 @@ use App\Http\Resources\GrammarRuleExerciseResource;
 use App\Http\Resources\GrammarRuleResource;
 use App\Modules\Content\Application\Contracts\GrammarCatalogServiceInterface;
 use App\Modules\Content\Application\Contracts\GrammarProgressServiceInterface;
+use App\Modules\Content\Application\Contracts\GrammarRuleExampleReaderInterface;
 use App\Modules\Content\Domain\Models\Content;
 use App\Modules\Content\Domain\Models\GrammarRule;
 use App\Modules\Content\Domain\Models\GrammarRuleExercise;
@@ -27,7 +28,8 @@ class GrammarRuleController extends Controller
 {
     public function __construct(
         private GrammarCatalogServiceInterface $grammarCatalogService,
-        private GrammarProgressServiceInterface $grammarProgressService
+        private GrammarProgressServiceInterface $grammarProgressService,
+        private GrammarRuleExampleReaderInterface $exampleReader,
     ) {}
 
     public function index(GrammarRuleIndexRequest $request): JsonResponse
@@ -47,6 +49,8 @@ class GrammarRuleController extends Controller
         abort_unless($rule->status === GrammarRule::STATUS_PUBLISHED, 404);
 
         $rule = $this->grammarCatalogService->getRule($rule);
+        // Learner order and the learner's hidden examples (VIK-39), not the admin list.
+        $rule->setRelation('examples', $this->exampleReader->forLearner($rule->id, $request->user('sanctum')?->id));
         $this->annotateWithProgress($request, collect([$rule]));
 
         return response()->json([

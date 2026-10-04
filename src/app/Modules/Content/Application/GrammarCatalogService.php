@@ -2,11 +2,12 @@
 
 namespace App\Modules\Content\Application;
 
-use App\Modules\Content\Domain\Models\GrammarRule;
-use App\Modules\Content\Domain\Models\GrammarTopic;
-use App\Modules\Content\Domain\Models\Lexeme;
 use App\Modules\Content\Application\Contracts\GrammarCatalogServiceInterface;
 use App\Modules\Content\Application\Support\GrammarCoverageStateResolver;
+use App\Modules\Content\Domain\Models\GrammarRule;
+use App\Modules\Content\Domain\Models\GrammarRuleExample;
+use App\Modules\Content\Domain\Models\GrammarTopic;
+use App\Modules\Content\Domain\Models\Lexeme;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -471,10 +472,15 @@ class GrammarCatalogService implements GrammarCatalogServiceInterface
 
     private function syncRuleExamples(GrammarRule $rule, array $examples): void
     {
+        // The admin payload has only text fields; an unchanged sentence keeps
+        // what the admin form does not carry (source content, AI marking — VIK-39).
+        $kept = $rule->examples()->get()->keyBy(fn (GrammarRuleExample $example): string => $example->example)
+            ->map(fn (GrammarRuleExample $example): array => $example->only(['content_id', 'origin', 'kind', 'target_spans', 'mistake', 'translation_language']));
+
         $rule->examples()->delete();
 
         foreach (array_values($examples) as $index => $example) {
-            $rule->examples()->create([
+            $rule->examples()->create(($kept[$example['example']] ?? []) + [
                 'language' => $example['language'] ?? $rule->language,
                 'example' => $example['example'],
                 'translation' => $example['translation'] ?? null,
@@ -542,7 +548,7 @@ class GrammarCatalogService implements GrammarCatalogServiceInterface
     }
 
     /**
-     * @param class-string<\Illuminate\Database\Eloquent\Model> $modelClass
+     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelClass
      */
     private function resolveUniqueSlug(string $modelClass, ?string $slug, string $fallback, ?int $ignoreId = null): string
     {
@@ -560,7 +566,7 @@ class GrammarCatalogService implements GrammarCatalogServiceInterface
     }
 
     /**
-     * @param class-string<\Illuminate\Database\Eloquent\Model> $modelClass
+     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelClass
      */
     private function slugExists(string $modelClass, string $slug, ?int $ignoreId = null): bool
     {

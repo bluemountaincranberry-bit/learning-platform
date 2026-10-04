@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Modules\Content\Interfaces\Http\Controllers;
+
+use App\Http\Controllers\Controller;
+use App\Http\Resources\GrammarRuleExampleResource;
+use App\Modules\Content\Application\Contracts\GrammarRuleExampleGenerationsInterface;
+use App\Modules\Content\Application\Contracts\GrammarRuleExampleReaderInterface;
+use App\Modules\Content\Application\Data\GrammarRuleExampleGenerationRequest;
+use App\Modules\Content\Domain\Models\GrammarRule;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+
+/**
+ * Rule page examples (VIK-39): the list (with the latest AI batch status,
+ * for polling after "More examples"), queuing more AI examples, and
+ * hiding a bad example for the current learner.
+ */
+class GrammarRuleExampleController extends Controller
+{
+    public function __construct(
+        private GrammarRuleExampleReaderInterface $reader,
+        private GrammarRuleExampleGenerationsInterface $generations,
+    ) {}
+
+    public function index(Request $request, GrammarRule $rule): JsonResponse
+    {
+        abort_unless($rule->status === GrammarRule::STATUS_PUBLISHED, 404);
+
+        // Public route: the sanctum guard is checked explicitly, as in GrammarRuleController.
+        $userId = $request->user('sanctum')?->id;
+
+        return response()->json([
+            'examples' => GrammarRuleExampleResource::collection($this->reader->forLearner($rule->id, $userId)),
+            'generation' => ['status' => $this->generations->latestStatus($rule->id)],
+        ]);
+    }
+
+    public function generate(Request $request, GrammarRule $rule): JsonResponse
+    {
+        abort_unless($rule->status === GrammarRule::STATUS_PUBLISHED, 404);
+
+        $user = $request->user();
+        $result = $this->generations->request(
+            $rule->id,
+            $user->id,
+            (int) config('ai.examples.more_count', 4),
+            $user->translation_language ?: null,
+        );
+
+        $status = match ($result->status) {
+            GrammarRuleExampleGenerationRequest::QUEUED => 202,
+            GrammarRuleExampleGenerationRequest::LIMITED => 429,
+            GrammarRuleExampleGenerationRequest::UNAVAILABLE => 503,
+            default => 200,
+        };
+
+        return response()->json(['status' => $result->status], $status);
+    }
+
+    public function hide(Request $request, GrammarRule $rule, int $example): Response
+    {
+        abort_unless($this->reader->hide($rule->id, $example, $request->user()->id), 404);
+
+        return response()->noContent();
+    }
+}

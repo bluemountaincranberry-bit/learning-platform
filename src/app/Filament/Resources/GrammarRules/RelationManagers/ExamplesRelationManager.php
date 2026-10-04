@@ -38,7 +38,9 @@ class ExamplesRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('example')->wrap()->limit(80),
                 TextColumn::make('translation')->wrap()->limit(80)->placeholder('—'),
-                TextColumn::make('language')->toggleable(),
+                TextColumn::make('origin')->badge()->toggleable(),
+                TextColumn::make('kind')->placeholder('—')->toggleable(),
+                TextColumn::make('language')->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('is_primary')->boolean(),
                 TextColumn::make('content.title')->label('Source content')->placeholder('Curated')->toggleable(),
             ])

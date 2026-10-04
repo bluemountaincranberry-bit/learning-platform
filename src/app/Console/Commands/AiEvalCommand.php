@@ -2,9 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Modules\Ai\Domain\Models\AiAnalysisRun;
-use App\Modules\Content\Domain\Models\Content;
-use App\Modules\User\Models\User;
+use App\Contracts\Ai\ContentAnalysisCapability;
 use App\Modules\Ai\Application\Agent\AgentLoop;
 use App\Modules\Ai\Application\Agent\Contracts\AgentLoopObserver;
 use App\Modules\Ai\Application\Agent\Data\AgentChatResponse;
@@ -13,7 +11,13 @@ use App\Modules\Ai\Application\Agent\Data\AgentToolContext;
 use App\Modules\Ai\Application\Agent\StudentTutorAgentService;
 use App\Modules\Ai\Application\Agent\Tracing\SpanRecorder;
 use App\Modules\Ai\Application\Agent\Tracing\TraceContext;
-use App\Contracts\Ai\ContentAnalysisCapability;
+use App\Modules\Ai\Application\AiGrammarRuleExampleService;
+use App\Modules\Ai\Domain\Models\AiAnalysisRun;
+use App\Modules\Content\Domain\Models\Content;
+use App\Modules\Content\Domain\Models\GrammarRule;
+use App\Modules\Content\Domain\Models\GrammarRuleExample;
+use App\Modules\Content\Domain\Models\GrammarTopic;
+use App\Modules\User\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -37,6 +41,11 @@ use Throwable;
  *   answering from parametric knowledge (the concrete risk this eval
  *   exists to catch — an ungrounded answer looks identical to a grounded
  *   one until you check which tool actually fired).
+ * - `grammar_examples` (VIK-39): golden grammar rules
+ *   (`tests/Fixtures/Evals/grammar_examples_cases.php`) run through the real
+ *   `AiGrammarRuleExampleService`, scored against the rubric stored in that
+ *   file — do the examples actually use the rule, are they marked and
+ *   translated, do they cover affirmative/negative/question.
  *
  * Both suites write real rows (Content, AiAnalysisRun, User, SrsCard, ...)
  * needed to exercise the real services, wrapped in one transaction per
@@ -45,11 +54,11 @@ use Throwable;
  */
 class AiEvalCommand extends Command
 {
-    protected $signature = 'ai:eval {--suite=all : content_analysis | tutor_agent | all}';
+    protected $signature = 'ai:eval {--suite=all : content_analysis | tutor_agent | grammar_examples | all}';
 
     protected $description = 'Run golden-dataset evals against the real AI provider and report recall/tool-grounding metrics.';
 
-    public function handle(ContentAnalysisCapability $analysisService, AgentLoop $loop): int
+    public function handle(ContentAnalysisCapability $analysisService, AgentLoop $loop, AiGrammarRuleExampleService $exampleService): int
     {
         if (! config('ai.enabled') || (string) config('ai.openai.api_key') === '') {
             $this->error('AI is disabled or ai.openai.api_key is empty — evals call the real provider and need both.');
@@ -68,8 +77,12 @@ class AiEvalCommand extends Command
             $passed = $this->runTutorAgentSuite($loop) && $passed;
         }
 
-        if (! in_array($suite, ['content_analysis', 'tutor_agent', 'all'], true)) {
-            $this->error("Unknown suite '{$suite}' — expected content_analysis, tutor_agent, or all.");
+        if (in_array($suite, ['grammar_examples', 'all'], true)) {
+            $passed = $this->runGrammarExamplesSuite($exampleService) && $passed;
+        }
+
+        if (! in_array($suite, ['content_analysis', 'tutor_agent', 'grammar_examples', 'all'], true)) {
+            $this->error("Unknown suite '{$suite}' — expected content_analysis, tutor_agent, grammar_examples, or all.");
 
             return self::FAILURE;
         }
@@ -212,6 +225,137 @@ class AiEvalCommand extends Command
         $this->table(['case', 'tools called', 'expected tool called', 'keyword hits'], $rows);
 
         return $allPassed;
+    }
+
+    private function runGrammarExamplesSuite(AiGrammarRuleExampleService $service): bool
+    {
+        $cases = require base_path('tests/Fixtures/Evals/grammar_examples_cases.php');
+        $rows = [];
+        $misses = [];
+        $allPassed = true;
+
+        DB::beginTransaction();
+
+        try {
+            $topic = GrammarTopic::query()->create(['slug' => 'eval-'.Str::random(8), 'language' => 'en', 'name' => 'Eval', 'status' => 'active']);
+
+            foreach ($cases as $case) {
+                $rule = GrammarRule::query()->create([
+                    'topic_id' => $topic->id,
+                    'slug' => 'eval-'.$case['name'].'-'.Str::random(6),
+                    'language' => 'en',
+                    'title' => $case['title'],
+                    'level' => $case['level'],
+                    'summary' => $case['summary'],
+                    'status' => GrammarRule::STATUS_PUBLISHED,
+                ]);
+
+                try {
+                    $service->generate($rule->id, 8, 'ru');
+                    $score = $this->scoreGrammarExamples($case, $rule->examples()->get()->all());
+
+                    $passed = $score['count'] >= $case['min_examples']
+                        && $score['marked_translated'] === $score['count']
+                        && $score['uses_rule'] >= 0.8 * $score['count']
+                        && $score['missing_kinds'] === []
+                        // A typical error stored as the correct sentence teaches
+                        // wrong grammar: one is enough to fail.
+                        && $score['forbidden_hits'] === 0;
+
+                    $rows[] = [
+                        $case['name'],
+                        (string) $score['count'],
+                        "{$score['uses_rule']}/{$score['count']}",
+                        "{$score['form_marked']}/{$score['count']}",
+                        "{$score['marked_translated']}/{$score['count']}",
+                        $score['missing_kinds'] === [] ? 'all' : 'missing '.implode(',', $score['missing_kinds']),
+                        $passed ? 'pass' : 'FAIL',
+                    ];
+                    $allPassed = $passed && $allPassed;
+                    if (! $passed && $score['misses'] !== []) {
+                        $misses[$case['name']] = $score['misses'];
+                    }
+                } catch (Throwable $e) {
+                    $rows[] = [$case['name'], '0', 'ERROR', 'ERROR', 'ERROR', $e->getMessage(), 'FAIL'];
+                    $allPassed = false;
+                }
+            }
+        } finally {
+            DB::rollBack();
+        }
+
+        $this->info('grammar_examples eval (do generated examples use the rule, marked and translated, all kinds):');
+        $this->table(['case', 'examples', 'uses rule', 'form marked', 'marked+translated', 'kinds', 'result'], $rows);
+
+        foreach ($misses as $name => $lines) {
+            $this->warn("{$name}: examples off the rubric");
+            foreach ($lines as $line) {
+                $this->line('  - '.$line);
+            }
+        }
+
+        return $allPassed;
+    }
+
+    /**
+     * @param  array<string, mixed>  $case
+     * @param  list<GrammarRuleExample>  $examples
+     * @return array{count: int, uses_rule: int, form_marked: int, marked_translated: int, missing_kinds: list<string>, misses: list<string>, forbidden_hits: int}
+     */
+    private function scoreGrammarExamples(array $case, array $examples): array
+    {
+        $usesRule = 0;
+        $formMarked = 0;
+        $markedTranslated = 0;
+        $kinds = [];
+        $misses = [];
+        $forbiddenHits = 0;
+
+        foreach ($examples as $example) {
+            $chars = mb_str_split((string) $example->example);
+            $marked = implode(' ', array_map(
+                fn (array $span): string => implode('', array_slice($chars, $span[0], $span[1] - $span[0])),
+                $example->target_spans ?? []
+            ));
+
+            if ($marked !== '' && trim((string) $example->translation) !== '') {
+                $markedTranslated++;
+            }
+
+            if ($marked !== '' && preg_match($case['target_pattern'], $marked) === 1) {
+                $formMarked++;
+            }
+
+            $wrongAsCorrect = collect($case['forbidden_patterns'] ?? [])->contains(fn (string $pattern): bool => preg_match($pattern, (string) $example->example) === 1);
+            if ($wrongAsCorrect) {
+                $forbiddenHits++;
+            }
+            $sentenceOk = ! $wrongAsCorrect
+                && collect($case['sentence_patterns'])->every(fn (string $pattern): bool => preg_match($pattern, (string) $example->example) === 1);
+            // "Uses the rule" is judged on the sentence; whether the highlight
+            // covers the whole form is reported separately (a partly marked
+            // question still teaches the rule, it just highlights less).
+            if (preg_match($case['target_pattern'], (string) $example->example) === 1 && $sentenceOk) {
+                $usesRule++;
+            } else {
+                $misses[] = "[{$example->kind}] {$example->example} (marked: ".($marked !== '' ? $marked : '—').')';
+            }
+
+            $kinds[] = $example->kind;
+        }
+
+        return [
+            'count' => count($examples),
+            'uses_rule' => $usesRule,
+            'form_marked' => $formMarked,
+            'marked_translated' => $markedTranslated,
+            'missing_kinds' => array_values(array_diff(
+                [GrammarRuleExample::KIND_AFFIRMATIVE, GrammarRuleExample::KIND_NEGATIVE, GrammarRuleExample::KIND_QUESTION],
+                $kinds
+            )),
+            'misses' => $misses,
+            'forbidden_hits' => $forbiddenHits,
+        ];
     }
 
     /**

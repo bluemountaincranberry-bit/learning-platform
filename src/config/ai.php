@@ -283,6 +283,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Grammar rule examples (VIK-39)
+    |--------------------------------------------------------------------------
+    |
+    | "More examples" on the rule page queues `more_count` AI examples; a
+    | learner gets `daily_batches_per_rule` batches per rule per day. The
+    | backfill command (grammar:backfill-examples) tops every rule up to
+    | `min_per_rule`, translated into `translation_language`.
+    |
+    */
+    'examples' => [
+        'more_count' => (int) env('AI_GRAMMAR_EXAMPLES_MORE_COUNT', 4),
+        'daily_batches_per_rule' => (int) env('AI_GRAMMAR_EXAMPLES_DAILY_BATCHES', 3),
+        'min_per_rule' => (int) env('AI_GRAMMAR_EXAMPLES_MIN_PER_RULE', 6),
+        'backfill_target' => (int) env('AI_GRAMMAR_EXAMPLES_BACKFILL_TARGET', 8),
+        'translation_language' => env('AI_GRAMMAR_EXAMPLES_TRANSLATION_LANGUAGE', 'ru'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Graph node registry (task 4.10)
     |--------------------------------------------------------------------------
     |
