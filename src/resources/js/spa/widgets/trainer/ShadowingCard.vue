@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { Check, Lightbulb, Mic, Play, Square } from 'lucide-vue-next';
+import { onBeforeUnmount, ref, watch } from 'vue';
+import { Check, Lightbulb, Mic, Play, Square, Volume2 } from 'lucide-vue-next';
 import UiButton from '../../shared/ui/UiButton.vue';
 import UiCard from '../../shared/ui/UiCard.vue';
 import { exerciseAttemptsApi, useAudioRecorder } from '../../domains/learning';
@@ -20,6 +20,45 @@ const busy = ref(false);
 const result = ref<ExerciseAttempt | null>(null);
 const hintUsed = ref(false);
 const submitError = ref('');
+
+/** Local playback of the just-recorded take — the blob never leaves the
+ * device until Check pronunciation uploads it. */
+const isPlayingBack = ref(false);
+let playbackUrl: string | null = null;
+let playbackAudio: HTMLAudioElement | null = null;
+
+function stopPlayback(): void {
+    playbackAudio?.pause();
+    playbackAudio = null;
+    isPlayingBack.value = false;
+}
+
+function playRecording(): void {
+    if (!audioBlob.value || isRecording.value) return;
+    if (playbackAudio && !playbackAudio.paused) {
+        playbackAudio.pause();
+        playbackAudio.currentTime = 0;
+        isPlayingBack.value = false;
+        return;
+    }
+    stopPlayback();
+    if (playbackUrl) URL.revokeObjectURL(playbackUrl);
+    playbackUrl = URL.createObjectURL(audioBlob.value);
+    playbackAudio = new Audio(playbackUrl);
+    playbackAudio.onended = () => { isPlayingBack.value = false; };
+    playbackAudio.onerror = () => { isPlayingBack.value = false; };
+    isPlayingBack.value = true;
+    void playbackAudio.play().catch(() => { isPlayingBack.value = false; });
+}
+
+// A new take (or reset) invalidates the old playback.
+watch(audioBlob, () => stopPlayback());
+
+onBeforeUnmount(() => {
+    stopPlayback();
+    if (playbackUrl) URL.revokeObjectURL(playbackUrl);
+    playbackUrl = null;
+});
 
 async function submit() {
     if (!audioBlob.value || busy.value) return;
@@ -60,6 +99,9 @@ async function submit() {
                 <UiButton v-if="!isRecording && !audioBlob" class="min-h-11 w-full sm:col-span-2" size="sm" variant="primary" @click="start"><Mic :size="16" aria-hidden="true" />Record your voice</UiButton>
                 <UiButton v-else-if="isRecording" class="min-h-11 w-full sm:col-span-2" size="sm" variant="danger" @click="stop"><Square :size="15" aria-hidden="true" />Stop recording · {{ elapsedSeconds }}s</UiButton>
                 <template v-else>
+                    <UiButton class="min-h-11 w-full sm:col-span-2" size="sm" variant="secondary" @click="playRecording">
+                        <Square v-if="isPlayingBack" :size="15" aria-hidden="true" /><Volume2 v-else :size="16" aria-hidden="true" />{{ isPlayingBack ? 'Stop' : 'Listen to my recording' }}
+                    </UiButton>
                     <UiButton class="min-h-11 w-full" size="sm" variant="secondary" @click="reset"><Mic :size="16" aria-hidden="true" />Record again</UiButton>
                     <UiButton class="min-h-11 w-full" size="sm" variant="primary" :disabled="busy" @click="submit"><Check :size="16" aria-hidden="true" />{{ busy ? 'Checking…' : 'Check pronunciation' }}</UiButton>
                 </template>

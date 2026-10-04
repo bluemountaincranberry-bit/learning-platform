@@ -33,6 +33,7 @@ function replaySegment() {
 
 function selectSegment(next: TranscriptSegment) {
     router.replace({ query: { ...route.query, segment_id: String(next.id) } });
+    youtubeRef.value?.replaySegment(next.start_ms, next.end_ms);
 }
 
 function backFromPractice() {
@@ -87,7 +88,7 @@ onMounted(async () => {
                 </div>
 
                 <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-                    <DictationCard v-if="mode === 'dictation'" :content-id="content.id" :content-lexeme-id="lexemeId" :target-text="segment.text" :transcript-segment-id="segment.id" @submitted="mode = 'dictation'" />
+                    <DictationCard v-if="mode === 'dictation'" :content-id="content.id" :content-lexeme-id="lexemeId" :target-text="segment.text" :transcript-segment-id="segment.id" :replay="replaySegment" @submitted="mode = 'dictation'" />
                     <ShadowingCard v-else :content-id="content.id" :content-lexeme-id="lexemeId" :target-text="segment.text" :transcript-segment-id="segment.id" :play="replaySegment" :show-target="false" @submitted="mode = 'shadowing'" />
                     <UiCard class="h-fit space-y-3 p-4">
                         <p class="text-sm font-semibold">More segments</p>
