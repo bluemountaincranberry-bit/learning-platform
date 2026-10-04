@@ -12,7 +12,7 @@ Code: `src/app/Modules/Srs/Domain/IntervalCalculator.php`,
 - New card: `interval_days = 1`, `ease_factor = 2.5`, due now
   (`CreateSrsCardOnLearningStartedListener`).
 - Grade ≤ 2 fails: interval 1 day, ease −0.2, state `relearning`, due tomorrow.
-  Nothing brings the card back in the same session.
+  The card itself is not re-shown the same day.
 - Grade 3: interval × **1.3** (not × ease), ease −0.1. Grade 4: × ease, +0.05.
   Grade 5: × ease, +0.15. Ease clamped to 1.3–2.8.
 - Interval grows from the *scheduled* previous interval, not the real elapsed
@@ -23,6 +23,21 @@ Code: `src/app/Modules/Srs/Domain/IntervalCalculator.php`,
 What learners actually send: the trainer has three buttons, **Again = 1,
 Got it = 3, Easy = 5** (`WordCard.vue`); typed answers and exercises send 3 or 1.
 Grades 2 and 4 are never sent by the UI.
+
+### Existing same-session repeats (outside the scheduler)
+
+- **Content practice re-queue** (`useTrainingSession.ts`): a failed
+  reinforce card is re-inserted 4 positions later, once per session.
+- **Learning retry** (`Learning/Application/LearningRetryService.php`): a failed
+  exercise, Review grade or self-check answer creates a pending retry per
+  content occurrence, available after 5 min. Only content practice
+  (`SelfCheckService::due`) shows it, and its outcome goes to the scheduler as an
+  ordinary grade 3 or 1.
+
+So a word failed in **Review** doesn't come back in that Review session. It
+returns only if the learner later opens practice for that content. Neither
+mechanism affects the card's interval or graduation. ADR-011 folds both into
+the card's learning step.
 
 ### Finding: "Got it" never spaces a word out
 
@@ -66,7 +81,7 @@ changes its grouping key to the canonical lexeme.
 
 | Option | Memory benefit | Cost / risk |
 |---|---|---|
-| A. Tune SM-2-lite only (fix Good) | Removes daily re-showing of known words; no in-session relearning | Hours; failed words still wait a day with no correct recall |
-| B. Fixed SM-2-lite + learning/relearning steps (Anki SM-2 shape) | Failed and new words get a correct recall in the same session (SM-2 same-day rule, Rawson & Dunlosky criterion); known words space out | Small: scheduler + session re-queue; fits the existing card columns |
+| A. Tune SM-2-lite only (fix Good) | Removes daily re-showing of known words | Hours; a word failed in Review still gets no correct recall before its 1-day review unless the learner opens content practice |
+| B. Fixed SM-2-lite + learning/relearning steps (Anki SM-2 shape) | Failed and new words get a correct recall in the same session (SM-2 same-day rule, Rawson & Dunlosky criterion); known words space out | Small: scheduler + session re-queue (generalising the existing re-queue and learning retry); one new card state and one review-history column |
 | C. FSRS-6 now | Best calibrated model in the benchmark; target retention as one knob | No PHP port (port + test vectors, or a sidecar); optimizer needs a review history we don't have yet; current history is dominated by the Good-stuck bug and mixed exercise types; VIK-11 is reshaping cards right now |
 | D. B now, FSRS behind the same scheduler seam later (chosen) | B's benefit now; FSRS when data shows SM-2 miscalibration | FSRS keeps sub-day steps (Anki guidance), so B's steps survive the switch |

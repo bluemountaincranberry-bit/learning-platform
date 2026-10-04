@@ -38,13 +38,13 @@ _Avoid_: Confidence score.
 **Learning step**:
 A short same-session repeat a new or forgotten lexeme must pass before its
 repetition card is spaced out in days.
-_Avoid_: Retry, re-queue (when referring to the scheduled step).
+_Avoid_: Learning retry (the older content-practice repeat it replaces).
 
 **Lapse**:
 Forgetting a lexeme whose repetition card was already spaced out in days.
 _Avoid_: Mistake (when referring to the scheduling event).
 
 **Retention**:
-The share of repetition cards a learner recalls on their first try of the day,
-after a given time since the previous day's recall.
+The share of lexemes a learner still remembers after a given time without
+practising them.
 _Avoid_: Accuracy (when referring to remembering over time).
