@@ -6,6 +6,7 @@ const ASSET_CACHE = `${PREFIX}assets-${VERSION}`;
 const PRIVATE_CACHE = `${PREFIX}private-${VERSION}`;
 const SESSION_CACHE = `${PREFIX}session`;
 const SESSION_URL = `${self.location.origin}/__pwa_session`;
+const APP_ROUTES = new Set(['', 'dashboard', 'login', 'register', 'onboarding', 'forgot-password', 'reset-password', 'categories', 'catalog', 'grammar', 'add-youtube', 'repetitions', 'practice', 'my-words', 'my-grammar', 'lessons', 'my-progress', 'check-yourself', 'chat', 'settings', 'word']);
 let operations = Promise.resolve();
 
 // Serialize cache changes, including logout, without holding up network requests.
@@ -37,6 +38,12 @@ async function credentialSession(request) {
 function isPrivateRead(path) {
     return path === '/api/auth/me' || path === '/api/lessons' || /^\/api\/lessons\/\d+(\/messages)?$/.test(path);
 }
+async function evictLesson(cache, path) {
+    for (const entry of await cache.keys()) {
+        const cachedPath = new URL(entry.url).pathname;
+        if (cachedPath === path || cachedPath.startsWith(path + '/')) await cache.delete(entry);
+    }
+}
 async function pruneLessons(cache) {
     const entries = await cache.keys();
     const recentIds = [...new Set(entries.slice().reverse().map((entry) => new URL(entry.url).pathname.match(/^\/api\/lessons\/(\d+)/)?.[1]).filter(Boolean))];
@@ -63,9 +70,7 @@ async function privateRead(request) {
             if (response.status === 404) {
                 const cache = await caches.open(PRIVATE_CACHE);
                 const lessonPath = new URL(key).pathname.replace(/\/messages$/, '');
-                for (const entry of await cache.keys()) {
-                    if (new URL(entry.url).pathname.startsWith(lessonPath + '/') || new URL(entry.url).pathname === lessonPath) await cache.delete(entry);
-                }
+                await evictLesson(cache, lessonPath);
             }
             if (response.ok && response.headers.get('Content-Type')?.includes('application/json')) {
                 const cache = await caches.open(PRIVATE_CACHE);
@@ -104,17 +109,22 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(privateRead(request));
     } else if (request.method === 'GET' && ASSETS.includes(url.pathname)) {
         event.respondWith((async () => (await (await caches.open(ASSET_CACHE)).match(request)) || fetch(request))());
-    } else if (request.mode === 'navigate' && !/^\/(api|admin|horizon|telescope|pulse|health)(\/|$)/.test(url.pathname)) {
-        event.respondWith(fetch(request).catch(async () => (await caches.open(ASSET_CACHE)).match(`${self.location.origin}/build/offline.html`)));
+    } else if (request.mode === 'navigate' && APP_ROUTES.has(url.pathname.split('/')[1])) {
+        // Keep HTML and lazy assets on the active release, even while a new worker waits.
+        event.respondWith((async () => (await (await caches.open(ASSET_CACHE)).match(`${self.location.origin}/build/offline.html`)) || fetch(request))());
     } else if (request.method !== 'GET' && /^\/api\/lessons(\/|$)/.test(url.pathname)) {
         event.respondWith((async () => {
+            const session = await credentialSession(request);
+            const initial = await exclusive(currentSession).catch(() => ({ session: null }));
             const response = await fetch(request);
-            if (response.ok) await exclusive(async () => {
+            if (response.ok && session && initial.session === session) await exclusive(async () => {
+                if ((await currentSession()).generation !== initial.generation) return;
                 const cache = await caches.open(PRIVATE_CACHE);
                 const lessonPath = url.pathname.match(/^\/api\/lessons\/\d+/)?.[0];
-                for (const entry of await cache.keys()) {
-                    const path = new URL(entry.url).pathname;
-                    if (path === '/api/lessons' || (lessonPath && (path === lessonPath || path.startsWith(lessonPath + '/')))) await cache.delete(entry);
+                if (lessonPath) {
+                    // Sending a note changes messages; the existing UI does not refetch detail.
+                    const invalidated = request.method === 'POST' && url.pathname === lessonPath + '/messages' ? url.pathname : lessonPath;
+                    await evictLesson(cache, invalidated);
                 }
             }).catch(() => {});
             return response;

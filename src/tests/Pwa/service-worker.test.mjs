@@ -111,14 +111,14 @@ test('release activation removes old assets/private snapshots and offline naviga
     await assert.rejects(next.request('/api/lessons/1'));
 });
 
-test('an online edit invalidates cached lesson/messages and writes never replay offline', async () => {
+test('sending notes preserves lesson detail, refreshes messages, and never replays offline writes', async () => {
     const sw = await worker();
     await sw.session('alice');
     await sw.request('/api/lessons/1');
     await sw.request('/api/lessons/1/messages');
     await sw.request('/api/lessons/1/messages', 'alice', 'POST');
     sw.offline();
-    await assert.rejects(sw.request('/api/lessons/1'));
+    assert.equal((await sw.request('/api/lessons/1')).status, 200);
     await assert.rejects(sw.request('/api/lessons/1/messages'));
     await assert.rejects(sw.request('/api/lessons/1/messages', 'alice', 'POST'));
 });
@@ -132,4 +132,12 @@ test('storage quota errors never turn a fresh network response into stale data',
     }
     sw.network(async () => new Response('{"note":"Fresh edited notes"}', { headers: { 'Content-Type': 'application/json' } }));
     assert.match(await (await sw.request('/api/lessons/1')).text(), /Fresh edited notes/);
+});
+
+test('online navigation while an update waits keeps the active release shell', async () => {
+    const sw = await worker();
+    await sw.event('install');
+    sw.network(async () => new Response('new release HTML'));
+    const response = await sw.event('fetch', { request: { url: origin + '/lessons/1', method: 'GET', mode: 'navigate' } });
+    assert.equal(await response.text(), 'asset');
 });

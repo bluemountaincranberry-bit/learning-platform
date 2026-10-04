@@ -26,13 +26,15 @@ stored in CacheStorage. Session switches and logout purge all private caches;
 a generation check blocks late responses from the previous session. Other tabs
 reload when the stored token changes. HTTP 401/403 revokes cached access;
 404 invalidates the missing lesson. Network exceptions can use a snapshot;
-HTTP errors are never replaced by successful stale content. Successful lesson
-writes invalidate old lesson snapshots until the next read.
+HTTP errors are never replaced by successful stale content. Successful message writes invalidate only messages, retaining the detail
+snapshot that the unchanged UI does not refetch. Other lesson mutations evict
+the affected lesson until the next read. The last list remains a reading snapshot.
 
 The Vite build emits `public/sw.js` at the root for scope `/` and
 `public/build/offline.html` with matched hashed JS/CSS. The worker version hashes
 its source, the generated shell, asset paths and manifest/icon contents. Each
-version has separate static/private caches. A new worker waits until all old
+version has separate static/private caches. Controlled app navigations always use the active release shell; asset downloads
+and server/admin routes remain outside that navigation fallback. A new worker waits until all old
 controlled tabs close, then activates and deletes old version caches. It does
 not force a reload while someone is writing. Online API reads are network-first.
 
@@ -70,7 +72,7 @@ Implementation sources: [MDN service-worker lifecycle](https://developer.mozilla
   `PWA_ARTIFACT_DIR` pointing to a writable artifact directory. Copy the script
   to `/tmp` and link `/tmp/node_modules` to `/app/node_modules` inside that
   container. Its loopback fixture server serves real production assets and
-  synthetic APIs; Chromium offline emulation and WebKit transport disconnection exercise
+  synthetic APIs; Real fixture transport disconnection (plus Chromium offline emulation) exercises
   reload/new-tab offline reading,
   360/390px overflow, update activation, account change and logout. No production credentials
   or database are used.

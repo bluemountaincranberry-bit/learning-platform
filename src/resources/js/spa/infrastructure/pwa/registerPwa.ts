@@ -11,7 +11,12 @@ export async function registerPwa(): Promise<(token: string | null) => Promise<v
     const unavailable = async () => {};
     if (!import.meta.env.PROD || !window.isSecureContext || !('serviceWorker' in navigator)) return unavailable;
     try {
-        const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
+        const existing = await navigator.serviceWorker.getRegistration('/');
+        // Cold offline boot must not wait for a network registration/update check.
+        const registration = existing?.active?.scriptURL === new URL('/sw.js', location.origin).href
+            ? existing
+            : await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
+        if (existing && navigator.onLine) void registration.update().catch(() => {});
         await new Promise<void>((resolve, reject) => {
             if (navigator.serviceWorker.controller) return resolve();
             const timeout = window.setTimeout(() => { cleanup(); reject(new Error('PWA activation timed out')); }, 8000);
