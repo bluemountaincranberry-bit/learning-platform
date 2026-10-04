@@ -34,3 +34,88 @@ Use these in Vue templates instead of raw Tailwind colors:
 
 1. Edit `resources/css/app.css` — change the hex values in `:root`.
 2. For dark mode later: add a `.dark` (or `[data-theme="dark"]`) block and override the same variables.
+
+## Learning UI kit (VIK-43)
+
+`shared/ui` owns presentation only. Pages keep API calls, access gates, source IDs,
+and pending/error state. No component changes learned state implicitly.
+
+### WordRow and WordCard
+
+`WordRow` is the compact 52px list row. It owns disclosure and emits
+`toggleSelect`; selecting does not expand it. `WordCard` supplies expanded audio,
+full examples and translations, a canonical dictionary link, source and action
+slots. Content and Study use the existing `WordListItem` API adapter; My words
+and lesson candidates use the same row directly.
+
+```vue
+<WordRow :text="word.lexeme" :translation="word.translation" :level="word.level"
+    :lexeme-id="word.lexeme_id" :language="word.language" :examples="word.examples"
+    selectable :selected="selected" @toggle-select="toggleSelected(word)">
+    <template #actions>
+        <UiButton size="touch" :disabled="pending" @click="learn(word)">Learn</UiButton>
+    </template>
+    <template #source><RouterLink :to="sourceRoute">Source lesson</RouterLink></template>
+</WordRow>
+
+<WordCard :text="word.lexeme" :lexeme-id="word.lexeme_id" :language="word.language"
+    :examples="word.examples">
+    <template #actions><UiButton size="touch" @click="learn(word)">Learn</UiButton></template>
+</WordCard>
+```
+
+`lexemeId` is the canonical dictionary ID, never `content_lexeme_id` or a
+candidate ID. Pass null for unresolved candidates; no dictionary link is invented.
+Mutations still use the occurrence ID required by the current API. Hide actions
+that the page cannot perform (e.g. pending lesson candidates). `row-actions` is
+for short status badges and icon actions; use `actions` for labelled buttons.
+Source links and associations go in the expanded slots. Use 44px tap targets.
+
+### GrammarCard
+
+Title, optional level, a one-line summary, status and independent primary/secondary
+actions. The title uses an actual RouterLink; action buttons never nest in it.
+Catalog, My grammar and lesson grammar share this presentation.
+
+```vue
+<GrammarCard :title="rule.title" :rule-id="rule.id" :level="rule.level"
+    :summary="rule.summary" status="Learning">
+    <template #actions>
+        <UiButton size="touch" :disabled="pending" @click="markLearned(rule)">Mark as learned</UiButton>
+    </template>
+</GrammarCard>
+```
+
+Unmatched lesson candidates pass null `ruleId` and have no invented primary action.
+The existing lesson flow remains until VIK-12 replaces its main chat surface.
+
+### ChatMessage
+
+Tutor chat (including Discuss with AI entry points) and lesson chat use the same
+sanitized markdown, progress, attachment and error presentation. API-owned retry
+stays in the page: retry a failed submission with its original text/context/file;
+refresh after a successful submission whose reply could not be loaded.
+
+```vue
+<ChatMessage role="assistant"
+    content="**Try** [run](/word/42) with [Present simple](/grammar/7)."
+    :attachments="[{ name: 'Notes.pdf', status: 'Attached' }]"
+    :loading="waiting" :error="chatError" :retryable="canRetry" @retry="retryChat" />
+```
+
+Only explicit `/word/<positive ID>` and `/grammar/<positive ID>` links become
+44px tappable chips. Use canonical IDs supplied by the source; never infer an ID
+from a word or rule title. Ordinary text without a supplied link stays text.
+External links remain ordinary links. Markdown is parsed by marked and sanitized
+by DOMPurify before injection; long URLs wrap and wide code/tables scroll inside
+the bubble. Attachment status comes from the page: `Attached` means the server
+accepted the attachment, not that extraction succeeded. The API currently supplies
+no per-file extraction status. QuizCard and tutor role restrictions remain intact.
+
+### Verification
+
+From `src`: `npm run test:unit -- resources/js/spa/shared/ui/__tests__`.
+Vitest uses jsdom for real DOMPurify sanitization; Happy DOM is unsuitable for
+these security assertions. Test seams were confirmed by Vika for VIK-43.
+Phone acceptance requires 360px and 390px browser checks with expanded examples,
+long titles, attachment names and markdown; a build or DOM emulation is insufficient.

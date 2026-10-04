@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { BookPlus, Check, ChevronDown, ExternalLink, Eye, EyeOff, Lightbulb, LoaderCircle, Minus, Plus, Undo2 } from 'lucide-vue-next';
+import { BookPlus, Check, Eye, EyeOff, Lightbulb, LoaderCircle, Minus, Plus, Undo2 } from 'lucide-vue-next';
 import UiBadge from './UiBadge.vue';
 import UiButton from './UiButton.vue';
-import SpeakButton from './SpeakButton.vue';
-import WordExamples from './WordExamples.vue';
+import WordRow from './WordRow.vue';
 import { formatGrammarFeatures } from '../grammarFeatures';
 import { groupAssociationsByType } from '../lexemeAssociations';
 import type { LexemeWithLearned } from '../../types';
@@ -18,7 +16,7 @@ import type { LexemeWithLearned } from '../../types';
  * examples, word page link) opens on tap of the word, so scanning and
  * picking words never needs scrolling past details.
  */
-const props = defineProps<{
+defineProps<{
     lexeme: LexemeWithLearned;
     language?: string;
     marking?: boolean;
@@ -45,38 +43,12 @@ const emit = defineEmits<{
     moreExamples: [lexeme: LexemeWithLearned];
 }>();
 
-const expanded = ref(Boolean(props.defaultExpanded));
-const associationGroups = () => groupAssociationsByType(props.lexeme.associations);
+
 </script>
 
 <template>
-    <div :class="lexeme.learned || lexeme.skipped ? 'bg-muted/60' : 'bg-surface'">
-        <div class="flex min-h-[52px] items-center gap-1 pr-1">
-            <label v-if="selectable" class="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
-                <input
-                    type="checkbox"
-                    class="h-5 w-5 rounded border-border accent-primary"
-                    :checked="selected"
-                    :aria-label="`Select ${lexeme.text}`"
-                    @change="emit('toggleSelect', lexeme)"
-                />
-            </label>
-            <button
-                type="button"
-                class="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                :class="selectable ? '' : 'pl-3'"
-                :aria-expanded="expanded"
-                :aria-label="`${lexeme.text}${lexeme.translation ? ` — ${lexeme.translation}` : ''}. ${expanded ? 'Hide' : 'Show'} details`"
-                @click="expanded = !expanded"
-            >
-                <span class="min-w-0 flex-1">
-                    <span class="block truncate font-medium text-fg">{{ lexeme.text }}</span>
-                    <span v-if="lexeme.translation" class="block truncate text-sm text-fg-secondary">{{ lexeme.translation }}</span>
-                </span>
-                <UiBadge v-if="lexeme.level" tone="primary" class="shrink-0" title="CEFR level">{{ lexeme.level }}</UiBadge>
-                <ChevronDown :size="16" class="shrink-0 text-muted-foreground transition-transform" :class="{ 'rotate-180': expanded }" aria-hidden="true" />
-            </button>
-
+    <WordRow :text="lexeme.text" :translation="lexeme.translation" :level="lexeme.level" :lexeme-id="lexeme.lexeme_id" :language="language" :examples="lexeme.examples" :example="lexeme.example" :selectable="selectable" :selected="selected" :default-expanded="defaultExpanded" @toggle-select="emit('toggleSelect', lexeme)">
+        <template #row-actions>
             <UiBadge v-if="lexeme.learned" tone="success" class="shrink-0" title="You've marked this word as learned">Learned</UiBadge>
             <!-- 44px tap target, lighter 32px visual so a long list doesn't read as a wall of buttons. -->
             <UiButton
@@ -128,11 +100,8 @@ const associationGroups = () => groupAssociationsByType(props.lexeme.association
             >
                 <Check :size="18" />
             </UiButton>
-        </div>
-
-        <div v-if="expanded" class="space-y-2 px-3 pb-3" :class="selectable ? 'sm:pl-11' : ''">
+        </template>
             <div class="flex flex-wrap items-center gap-1.5">
-                <SpeakButton :text="lexeme.text" :language="language" />
                 <UiBadge tone="neutral">{{ lexeme.type }}</UiBadge>
                 <UiBadge v-if="lexeme.learning_category" tone="neutral" :title="(lexeme.learning_reasons ?? []).join(', ')">
                     {{ lexeme.learning_category.replaceAll('_', ' ') }}
@@ -159,15 +128,14 @@ const associationGroups = () => groupAssociationsByType(props.lexeme.association
                 <span>Recall {{ lexeme.confidence.recall }}%</span>
                 <span>Listening {{ lexeme.confidence.listening }}%</span>
             </div>
-            <div v-for="group in associationGroups()" :key="group.type" class="flex flex-wrap items-center gap-1.5">
+            <div v-for="group in groupAssociationsByType(lexeme.associations)" :key="group.type" class="flex flex-wrap items-center gap-1.5">
                 <span class="text-xs text-muted-foreground">{{ group.label }}:</span>
                 <UiBadge v-for="item in group.items" :key="item" :tone="group.tone">{{ item }}</UiBadge>
             </div>
-            <WordExamples :examples="lexeme.examples" :fallback-example="lexeme.example" :language="language" />
             <p v-if="fetchingExamples" class="flex items-center gap-2 px-1 py-1 text-xs text-muted-foreground" role="status">
                 <LoaderCircle :size="14" class="animate-spin text-primary" aria-hidden="true" /> Loading more examples…
             </p>
-            <div class="flex flex-wrap items-center gap-1">
+        <template #actions>
                 <UiButton v-if="lexeme.skipped" variant="ghost" size="touch" :disabled="marking" @click="emit('unskip', lexeme)">
                     <Eye :size="16" /> Show again
                 </UiButton>
@@ -180,14 +148,6 @@ const associationGroups = () => groupAssociationsByType(props.lexeme.association
                 <UiButton v-if="!aiUnavailable && lexeme.lexeme_id" variant="ghost" size="touch" :disabled="fetchingExamples" @click="emit('moreExamples', lexeme)">
                     <BookPlus :size="16" :class="{ 'animate-pulse': fetchingExamples }" /> More examples
                 </UiButton>
-                <RouterLink
-                    v-if="lexeme.lexeme_id"
-                    :to="{ name: 'word.details', params: { id: lexeme.lexeme_id } }"
-                    class="inline-flex h-11 items-center gap-1.5 rounded-md px-3 text-sm text-primary hover:underline"
-                >
-                    <ExternalLink :size="16" /> Word page
-                </RouterLink>
-            </div>
-        </div>
-    </div>
+        </template>
+    </WordRow>
 </template>

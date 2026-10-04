@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
 import { Plus } from 'lucide-vue-next';
 import { CEFR_LEVELS } from '../domains/content';
 import { grammarApi } from '../domains/content';
 import { useAuthStore } from '../domains/user';
 import type { GrammarRule } from '../types';
-import UiBadge from '../shared/ui/UiBadge.vue';
+import GrammarCard from '../shared/ui/GrammarCard.vue';
 import UiButton from '../shared/ui/UiButton.vue';
 import UiCard from '../shared/ui/UiCard.vue';
 import UiEmptyState from '../shared/ui/UiEmptyState.vue';
@@ -14,12 +13,12 @@ import UiSectionHeader from '../shared/ui/UiSectionHeader.vue';
 import SelectField from '../shared/ui/SelectField.vue';
 
 const authStore = useAuthStore();
-const router = useRouter();
 
 const loading = ref(true);
 const error = ref('');
 const items = ref<GrammarRule[]>([]);
 const selectedLevel = ref('all');
+const addingId = ref<number | null>(null);
 
 const LEVEL_OPTIONS = [
     { value: 'all', label: 'All' },
@@ -46,13 +45,17 @@ async function loadCatalog(): Promise<void> {
 watch(selectedLevel, loadCatalog);
 onMounted(loadCatalog);
 
-function openGrammarRule(id: number): void {
-    router.push({ name: 'grammar.details', params: { id } });
-}
-
 async function quickAddToMyList(item: GrammarRule): Promise<void> {
-    await grammarApi.startLearning(item.id);
-    item.in_my_list = true;
+    if (addingId.value !== null) return;
+    addingId.value = item.id;
+    try {
+        await grammarApi.startLearning(item.id);
+        item.in_my_list = true;
+    } catch {
+        error.value = 'Failed to add to My grammar.';
+    } finally {
+        addingId.value = null;
+    }
 }
 </script>
 
@@ -67,47 +70,12 @@ async function quickAddToMyList(item: GrammarRule): Promise<void> {
         </UiCard>
 
         <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <UiCard
-                v-for="item in items"
-                :key="item.id"
-                class="group cursor-pointer transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-within:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                role="link"
-                tabindex="0"
-                :aria-label="`Open ${item.title}`"
-                @click="openGrammarRule(item.id)"
-                @keydown.enter.prevent="openGrammarRule(item.id)"
-                @keydown.space.prevent="openGrammarRule(item.id)"
-            >
-                <div class="space-y-3">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <span class="block truncate text-base font-semibold text-fg group-hover:text-primary">
-                                {{ item.title }}
-                            </span>
-                            <div class="mt-1 text-sm text-muted-foreground">{{ item.topic?.name ?? item.language }}</div>
-                        </div>
-                        <div class="flex shrink-0 items-center gap-1">
-                            <UiBadge v-if="item.level" tone="primary">{{ item.level }}</UiBadge>
-                            <UiBadge v-if="item.in_my_list" tone="primary" title="In your grammar list">
-                                <Plus :size="12" />
-                            </UiBadge>
-                            <UiButton
-                                v-else-if="authStore.isAuthenticated"
-                                variant="ghost"
-                                size="sm"
-                                title="Add to my grammar"
-                                @click.stop="quickAddToMyList(item)"
-                            >
-                                <Plus :size="14" />
-                            </UiButton>
-                        </div>
-                    </div>
-                    <p v-if="item.summary" class="text-sm text-muted-foreground line-clamp-2">{{ item.summary }}</p>
-                    <div class="flex flex-wrap gap-2">
-                        <UiBadge tone="neutral">{{ item.language }}</UiBadge>
-                    </div>
-                </div>
-            </UiCard>
+            <GrammarCard v-for="item in items" :key="item.id" :title="item.title" :rule-id="item.id" :level="item.level" :summary="item.summary" :status="item.in_my_list ? 'In My grammar' : ''">
+                <span class="text-xs text-muted-foreground">{{ item.topic?.name ?? item.language }}</span>
+                <template v-if="!item.in_my_list && authStore.isAuthenticated" #actions>
+                    <UiButton variant="primary" size="touch" :disabled="addingId === item.id" @click="quickAddToMyList(item)"><Plus :size="16" /> Add to My grammar</UiButton>
+                </template>
+            </GrammarCard>
         </div>
 
         <UiEmptyState v-if="!loading && !error && items.length === 0" title="No grammar content yet" description="Grammar rules will appear here once they're extracted and published." />
