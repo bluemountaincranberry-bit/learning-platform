@@ -5,7 +5,7 @@
 - Segment navigation shows sequence and timestamp only. Both dictation and
   shadowing keep the phrase hidden until the existing card's answer phase.
   This avoids giving away recall answers while keeping source navigation usable.
-- Selecting another segment removes the explicitly supplied word link; selecting
+- Selecting another segment preserves the selected exercise mode and removes the explicitly supplied word link; selecting
   the current segment preserves it. Never infer a word from the segment or
   distribute its result to multiple words. A requested segment that is absent
   produces an empty state, not a substitute segment with the old word link.
