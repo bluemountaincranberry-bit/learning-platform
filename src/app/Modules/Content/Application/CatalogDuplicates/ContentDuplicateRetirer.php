@@ -58,20 +58,29 @@ final class ContentDuplicateRetirer
                 }
                 $seen[$key] = true;
 
-                $rows = DB::table($reference['table'])->whereIn($reference['column'], $ids);
+                $isDerived = in_array($reference['table'], self::DERIVED, true);
+                $walkChildren = $isDerived && Schema::hasColumn($reference['table'], 'id');
 
-                if (! in_array($reference['table'], self::DERIVED, true)) {
-                    if ($rows->exists()) {
-                        $found[] = $reference['table'];
+                // Chunked: a long video has thousands of segments, beyond the
+                // bind-parameter limit of one IN (...) list.
+                foreach (array_chunk($ids, 500) as $chunk) {
+                    $rows = DB::table($reference['table'])->whereIn($reference['column'], $chunk);
+
+                    if (! $isDerived) {
+                        if ($rows->exists()) {
+                            $found[] = $reference['table'];
+
+                            break;
+                        }
+
+                        continue;
                     }
 
-                    continue;
-                }
-
-                if (Schema::hasColumn($reference['table'], 'id')) {
-                    $childIds = $rows->pluck('id')->all();
-                    if ($childIds !== []) {
-                        $queue[] = [$reference['table'], $childIds];
+                    if ($walkChildren) {
+                        $childIds = $rows->pluck('id')->all();
+                        if ($childIds !== []) {
+                            $queue[] = [$reference['table'], $childIds];
+                        }
                     }
                 }
             }
@@ -92,8 +101,8 @@ final class ContentDuplicateRetirer
             if ($duplicate->status === 'rejected') {
                 throw new DuplicateMergeRefused(sprintf('Content #%d is already rejected.', $duplicate->id));
             }
-            if ($duplicate->status === 'processing') {
-                throw new DuplicateMergeRefused(sprintf('Content #%d is processing; retry when it finishes.', $duplicate->id));
+            if (! $duplicate->canTransitionTo('rejected')) {
+                throw new DuplicateMergeRefused(sprintf('Content #%d is %s and cannot be rejected now; retry later.', $duplicate->id, $duplicate->status));
             }
 
             $footprint = $this->learnerFootprint($duplicate->id);

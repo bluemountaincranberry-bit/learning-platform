@@ -25,10 +25,19 @@ final class NewYoutubeVideo implements ValidationRule
             return;
         }
 
-        $existing = Content::query()->where('source_key', $key)->orderBy('id')->first(['id', 'title']);
+        $existing = Content::query()->where('source_key', $key)->orderBy('id')->first(['id', 'title', 'status', 'created_by']);
 
-        if ($existing !== null) {
-            $fail(sprintf('This video is already in the catalog: "%s".', $existing->title));
+        if ($existing === null) {
+            return;
         }
+
+        // Name the existing content only when the submitter may see it; a
+        // private submission of someone else's stays anonymous.
+        $visible = $existing->isPubliclyVisible()
+            || ($existing->created_by !== null && $existing->created_by === auth()->id());
+
+        $fail($visible
+            ? sprintf('This video is already in the catalog: "%s".', $existing->title)
+            : 'This video is already in the catalog.');
     }
 }

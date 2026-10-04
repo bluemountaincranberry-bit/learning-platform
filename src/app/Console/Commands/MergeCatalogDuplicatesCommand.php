@@ -33,7 +33,7 @@ class MergeCatalogDuplicatesCommand extends Command
 
     protected $description = 'Merge duplicate grammar rules and retire duplicate contents (dry run unless --apply)';
 
-    public function handle(CatalogDuplicateFinder $finder, GrammarRuleMerger $rules, ContentDuplicateRetirer $contents): int
+    public function handle(CatalogDuplicateFinder $finder, GrammarRuleMerger $ruleMerger, ContentDuplicateRetirer $contentRetirer): int
     {
         $pairs = $this->explicitRulePairs();
         if ($pairs === null) {
@@ -41,7 +41,7 @@ class MergeCatalogDuplicatesCommand extends Command
         }
 
         $apply = (bool) $this->option('apply');
-        $lock = Cache::lock('catalog:merge-duplicates', 600);
+        $lock = Cache::lock('catalog:merge-duplicates', 3600);
         if ($apply && ! $lock->get()) {
             $this->error('Another merge is running. Try again after it finishes.');
 
@@ -62,13 +62,15 @@ class MergeCatalogDuplicatesCommand extends Command
                     $pairs[] = [$group['keep']->id, $duplicate->id];
                 }
             }
+            // A pair named with --rule may also be auto-detected.
+            $pairs = array_values(array_unique($pairs, SORT_REGULAR));
 
             $failed = false;
             foreach ($pairs as [$keepId, $duplicateId]) {
                 $failed = ! $this->step(
                     $apply,
                     sprintf('Rule #%d "%s" -> merge into #%d "%s"', $duplicateId, $this->ruleTitle($duplicateId), $keepId, $this->ruleTitle($keepId)),
-                    fn () => $rules->merge($keepId, $duplicateId),
+                    fn () => $ruleMerger->merge($keepId, $duplicateId),
                 ) || $failed;
             }
 
@@ -87,7 +89,7 @@ class MergeCatalogDuplicatesCommand extends Command
                     $failed = ! $this->step(
                         $apply,
                         sprintf('Content #%d "%s" -> reject as duplicate of #%d', $duplicate->id, $duplicate->title, $group['keep']->id),
-                        fn () => $contents->retire($group['keep']->id, $duplicate->id),
+                        fn () => $contentRetirer->retire($group['keep']->id, $duplicate->id),
                     ) || $failed;
                 }
             }

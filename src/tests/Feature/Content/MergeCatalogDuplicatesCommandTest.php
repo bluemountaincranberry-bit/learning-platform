@@ -190,6 +190,17 @@ test('near-duplicates are merged only when named explicitly, and bad pairs are r
     expect($near->refresh()->status)->toBe(GrammarRule::STATUS_ARCHIVED);
 });
 
+test('the primary example stays primary when only the duplicate had one', function () {
+    $keep = mergeRule('Present Perfect');
+    $duplicate = mergeRule('present perfect');
+    $kept = GrammarRuleExample::query()->create(['grammar_rule_id' => $keep->id, 'example' => 'I have seen it.', 'is_primary' => false]);
+    GrammarRuleExample::query()->create(['grammar_rule_id' => $duplicate->id, 'example' => 'I have seen it', 'is_primary' => true]);
+
+    $this->artisan('catalog:merge-duplicates --apply')->assertSuccessful();
+
+    expect($kept->refresh()->is_primary)->toBeTrue();
+});
+
 test('every table referencing grammar rules is one the merge handles', function () {
     // A new table keyed by a grammar rule must be added to GrammarRuleMerger
     // or a GrammarRuleMergeParticipant; the runtime check would otherwise

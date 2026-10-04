@@ -57,18 +57,25 @@ final class GrammarRuleMerger
                 $participant->reassignGrammarRule($duplicate->id, $keep->id);
             }
 
-            $remaining = $this->foreignKeys->remainingReferences('grammar_rules', $duplicate->id);
-            if ($remaining !== []) {
-                throw new DuplicateMergeRefused(sprintf(
-                    'Rule #%d is still referenced by %s; add it to the merge before retrying.',
-                    $duplicate->id,
-                    implode(', ', array_keys($remaining)),
-                ));
-            }
+            $this->assertUnreferenced('grammar_rules', 'Rule', $duplicate->id);
 
             $duplicate->status = GrammarRule::STATUS_ARCHIVED;
             $duplicate->save();
         });
+    }
+
+    private function assertUnreferenced(string $table, string $label, int $id): void
+    {
+        $remaining = $this->foreignKeys->remainingReferences($table, $id);
+
+        if ($remaining !== []) {
+            throw new DuplicateMergeRefused(sprintf(
+                '%s #%d is still referenced by %s; add it to the merge before retrying.',
+                $label,
+                $id,
+                implode(', ', array_keys($remaining)),
+            ));
+        }
     }
 
     private function assertMergeable(GrammarRule $keep, GrammarRule $duplicate): void
@@ -148,16 +155,13 @@ final class GrammarRuleMerger
                 $alreadyHidden ? $hide->delete() : $hide->update(['grammar_rule_example_id' => $twin->id]);
             }
 
-            $remaining = $this->foreignKeys->remainingReferences('grammar_rule_examples', $example->id);
-            if ($remaining !== []) {
-                throw new DuplicateMergeRefused(sprintf(
-                    'Example #%d is still referenced by %s; add it to the merge before retrying.',
-                    $example->id,
-                    implode(', ', array_keys($remaining)),
-                ));
-            }
-
+            $this->assertUnreferenced('grammar_rule_examples', 'Example', $example->id);
             $example->delete();
+
+            if ($example->is_primary && ! $keepHasPrimary) {
+                $twin->update(['is_primary' => true]);
+                $keepHasPrimary = true;
+            }
         }
     }
 }

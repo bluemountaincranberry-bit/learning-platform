@@ -44,7 +44,7 @@ final class CatalogDuplicateFinder
     /**
      * `keep` is null when more than one copy carries learner data.
      *
-     * @return list<array{keep: ?Content, duplicates: list<Content>, footprints: array<int, list<string>>}>
+     * @return list<array{keep: ?Content, duplicates: list<Content>}>
      */
     public function contentGroups(): array
     {
@@ -68,7 +68,6 @@ final class CatalogDuplicateFinder
                 return [
                     'keep' => $keep,
                     'duplicates' => $group->reject(fn (Content $content): bool => $keep !== null && $content->id === $keep->id)->values()->all(),
-                    'footprints' => $footprints,
                 ];
             })
             ->values()
