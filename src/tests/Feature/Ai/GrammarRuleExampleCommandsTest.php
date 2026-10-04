@@ -42,7 +42,7 @@ function fakeBackfillAi(int $count = 8): void
         return ['examples' => array_map(fn (int $i): array => [
             'text' => "Call {$call} line {$i} she **works**.",
             'kind' => $kinds[$i % 4],
-            'mistake' => "Call {$call} line {$i} she work.",
+            'wrong' => "Call {$call} line {$i} she work.",
             'translation' => 'т',
         ], range(1, $count))];
     });
@@ -195,12 +195,14 @@ test('editing an example sentence drops its stale marking', function () {
     expect($example->fresh()->target_spans)->toBeNull();
 });
 
-test('admin examples sync keeps AI marking and source of unchanged sentences', function () {
+test('admin examples sync keeps the row, hides and AI marking of unchanged sentences', function () {
     $rule = makeRuleForBackfill();
-    $rule->examples()->create([
+    $kept = $rule->examples()->create([
         'language' => 'en', 'example' => 'She works.', 'origin' => 'ai', 'kind' => 'affirmative',
         'target_spans' => [[4, 9]], 'sort_order' => 10,
     ]);
+    $dropped = $rule->examples()->create(['language' => 'en', 'example' => 'Old one.', 'sort_order' => 20]);
+    \App\Modules\Content\Domain\Models\GrammarRuleExampleHide::query()->create(['user_id' => \App\Modules\User\Models\User::factory()->create()->id, 'grammar_rule_example_id' => $kept->id]);
 
     app(\App\Modules\Content\Application\Contracts\GrammarCatalogServiceInterface::class)->updateRule($rule->fresh(), [
         'examples' => [
@@ -210,9 +212,13 @@ test('admin examples sync keeps AI marking and source of unchanged sentences', f
     ]);
 
     $examples = $rule->examples()->get();
-    expect($examples[0]->origin)->toBe('ai')
+    expect($examples[0]->id)->toBe($kept->id)
+        ->and(\App\Modules\Content\Domain\Models\GrammarRuleExampleHide::query()->count())->toBe(1)
+        ->and($examples[0]->origin)->toBe('ai')
         ->and($examples[0]->target_spans)->toBe([[4, 9]])
         ->and($examples[0]->translation)->toBe('Она работает.')
         ->and($examples[1]->origin)->toBe('admin')
-        ->and($examples[1]->target_spans)->toBeNull();
+        ->and($examples[1]->target_spans)->toBeNull()
+        ->and($examples)->toHaveCount(2)
+        ->and($dropped->fresh())->toBeNull();
 });

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Modules\Content\Domain\Models\GrammarRuleExample;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -24,7 +25,7 @@ class GrammarRuleExampleResource extends JsonResource
             'kind' => $this->kind,
             'mistake' => $this->mistake,
             'target_spans' => $this->target_spans,
-            'origin' => $this->origin ?? 'admin',
+            'origin' => $this->origin ?? GrammarRuleExample::ORIGIN_ADMIN,
             'from_content' => $this->content_id !== null,
         ];
     }

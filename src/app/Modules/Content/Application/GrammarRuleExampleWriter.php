@@ -80,9 +80,7 @@ final class GrammarRuleExampleWriter implements GrammarRuleExampleWriterInterfac
         }
 
         $kind = in_array($item['kind'] ?? null, GrammarRuleExample::KINDS, true) ? $item['kind'] : null;
-        // `wrong` is the prompt's field; `mistake` is accepted for older prompt overrides.
-        $wrong = $item['wrong'] ?? $item['mistake'] ?? null;
-        $mistake = is_string($wrong) ? GrammarRuleExampleMarkup::strip($wrong) : '';
+        $mistake = is_string($item['wrong'] ?? null) ? GrammarRuleExampleMarkup::strip($item['wrong']) : '';
 
         // A "mistake" example without a real wrong sentence is just an example.
         if ($kind === GrammarRuleExample::KIND_MISTAKE && ($mistake === '' || mb_strlen($mistake) > self::MAX_LENGTH
@@ -91,7 +89,12 @@ final class GrammarRuleExampleWriter implements GrammarRuleExampleWriterInterfac
         }
 
         $translation = is_string($item['translation'] ?? null) ? GrammarRuleExampleMarkup::strip($item['translation']) : '';
-        $translate = $translationLanguage !== null && $translation !== '';
+        $translate = $translationLanguage !== null;
+
+        // Asked for a translation but none came: the example is incomplete.
+        if ($translate && $translation === '') {
+            return null;
+        }
 
         return [
             'example' => $parsed['text'],

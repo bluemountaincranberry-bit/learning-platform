@@ -472,22 +472,31 @@ class GrammarCatalogService implements GrammarCatalogServiceInterface
 
     private function syncRuleExamples(GrammarRule $rule, array $examples): void
     {
-        // The admin payload has only text fields; an unchanged sentence keeps
-        // what the admin form does not carry (source content, AI marking — VIK-39).
-        $kept = $rule->examples()->get()->keyBy(fn (GrammarRuleExample $example): string => $example->example)
-            ->map(fn (GrammarRuleExample $example): array => $example->only(['content_id', 'origin', 'kind', 'target_spans', 'mistake', 'translation_language']));
-
-        $rule->examples()->delete();
+        // An unchanged sentence keeps its row (VIK-39): its id (learners'
+        // hides point at it) and what the admin payload does not carry
+        // (source content, AI marking). Sentences no longer sent are removed.
+        $existing = $rule->examples()->get()->keyBy(fn (GrammarRuleExample $example): string => $example->example);
+        $keptIds = [];
 
         foreach (array_values($examples) as $index => $example) {
-            $rule->examples()->create(($kept[$example['example']] ?? []) + [
+            $attributes = [
                 'language' => $example['language'] ?? $rule->language,
                 'example' => $example['example'],
                 'translation' => $example['translation'] ?? null,
                 'is_primary' => (bool) ($example['is_primary'] ?? false),
                 'sort_order' => $example['sort_order'] ?? (($index + 1) * 10),
-            ]);
+            ];
+
+            $row = $existing->pull($example['example']);
+            if ($row !== null) {
+                $row->update($attributes);
+                $keptIds[] = $row->id;
+            } else {
+                $keptIds[] = $rule->examples()->create($attributes)->id;
+            }
         }
+
+        $rule->examples()->whereNotIn('id', $keptIds)->delete();
     }
 
     private function syncRuleLexemes(GrammarRule $rule, array $lexemeIds): void

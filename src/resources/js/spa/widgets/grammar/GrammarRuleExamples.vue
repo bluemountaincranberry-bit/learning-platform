@@ -158,7 +158,7 @@ onBeforeUnmount(() => {
                         <div v-if="example.origin === 'ai' || example.from_content || kindLabels[example.kind ?? ''] || example.kind === 'mistake'" class="mt-2 flex flex-wrap gap-1.5">
                             <UiBadge v-if="example.kind === 'mistake'" tone="danger">Common mistake</UiBadge>
                             <UiBadge v-else-if="kindLabels[example.kind ?? '']">{{ kindLabels[example.kind ?? ''] }}</UiBadge>
-                            <UiBadge v-if="example.from_content" tone="primary">From your content</UiBadge>
+                            <UiBadge v-if="example.from_content" tone="primary">From a video or lesson</UiBadge>
                             <UiBadge v-if="example.origin === 'ai'">AI</UiBadge>
                         </div>
                     </div>

@@ -61,6 +61,8 @@ test('examples list puts examples from contents first and returns the marking', 
 
     $response->assertOk()
         ->assertJsonPath('examples.0.example', 'From the video.')
+        ->assertJsonPath('examples.0.origin', 'content')
+        ->assertJsonPath('examples.0.from_content', true)
         ->assertJsonPath('examples.1.example', 'Admin one.')
         ->assertJsonPath('examples.2.example', 'She works late.')
         ->assertJsonPath('examples.2.origin', 'ai')

@@ -101,7 +101,7 @@ test('the mistakes list is stored after the examples with the fixed sentence as 
         ],
         'mistakes' => [
             ['wrong' => 'If it will snow, we will ski.', 'correct' => 'If it **snows**, we **will ski**.', 'translation' => 'Если пойдёт снег, мы покатаемся.'],
-            ['wrong' => '', 'correct' => 'If you **go**, I **will go**.'], // no error given → plain example
+            ['wrong' => '', 'correct' => 'If you **go**, I **will go**.', 'translation' => 'т'], // no error given → plain example
             'junk',
         ],
     ]);
@@ -158,7 +158,7 @@ test('cutting to the requested count keeps every kind the model wrote', function
 test('markers are removed from the mistake and the translation', function () {
     $rule = makeGrammarRuleForExamples();
     fakeExampleClient([
-        ['text' => 'She wants **a** dress.', 'kind' => 'mistake', 'mistake' => 'She wants **the** dress.', 'translation' => 'Она хочет **какое-нибудь** платье.'],
+        ['text' => 'She wants **a** dress.', 'kind' => 'mistake', 'wrong' => 'She wants **the** dress.', 'translation' => 'Она хочет **какое-нибудь** платье.'],
     ]);
 
     app(AiGrammarRuleExampleService::class)->generate($rule->id, 1, 'ru');
@@ -171,7 +171,7 @@ test('markers are removed from the mistake and the translation', function () {
 test('a mistake identical to the correct sentence is not a mistake example', function () {
     $rule = makeGrammarRuleForExamples();
     fakeExampleClient([
-        ['text' => 'She **works** here.', 'kind' => 'mistake', 'mistake' => 'She works here!', 'translation' => 'т'],
+        ['text' => 'She **works** here.', 'kind' => 'mistake', 'wrong' => 'She works here!', 'translation' => 'т'],
     ]);
 
     app(AiGrammarRuleExampleService::class)->generate($rule->id, 1, 'ru');
@@ -181,7 +181,7 @@ test('a mistake identical to the correct sentence is not a mistake example', fun
         ->and($example->mistake)->toBeNull();
 });
 
-test('generate drops unmarked, empty, overlong and duplicate examples', function () {
+test('generate drops unmarked, untranslated, empty, overlong and duplicate examples', function () {
     $rule = makeGrammarRuleForExamples();
     $rule->examples()->create(['language' => 'en', 'example' => 'I work from home.', 'sort_order' => 10]);
 
@@ -190,6 +190,7 @@ test('generate drops unmarked, empty, overlong and duplicate examples', function
         ['text' => '', 'kind' => 'affirmative'],
         ['text' => '**'.str_repeat('a', 300).'**', 'kind' => 'affirmative'],
         ['text' => 'I **work** from home!', 'kind' => 'affirmative', 'translation' => 'т'], // duplicate of existing (case/punctuation)
+        ['text' => 'We **cook** often.', 'kind' => 'affirmative'], // translation asked for but missing
         ['text' => 'They **play** football.', 'kind' => 'affirmative', 'translation' => 'т'],
         ['text' => 'They **play** football', 'kind' => 'affirmative', 'translation' => 'т'], // duplicate within the batch
         ['text' => '**Unclosed marker.', 'kind' => 'affirmative'],

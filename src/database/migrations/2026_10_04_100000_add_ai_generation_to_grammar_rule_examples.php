@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -28,6 +29,8 @@ return new class extends Migration
             $table->json('target_spans')->nullable()->after('example');
             $table->text('mistake')->nullable()->after('target_spans');
         });
+
+        DB::table('grammar_rule_examples')->whereNotNull('content_id')->update(['origin' => 'content']);
 
         Schema::create('grammar_rule_example_generations', function (Blueprint $table): void {
             $table->id();

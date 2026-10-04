@@ -35,6 +35,14 @@ class GrammarRuleExample extends Model
     {
         // Spans point into the old sentence; an edited sentence shows unmarked
         // until it is marked again, never with a wrong highlight.
+        // Examples written from a video/lesson (AiCandidateApplyService etc.)
+        // set content_id but not origin.
+        static::creating(function (self $example): void {
+            if ($example->content_id !== null && $example->origin === null) {
+                $example->origin = self::ORIGIN_CONTENT;
+            }
+        });
+
         static::saving(function (self $example): void {
             if ($example->exists && $example->isDirty('example') && ! $example->isDirty('target_spans')) {
                 $example->target_spans = null;
