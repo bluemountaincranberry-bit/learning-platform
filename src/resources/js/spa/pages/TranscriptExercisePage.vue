@@ -23,12 +23,12 @@ const mode = ref<'dictation' | 'shadowing'>(route.query.mode === 'shadowing' ? '
 const completedAttempt = ref<ExerciseAttempt | null>(null);
 
 const segmentId = computed(() => Number(route.query.segment_id));
-const lexemeId = computed(() => Number(route.query.content_lexeme_id) || null);
+const contentLexemeId = computed(() => Number(route.query.content_lexeme_id) || null);
 const segment = computed(() => route.query.segment_id
     ? segments.value.find((item) => item.id === segmentId.value) ?? null
     : segments.value[0] ?? null);
 const videoId = computed(() => extractYoutubeVideoId(content.value?.source_url));
-watch([segmentId, mode, lexemeId], () => { completedAttempt.value = null; });
+watch([segmentId, mode, contentLexemeId], () => { completedAttempt.value = null; });
 
 function onSubmitted(attempt: ExerciseAttempt) {
     if (attempt.status === 'completed') completedAttempt.value = attempt;
@@ -42,7 +42,7 @@ function replaySegment() {
 
 function selectSegment(next: TranscriptSegment) {
     if (next.id === segment.value?.id) return;
-    const query: LocationQuery = { ...route.query, segment_id: String(next.id) };
+    const query: LocationQuery = { ...route.query, segment_id: String(next.id), mode: mode.value };
     delete query.content_lexeme_id;
     router.replace({ query });
 }
@@ -98,11 +98,11 @@ onMounted(async () => {
                     </UiCard>
                 </div>
 
-                <p v-if="completedAttempt" role="status" class="rounded-lg border border-border bg-card p-4 text-sm">Attempt saved. <span v-if="lexemeId">The result is recorded for the explicitly linked word.</span><span v-else>This transcript-only exercise does not change word confidence, SRS or points.</span></p>
+                <p v-if="completedAttempt" role="status" class="rounded-lg border border-border bg-card p-4 text-sm">Attempt saved. <span v-if="contentLexemeId">The result is recorded for the explicitly linked word.</span><span v-else>This transcript-only exercise does not change word confidence, SRS or points.</span></p>
 
                 <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-                    <DictationCard v-if="mode === 'dictation'" :content-id="content.id" :content-lexeme-id="lexemeId" :target-text="segment.text" :transcript-segment-id="segment.id" :replay="replaySegment" @submitted="onSubmitted" />
-                    <ShadowingCard v-else :content-id="content.id" :content-lexeme-id="lexemeId" :target-text="segment.text" :transcript-segment-id="segment.id" :play="replaySegment" :show-target="false" @submitted="onSubmitted" />
+                    <DictationCard v-if="mode === 'dictation'" :content-id="content.id" :content-lexeme-id="contentLexemeId" :target-text="segment.text" :transcript-segment-id="segment.id" :replay="replaySegment" @submitted="onSubmitted" />
+                    <ShadowingCard v-else :content-id="content.id" :content-lexeme-id="contentLexemeId" :target-text="segment.text" :transcript-segment-id="segment.id" :play="replaySegment" :show-target="false" @submitted="onSubmitted" />
                     <UiCard class="h-fit space-y-3 p-4">
                         <p class="text-sm font-semibold">More segments</p>
                         <button v-for="item in segments" :key="item.id" type="button" class="block w-full rounded-md p-2 text-left text-xs transition hover:bg-accent" :class="item.id === segment.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground'" @click="selectSegment(item)">Segment {{ item.sequence + 1 }} · {{ formatDuration(item.start_ms) }}</button>

@@ -55,6 +55,10 @@ await context.route('**/*', async route => {
 const page = await context.newPage();
 page.setDefaultTimeout(10000);
 page.on('pageerror', error => pageErrors.push(error.message));
+async function submitDictation(answer) {
+    await page.getByLabel('Your answer', {exact:true}).fill(answer);
+    await page.getByRole('button', {name:'Check answer'}).click();
+}
 try {
   for (const width of [360,390]) {
     await page.setViewportSize({width,height:800});
@@ -70,8 +74,7 @@ try {
     assert.deepEqual(await page.evaluate(() => window.playback.slice(-2)), [['seek',0.7],['play']]);
     console.log('PASS both replays');
     assert.equal((await page.locator('body').innerText()).includes('Your result will update learning progress and SRS.'), false, 'transcript-only practice must not promise word effects');
-    await page.getByLabel('Your answer', {exact:true}).fill(target);
-    await page.getByRole('button', {name:'Check answer'}).click();
+    await submitDictation(target);
     await page.getByText('Correct answer:').waitFor();
     await page.getByText('Attempt saved.', {exact:false}).waitFor();
     assert.ok((await page.locator('body').innerText()).includes('does not change word confidence, SRS or points'));
@@ -86,13 +89,11 @@ try {
     assert.equal(freshText.includes('Attempt saved.'), false);
     console.log('PASS segment change resets result and answer');
     await page.goto('/practice/transcript?content_id=1&segment_id=11&content_lexeme_id=7&return_to=repetitions');
-    await page.getByLabel('Your answer', {exact:true}).fill(target);
-    await page.getByRole('button', {name:'Check answer'}).click();
+    await submitDictation(target);
     await page.getByText('The result is recorded for the explicitly linked word.').waitFor();
     assert.match(submissions.at(-1), /name="content_lexeme_id"\r\n\r\n7/);
     await page.getByRole('button', {name:'Segment 2'}).click();
-    await page.getByLabel('Your answer', {exact:true}).fill('Another secret phrase');
-    await page.getByRole('button', {name:'Check answer'}).click();
+    await submitDictation('Another secret phrase');
     await page.getByText('Attempt saved.', {exact:false}).waitFor();
     assert.equal(/name="content_lexeme_id"/.test(submissions.at(-1)), false, 'another segment must not reuse the previously linked word');
     console.log('PASS explicit link retained only for its segment');
@@ -118,12 +119,16 @@ try {
     await page.getByLabel('Your answer', {exact:true}).waitFor();
     assert.equal((await page.locator('body').innerText()).includes('Attempt saved.'), false);
     rejectSubmission = true;
-    await page.getByLabel('Your answer', {exact:true}).fill('Another secret phrase');
-    await page.getByRole('button', {name:'Check answer'}).click();
+    await submitDictation('Another secret phrase');
     await page.getByText('Request failed with status code 503', {exact:true}).waitFor();
     assert.equal((await page.locator('body').innerText()).includes('Attempt saved.'), false);
     assert.equal((await page.locator('body').innerText()).includes('Another secret phrase'), false);
     rejectSubmission = false;
+    await page.getByRole('button', {name:/^Shadowing Listen/}).click();
+    await page.getByRole('button', {name:'Segment 1'}).click();
+    await page.waitForURL(url => url.searchParams.get('segment_id') === '11', {waitUntil:'commit'});
+    await page.getByRole('button', {name:'Record your voice'}).waitFor();
+    assert.equal(new URL(page.url()).searchParams.get('mode'), 'shadowing', 'keep selected mode when choosing another segment');
     await page.getByRole('button', {name:'← Back'}).click();
     await page.waitForURL(url => url.pathname === '/repetitions' && url.searchParams.get('content_id') === '1', {waitUntil:'commit'});
     await page.goto('/practice/transcript?content_id=1&segment_id=999&content_lexeme_id=7');
