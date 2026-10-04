@@ -161,7 +161,7 @@ const activeFlowConfig = computed(() => (learningFlow.value?.config ?? {}) as Re
 const activeFlowDescription = computed(() => {
     const descriptions: Record<string, string> = {
         balanced: 'Alternates new words, review, context and listening in a balanced mix.',
-        'listening-first': 'Puts more weight on understanding speech, listening and dictation.',
+        'listening-first': 'Puts more weight on listening comprehension and dictation.',
         'speaking-first': 'Moves words into active speech and production sooner.',
         'fast-vocabulary': 'Short sessions and fast growth of useful vocabulary.',
         'deep-mastery': 'Slower but deeper: more context, production and reinforcement.',
@@ -442,7 +442,7 @@ onMounted(async () => {
                                 <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Your learning flow</span>
                                 <UiBadge tone="primary">{{ activeFlow.name }}</UiBadge>
                             </div>
-                            <h2 class="mt-2 text-lg font-semibold text-fg">Today you are learning in “{{ activeFlow.name }}” style</h2>
+                            <h2 class="mt-2 text-lg font-semibold text-fg">Today's learning style: {{ activeFlow.name }}</h2>
                             <p class="mt-1 max-w-2xl text-sm leading-5 text-muted-foreground">{{ activeFlowDescription }}</p>
                             <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-secondary">
                                 <span>{{ activeFlowConfig.session_minutes ?? 15 }} min per session</span>
@@ -598,7 +598,7 @@ onMounted(async () => {
                     </button>
                     <div v-if="showFlowDetails" class="mt-3 space-y-3 rounded-spa-lg border border-primary/20 bg-primary/5 p-4 text-sm">
                         <div><div class="font-semibold text-fg">Main goal</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.goal }}</p></div>
-                        <div><div class="font-semibold text-fg">How learning goes</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.sequence }}</p></div>
+                        <div><div class="font-semibold text-fg">How it works</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.sequence }}</p></div>
                         <div><div class="font-semibold text-fg">How the adaptive algorithm decides</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.algorithm }}</p></div>
                         <div class="grid gap-3 border-t border-primary/15 pt-3 sm:grid-cols-2">
                             <div><div class="font-semibold text-fg">Best for</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.bestFor }}</p></div>
@@ -665,7 +665,7 @@ onMounted(async () => {
                     </button>
                     <div v-if="showFlowDetails" class="mt-3 space-y-3 rounded-spa-lg border border-primary/20 bg-primary/5 p-4 text-sm">
                         <div><div class="font-semibold text-fg">Main goal</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.goal }}</p></div>
-                        <div><div class="font-semibold text-fg">How learning goes</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.sequence }}</p></div>
+                        <div><div class="font-semibold text-fg">How it works</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.sequence }}</p></div>
                         <div><div class="font-semibold text-fg">How the adaptive algorithm decides</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.algorithm }}</p></div>
                         <div class="grid gap-3 border-t border-primary/15 pt-3 sm:grid-cols-2">
                             <div><div class="font-semibold text-fg">Best for</div><p class="mt-1 leading-5 text-muted-foreground">{{ selectedFlowDetails.bestFor }}</p></div>

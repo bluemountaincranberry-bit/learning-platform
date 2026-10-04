@@ -236,7 +236,7 @@ onUnmounted(() => {
                                 <p v-if="w.translation" class="text-sm text-muted-foreground">{{ w.translation }}</p>
                             </div>
                             <UiBadge :tone="w.status === 'matched' ? 'primary' : 'neutral'">
-                                {{ w.status === 'matched' ? 'Already in dictionary' : 'New' }}
+                                {{ w.status === 'matched' ? 'Already in your dictionary' : 'New' }}
                             </UiBadge>
                         </div>
                     </div>
