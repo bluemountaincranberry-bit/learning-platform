@@ -20,7 +20,10 @@ class RunLessonAnalysisJob implements ShouldQueue
 
     public int $tries = 2;
 
-    public int $timeout = 120;
+    // Long notes/PDFs are analyzed in parts, one provider call each (VIK-70),
+    // so the deadline covers several sequential calls. The redis queue's
+    // retry_after must stay above this or the job is redelivered mid-run.
+    public int $timeout = 600;
 
     public function __construct(public int $runId) {}
 

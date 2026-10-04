@@ -27,7 +27,7 @@ class LessonPdfNotesFolder
     /**
      * @param  string  $fallbackText  the (possibly truncated) tool output, used only if the attachment cannot be re-read
      */
-    public function fold(AgentConversation $conversation, mixed $attachmentMessageId, string $fallbackText): void
+    public function fold(AgentConversation $conversation, ?int $attachmentMessageId, string $fallbackText): void
     {
         if ($conversation->lesson_id === null) {
             return;
@@ -40,15 +40,15 @@ class LessonPdfNotesFolder
         }
     }
 
-    private function fullText(AgentConversation $conversation, mixed $attachmentMessageId): ?string
+    private function fullText(AgentConversation $conversation, ?int $attachmentMessageId): ?string
     {
-        if (! is_int($attachmentMessageId) && ! ctype_digit((string) $attachmentMessageId)) {
+        if ($attachmentMessageId === null) {
             return null;
         }
 
         $message = AgentMessage::query()
             ->where('agent_conversation_id', $conversation->id)
-            ->find((int) $attachmentMessageId);
+            ->find($attachmentMessageId);
 
         if ($message === null || $message->attachment_path === null || ! Storage::disk('local')->exists($message->attachment_path)) {
             return null;

@@ -44,6 +44,21 @@ Calls grow linearly with length: the 16 000-character fixture is ~5 calls of
 with `chunk_index` / `chunk_count`) and goes through the same client and rate
 limiting as before. Expected cost ≈ the number of parts × one analysis call.
 
+## Known limits
+
+- The run is one queued job (`RunLessonAnalysisJob`, timeout 600 s,
+  `REDIS_QUEUE_RETRY_AFTER` default raised to 660 s so Redis does not
+  redeliver it mid-run). Nothing is persisted until every part is done; a
+  failing part fails the run and the retry starts again. Per-part
+  persistence/resume is a possible follow-up.
+- Parts are cut at line breaks/spaces without overlap, so an entry spanning
+  two lines can straddle a boundary. Grammar titles are deduped by exact
+  lowercase title, so differently worded titles from different parts can
+  repeat; the learner confirms candidates anyway.
+- A stored override of `lesson_analysis_system_prompt` in the prompt registry
+  replaces the built-in prompt and so the "be exhaustive" wording.
+- Live recall and real cost have not been measured yet (needs provider access).
+
 ## How coverage is measured
 
 `tests/Fixtures/pdf/wordlist-unit-1d.expected.json` lists the 54 numbered

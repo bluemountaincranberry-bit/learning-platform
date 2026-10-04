@@ -138,7 +138,7 @@ class LessonAgentService implements AgentService
                 if ($call->name === 'extract_pdf_text' && is_string($result['text'] ?? null)) {
                     app(LessonPdfNotesFolder::class)->fold(
                         $this->conversation,
-                        $call->arguments['attachment_message_id'] ?? null,
+                        is_numeric($call->arguments['attachment_message_id'] ?? null) ? (int) $call->arguments['attachment_message_id'] : null,
                         str_replace(['<tool_output>', '</tool_output>'], '', $result['text']),
                     );
                 }
