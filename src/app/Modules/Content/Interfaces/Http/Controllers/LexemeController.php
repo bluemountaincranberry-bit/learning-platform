@@ -14,6 +14,7 @@ use App\Modules\Content\Domain\Models\ClozeExample;
 use App\Modules\Content\Domain\Models\ContentLexeme;
 use App\Modules\Content\Domain\Models\Lexeme;
 use App\Modules\Content\Domain\Models\LexemeExample;
+use App\Modules\Content\Domain\Models\LexemeExplanation;
 use App\Modules\Content\Domain\Models\LexemeSense;
 use App\Modules\Content\Domain\Models\LexemeTranslation;
 use App\Support\AiConfig;
@@ -39,7 +40,7 @@ class LexemeController extends Controller
      */
     public function show(Request $request, Lexeme $word): JsonResponse
     {
-        $word->load(['translations', 'examples', 'associations.relatedLexeme', 'senses.translations', 'senses.examples', 'contentLinks']);
+        $word->load(['translations', 'examples', 'associations.relatedLexeme', 'senses.translations', 'senses.examples', 'contentLinks', 'explanations']);
 
         $translationLanguage = $request->user()?->translation_language ?? config('ai.analysis.translation_language', 'ru');
 
@@ -96,6 +97,9 @@ class LexemeController extends Controller
                         'grammar_features' => $occurrence->grammar_features,
                     ])->values()->all(),
                 'associations' => Lexeme::mapAssociations($word->associations, 50),
+                // Durable counterpart of the cached per-content explanation:
+                // generated once from any content (or this page), shown here.
+                'explanation' => $word->explanations->firstWhere('language', $word->language)?->explanation,
             ],
         ]);
     }
@@ -245,11 +249,33 @@ class LexemeController extends Controller
 
         $this->authorize('view', $lexeme->content);
 
+        $language = $lexeme->content->language ?? null;
+
+        // Durable read-through: an explanation generated earlier (from any
+        // content, or the word page) is reused without spending AI budget.
+        $stored = $lexeme->lexeme_id !== null
+            ? LexemeExplanation::query()
+                ->where('lexeme_id', $lexeme->lexeme_id)
+                ->where('language', $language ?? '')
+                ->first()
+            : null;
+        if ($stored !== null) {
+            LexemeExplanationRequested::dispatch($request->user()->id, $lexeme->id, 'study_screen');
+
+            return response()->json(['explanation' => $stored->explanation]);
+        }
+
         try {
-            $language = $lexeme->content->language ?? null;
             $explanation = $this->explanationCapability->explain($lexeme->text, $language, $lexeme->id);
         } catch (AiClientException $e) {
             return response()->json(['message' => 'AI service unavailable.'], 503);
+        }
+
+        if ($lexeme->lexeme_id !== null) {
+            LexemeExplanation::updateOrCreate(
+                ['lexeme_id' => $lexeme->lexeme_id, 'language' => $language ?? ''],
+                ['explanation' => $explanation],
+            );
         }
 
         LexemeExplanationRequested::dispatch(
@@ -257,6 +283,45 @@ class LexemeController extends Controller
             $lexeme->id,
             'study_screen'
         );
+
+        return response()->json(['explanation' => $explanation]);
+    }
+
+    /**
+     * Explain a canonical dictionary word straight from its own page — same
+     * durable store as the per-content explain() above, so either side
+     * reuses what the other generated.
+     */
+    public function explainWord(Request $request, Lexeme $word): JsonResponse
+    {
+        if (! AiConfig::isEnabled()) {
+            return response()->json(['message' => 'AI feature is disabled.'], 503);
+        }
+
+        $language = $word->language ?? '';
+
+        $stored = LexemeExplanation::query()
+            ->where('lexeme_id', $word->id)
+            ->where('language', $language)
+            ->first();
+        if ($stored !== null) {
+            LexemeExplanationRequested::dispatch($request->user()->id, $word->id, 'word_page');
+
+            return response()->json(['explanation' => $stored->explanation]);
+        }
+
+        try {
+            $explanation = $this->explanationCapability->explain($word->lemma, $word->language);
+        } catch (AiClientException $e) {
+            return response()->json(['message' => 'AI service unavailable.'], 503);
+        }
+
+        LexemeExplanation::updateOrCreate(
+            ['lexeme_id' => $word->id, 'language' => $language],
+            ['explanation' => $explanation],
+        );
+
+        LexemeExplanationRequested::dispatch($request->user()->id, $word->id, 'word_page');
 
         return response()->json(['explanation' => $explanation]);
     }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { Lightbulb, LoaderCircle } from 'lucide-vue-next';
 import PageState from '../components/ui/PageState.vue';
 import AskAiButton from '../shared/ui/AskAiButton.vue';
 import UiBadge from '../shared/ui/UiBadge.vue';
@@ -8,6 +9,7 @@ import UiButton from '../shared/ui/UiButton.vue';
 import UiCard from '../shared/ui/UiCard.vue';
 import UiSectionHeader from '../shared/ui/UiSectionHeader.vue';
 import SpeakButton from '../shared/ui/SpeakButton.vue';
+import TranslatorLinks from '../shared/ui/TranslatorLinks.vue';
 import WordExamples from '../shared/ui/WordExamples.vue';
 import { dictionaryApi } from '../domains/content';
 import { formatGrammarFeatures } from '../shared/grammarFeatures';
@@ -21,6 +23,8 @@ const wordId = computed(() => route.params.id as string);
 const loading = ref(true);
 const error = ref('');
 const lexeme = ref<LexemeDetail | null>(null);
+const explaining = ref(false);
+const explainError = ref('');
 
 const associationGroups = computed(() => groupAssociationsByType(lexeme.value?.associations));
 const primaryTranslation = computed(() => lexeme.value?.translations.find((t) => t.is_primary) ?? lexeme.value?.translations[0]);
@@ -56,6 +60,25 @@ const aiContext = computed(() => ({
     title: lexeme.value?.lemma ?? '',
 }));
 
+/** On-demand AI explanation, saved server-side — the same durable store the
+ * per-content Explain buttons read from, so either side reuses the other. */
+async function explainWord(): Promise<void> {
+    if (!lexeme.value || explaining.value) return;
+    explaining.value = true;
+    explainError.value = '';
+    try {
+        const data = await dictionaryApi.explain(lexeme.value.id);
+        if (lexeme.value) lexeme.value = { ...lexeme.value, explanation: data.explanation };
+    } catch (e: unknown) {
+        const err = e as { response?: { status?: number; data?: { message?: string } } };
+        explainError.value = err.response?.status === 503
+            ? 'AI temporarily unavailable.'
+            : (err.response?.data?.message ?? 'Failed to get explanation.');
+    } finally {
+        explaining.value = false;
+    }
+}
+
 onMounted(loadLexeme);
 </script>
 
@@ -84,6 +107,22 @@ onMounted(loadLexeme);
                         <AskAiButton v-if="lexeme" :context="aiContext" label="Ask about this word" />
                         <UiButton variant="secondary" @click="router.back()">Back</UiButton>
                     </div>
+                </div>
+                <TranslatorLinks v-if="lexeme" :text="lexeme.lemma" :source-language="lexeme.language" />
+            </UiCard>
+
+            <UiCard class="space-y-3">
+                <UiSectionHeader title="AI explanation" subtitle="Saved once, reused everywhere" />
+                <p v-if="lexeme?.explanation" class="whitespace-pre-wrap text-sm leading-6 text-fg-secondary">{{ lexeme.explanation }}</p>
+                <div v-else class="space-y-2">
+                    <p v-if="explaining" class="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+                        <LoaderCircle :size="16" class="animate-spin text-primary" aria-hidden="true" /> AI is explaining…
+                    </p>
+                    <p v-else-if="explainError" class="text-sm text-warning" role="alert">{{ explainError }}</p>
+                    <p v-else class="text-sm text-muted-foreground">No explanation yet — generate one with AI.</p>
+                    <UiButton variant="secondary" size="sm" :disabled="explaining" @click="explainWord">
+                        <Lightbulb :size="14" :class="{ 'animate-pulse': explaining }" /> Explain with AI
+                    </UiButton>
                 </div>
             </UiCard>
 

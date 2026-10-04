@@ -10,4 +10,9 @@ export const dictionaryApi = {
     moreExamples(id: string | number): Promise<MoreExamplesResponse> {
         return axios.post(`/api/dictionary/${id}/more-examples`).then((r) => r.data);
     },
+
+    /** AI explanation for a canonical word — generated on demand, then saved and reused. */
+    explain(id: string | number): Promise<{ explanation: string }> {
+        return axios.post(`/api/dictionary/${id}/explain`).then((r) => r.data);
+    },
 };

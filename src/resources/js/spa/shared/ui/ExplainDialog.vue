@@ -1,19 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { ExternalLink, Languages, LoaderCircle, RotateCcw } from 'lucide-vue-next';
+import { LoaderCircle, RotateCcw } from 'lucide-vue-next';
 import UiDialog from './UiDialog.vue';
 import UiButton from './UiButton.vue';
 import SpeakButton from './SpeakButton.vue';
-import { useProfileStore } from '../../domains/user';
+import TranslatorLinks from './TranslatorLinks.vue';
 
 /**
  * Shared AI-explanation dialog (ContentDetailsPage, StudyPage, MyWordsPage).
  *
  * Opens immediately with a loading skeleton while the explanation streams in,
- * so the learner gets instant feedback instead of a pulsing button. Translation
- * is a single Google Translate link — no second AI path to maintain, works even
- * when AI is down, and brings TTS for free. The word's own AI translation is
- * already shown in the word row; it is repeated here next to the link target.
+ * so the learner gets instant feedback instead of a pulsing button. External
+ * translator links come from the shared TranslatorLinks row — no second AI
+ * path to maintain, and they work even when AI is down. The word's own AI
+ * translation is already shown in the word row; it is repeated here.
  */
 const props = withDefaults(defineProps<{
     open: boolean;
@@ -30,19 +29,6 @@ const emit = defineEmits<{
     close: [];
     retry: [];
 }>();
-
-const profileStore = useProfileStore();
-const nativeLanguage = computed(() => profileStore.profile?.user.translation_language ?? 'ru');
-
-const googleTranslateUrl = computed(() => {
-    const params = new URLSearchParams({
-        sl: props.language ?? 'auto',
-        tl: nativeLanguage.value,
-        text: props.lexemeText,
-        op: 'translate',
-    });
-    return `https://translate.google.com/?${params.toString()}`;
-});
 </script>
 
 <template>
@@ -70,15 +56,8 @@ const googleTranslateUrl = computed(() => {
             <div class="flex flex-wrap items-center gap-2">
                 <SpeakButton v-if="language" :text="lexemeText" :language="language" />
                 <span v-if="translation" class="text-sm font-medium text-fg">{{ translation }}</span>
-                <a
-                    :href="googleTranslateUrl"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="inline-flex h-11 items-center gap-1.5 rounded-md px-3 text-sm text-primary hover:underline"
-                >
-                    <Languages :size="16" /> Google Translate <ExternalLink :size="13" class="text-muted-foreground" />
-                </a>
             </div>
+            <TranslatorLinks :text="lexemeText" :source-language="language" />
             <p class="whitespace-pre-wrap text-sm leading-6 text-fg-secondary">{{ explanation }}</p>
         </div>
     </UiDialog>

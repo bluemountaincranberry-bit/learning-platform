@@ -40,6 +40,8 @@ export interface LexemeDetail {
     senses: LexemeSenseItem[];
     forms: LexemeFormItem[];
     associations: LexemeAssociationItem[];
+    /** Saved AI explanation in this entry's language, or null when never generated. */
+    explanation: string | null;
 }
 
 export interface LexemeDetailResponse {

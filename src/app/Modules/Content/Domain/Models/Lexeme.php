@@ -65,6 +65,11 @@ class Lexeme extends Model
         return $this->hasMany(ContentLexeme::class, 'lexeme_id');
     }
 
+    public function explanations(): HasMany
+    {
+        return $this->hasMany(LexemeExplanation::class);
+    }
+
     /** @param Collection<int, LexemeExample> $examples */
     public static function pickPrimaryExample(Collection $examples, ?int $contentId): ?LexemeExample
     {
