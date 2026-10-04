@@ -34,3 +34,17 @@ _Avoid_: Learned marker, repetition interval.
 The learner's explicit indication that they know a lexeme. It is distinct
 from selecting the lexeme for practice or observing confidence in exercises.
 _Avoid_: Confidence score.
+
+**Learning step**:
+A short same-session repeat a new or forgotten lexeme must pass before its
+repetition card is spaced out in days.
+_Avoid_: Retry, re-queue (when referring to the scheduled step).
+
+**Lapse**:
+Forgetting a lexeme whose repetition card was already spaced out in days.
+_Avoid_: Mistake (when referring to the scheduling event).
+
+**Retention**:
+The share of repetition cards a learner recalls on their first try of the day,
+after a given time since the previous day's recall.
+_Avoid_: Accuracy (when referring to remembering over time).
