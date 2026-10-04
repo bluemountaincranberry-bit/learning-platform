@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter, type LocationQuery } from 'vue-router';
 import PageState from '../components/ui/PageState.vue';
 import UiButton from '../shared/ui/UiButton.vue';
 import UiCard from '../shared/ui/UiCard.vue';
@@ -11,7 +11,7 @@ import ShadowingCard from '../widgets/trainer/ShadowingCard.vue';
 import { contentApi } from '../domains/content';
 import { extractYoutubeVideoId } from '../shared/youtube';
 import { formatDuration } from '../shared/time';
-import type { Content, TranscriptSegment } from '../types';
+import type { Content, ExerciseAttempt, TranscriptSegment } from '../types';
 
 const route = useRoute();
 const router = useRouter();
@@ -19,12 +19,21 @@ const content = ref<Content | null>(null);
 const segments = ref<TranscriptSegment[]>([]);
 const loading = ref(true);
 const error = ref('');
-const mode = ref<'dictation' | 'shadowing'>((route.query.mode as 'dictation' | 'shadowing') || 'dictation');
+const mode = ref<'dictation' | 'shadowing'>(route.query.mode === 'shadowing' ? 'shadowing' : 'dictation');
+const completedAttempt = ref<ExerciseAttempt | null>(null);
 
 const segmentId = computed(() => Number(route.query.segment_id));
 const lexemeId = computed(() => Number(route.query.content_lexeme_id) || null);
-const segment = computed(() => segments.value.find((item) => item.id === segmentId.value) ?? segments.value[0] ?? null);
+const segment = computed(() => route.query.segment_id
+    ? segments.value.find((item) => item.id === segmentId.value) ?? null
+    : segments.value[0] ?? null);
 const videoId = computed(() => extractYoutubeVideoId(content.value?.source_url));
+watch([segmentId, mode, lexemeId], () => { completedAttempt.value = null; });
+
+function onSubmitted(attempt: ExerciseAttempt) {
+    if (attempt.status === 'completed') completedAttempt.value = attempt;
+}
+
 const youtubeRef = ref<InstanceType<typeof YoutubeEmbed> | null>(null);
 
 function replaySegment() {
@@ -32,7 +41,10 @@ function replaySegment() {
 }
 
 function selectSegment(next: TranscriptSegment) {
-    router.replace({ query: { ...route.query, segment_id: String(next.id) } });
+    if (next.id === segment.value?.id) return;
+    const query: LocationQuery = { ...route.query, segment_id: String(next.id) };
+    delete query.content_lexeme_id;
+    router.replace({ query });
 }
 
 function backFromPractice() {
@@ -74,7 +86,7 @@ onMounted(async () => {
                 <div class="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
                     <UiCard class="space-y-3 p-3">
                         <div v-if="videoId" class="overflow-hidden rounded-spa-lg"><YoutubeEmbed ref="youtubeRef" :video-id="videoId" :title="content.title" /></div>
-                        <div class="flex items-center justify-between gap-3 px-1"><div><UiBadge tone="neutral">at {{ formatDuration(segment.start_ms) }}</UiBadge><p class="mt-2 text-lg font-semibold text-fg">{{ segment.text }}</p></div><UiButton size="sm" variant="secondary" @click="replaySegment">Replay context</UiButton></div>
+                        <div class="flex items-center justify-between gap-3 px-1"><div><UiBadge tone="neutral">at {{ formatDuration(segment.start_ms) }}</UiBadge><p class="mt-2 text-sm text-muted-foreground">Listen to the selected segment before answering.</p></div><UiButton size="sm" variant="secondary" @click="replaySegment">Replay context</UiButton></div>
                     </UiCard>
                     <UiCard class="space-y-3 p-4">
                         <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Choose exercise</p>
@@ -82,19 +94,22 @@ onMounted(async () => {
                             <button type="button" :aria-pressed="mode === 'dictation'" class="rounded-lg border p-3 text-left transition" :class="mode === 'dictation' ? 'border-primary bg-primary/10' : 'border-border hover:bg-accent'" @click="mode = 'dictation'"><span class="block text-sm font-semibold">Dictation</span><span class="mt-1 block text-xs text-muted-foreground">Listen and type the phrase</span></button>
                             <button type="button" :aria-pressed="mode === 'shadowing'" class="rounded-lg border p-3 text-left transition" :class="mode === 'shadowing' ? 'border-primary bg-primary/10' : 'border-border hover:bg-accent'" @click="mode = 'shadowing'"><span class="block text-sm font-semibold">Shadowing</span><span class="mt-1 block text-xs text-muted-foreground">Listen and repeat aloud</span></button>
                         </div>
-                        <p class="text-xs leading-5 text-muted-foreground">This exercise is linked to transcript segment #{{ segment.id }}. Your result will update learning progress and SRS.</p>
+                        <p class="text-xs leading-5 text-muted-foreground">This exercise is linked to transcript segment #{{ segment.id }}. Your attempt is saved after checking. Word effects apply only when a word is explicitly linked.</p>
                     </UiCard>
                 </div>
 
+                <p v-if="completedAttempt" role="status" class="rounded-lg border border-border bg-card p-4 text-sm">Attempt saved. <span v-if="lexemeId">The result is recorded for the explicitly linked word.</span><span v-else>This transcript-only exercise does not change word confidence, SRS or points.</span></p>
+
                 <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-                    <DictationCard v-if="mode === 'dictation'" :content-id="content.id" :content-lexeme-id="lexemeId" :target-text="segment.text" :transcript-segment-id="segment.id" @submitted="mode = 'dictation'" />
-                    <ShadowingCard v-else :content-id="content.id" :content-lexeme-id="lexemeId" :target-text="segment.text" :transcript-segment-id="segment.id" :play="replaySegment" :show-target="false" @submitted="mode = 'shadowing'" />
+                    <DictationCard v-if="mode === 'dictation'" :content-id="content.id" :content-lexeme-id="lexemeId" :target-text="segment.text" :transcript-segment-id="segment.id" :replay="replaySegment" @submitted="onSubmitted" />
+                    <ShadowingCard v-else :content-id="content.id" :content-lexeme-id="lexemeId" :target-text="segment.text" :transcript-segment-id="segment.id" :play="replaySegment" :show-target="false" @submitted="onSubmitted" />
                     <UiCard class="h-fit space-y-3 p-4">
                         <p class="text-sm font-semibold">More segments</p>
-                        <button v-for="item in segments" :key="item.id" type="button" class="block w-full rounded-md p-2 text-left text-xs transition hover:bg-accent" :class="item.id === segment.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground'" @click="selectSegment(item)">{{ item.text }}</button>
+                        <button v-for="item in segments" :key="item.id" type="button" class="block w-full rounded-md p-2 text-left text-xs transition hover:bg-accent" :class="item.id === segment.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground'" @click="selectSegment(item)">Segment {{ item.sequence + 1 }} · {{ formatDuration(item.start_ms) }}</button>
                     </UiCard>
                 </div>
             </template>
+            <UiCard v-else class="p-4"><p class="text-sm text-muted-foreground">The selected transcript segment is unavailable. Return to the source to choose a segment.</p></UiCard>
         </main>
     </div>
 </template>
