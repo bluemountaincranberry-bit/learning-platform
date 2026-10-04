@@ -7,7 +7,7 @@ import { useContent, useLexemes } from '../domains/content';
 import AskAiButton from '../shared/ui/AskAiButton.vue';
 import UiBadge from '../shared/ui/UiBadge.vue';
 import UiButton from '../shared/ui/UiButton.vue';
-import UiDialog from '../shared/ui/UiDialog.vue';
+import ExplainDialog from '../shared/ui/ExplainDialog.vue';
 import UiCard from '../shared/ui/UiCard.vue';
 import UiEmptyState from '../shared/ui/UiEmptyState.vue';
 import WordListItem from '../shared/ui/WordListItem.vue';
@@ -48,7 +48,15 @@ const {
 
 const loading = computed(() => contentLoading.value || lexemesLoading.value);
 const error = computed(() => contentError.value || lexemesError.value);
-const explanationModal = ref<{ lexemeText: string; explanation: string } | null>(null);
+const explanationModal = ref<{
+    lexemeText: string;
+    translation: string | null;
+    language: string | null;
+    explanation: string;
+    loading: boolean;
+    error: string;
+} | null>(null);
+const explainTarget = ref<LexemeWithLearned | null>(null);
 
 // Task 7.8: level filter, status filter, "select all", and the bulk-action
 // bar now live in WordListToolbar.vue (shared with ContentDetailsPage.vue).
@@ -102,8 +110,26 @@ async function unskip(lexeme: LexemeWithLearned) {
 }
 
 async function explain(lexeme: LexemeWithLearned) {
+    explainTarget.value = lexeme;
+    explanationModal.value = {
+        lexemeText: lexeme.text,
+        translation: lexeme.translation ?? null,
+        language: content.value?.language ?? null,
+        explanation: '',
+        loading: true,
+        error: '',
+    };
     const result = await explainLexeme(lexeme);
-    if (result) explanationModal.value = result;
+    if (explanationModal.value === null) return;
+    if (result) {
+        explanationModal.value = { ...explanationModal.value, explanation: result.explanation, loading: false };
+    } else {
+        explanationModal.value = { ...explanationModal.value, loading: false, error: explainError.value || 'Failed to get explanation.' };
+    }
+}
+
+function retryExplanation() {
+    if (explainTarget.value) void explain(explainTarget.value);
 }
 
 function closeExplanation() {
@@ -224,9 +250,18 @@ onMounted(async () => {
                 </WordListToolbar>
             </section>
 
-            <UiDialog :open="Boolean(explanationModal)" :title="explanationModal?.lexemeText ?? 'Explanation'" @close="closeExplanation">
-                <p v-if="explanationModal" class="whitespace-pre-wrap text-sm leading-6 text-fg-secondary">{{ explanationModal.explanation }}</p>
-            </UiDialog>
+            <ExplainDialog
+                v-if="explanationModal"
+                :open="true"
+                :lexeme-text="explanationModal.lexemeText"
+                :translation="explanationModal.translation"
+                :language="explanationModal.language"
+                :explanation="explanationModal.explanation"
+                :loading="explanationModal.loading"
+                :error="explanationModal.error"
+                @close="closeExplanation"
+                @retry="retryExplanation"
+            />
         </div>
     </PageState>
 </template>

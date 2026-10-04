@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { BookPlus, Check, ChevronDown, ExternalLink, Eye, EyeOff, Lightbulb, Minus, Plus, Undo2 } from 'lucide-vue-next';
+import { BookPlus, Check, ChevronDown, ExternalLink, Eye, EyeOff, Lightbulb, LoaderCircle, Minus, Plus, Undo2 } from 'lucide-vue-next';
 import UiBadge from './UiBadge.vue';
 import UiButton from './UiButton.vue';
 import SpeakButton from './SpeakButton.vue';
@@ -164,6 +164,9 @@ const associationGroups = () => groupAssociationsByType(props.lexeme.association
                 <UiBadge v-for="item in group.items" :key="item" :tone="group.tone">{{ item }}</UiBadge>
             </div>
             <WordExamples :examples="lexeme.examples" :fallback-example="lexeme.example" :language="language" />
+            <p v-if="fetchingExamples" class="flex items-center gap-2 px-1 py-1 text-xs text-muted-foreground" role="status">
+                <LoaderCircle :size="14" class="animate-spin text-primary" aria-hidden="true" /> Loading more examples…
+            </p>
             <div class="flex flex-wrap items-center gap-1">
                 <UiButton v-if="lexeme.skipped" variant="ghost" size="touch" :disabled="marking" @click="emit('unskip', lexeme)">
                     <Eye :size="16" /> Show again

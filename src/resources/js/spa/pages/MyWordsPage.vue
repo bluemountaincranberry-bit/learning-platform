@@ -9,7 +9,7 @@ import { myWordsApi, type MyWordItem, type MyWordsParams, type MyWordStatus } fr
 import MyWordsSettingsPanel from './my-words/MyWordsSettingsPanel.vue';
 import UiBadge from '../shared/ui/UiBadge.vue';
 import UiButton from '../shared/ui/UiButton.vue';
-import UiDialog from '../shared/ui/UiDialog.vue';
+import ExplainDialog from '../shared/ui/ExplainDialog.vue';
 import UiCard from '../shared/ui/UiCard.vue';
 import UiEmptyState from '../shared/ui/UiEmptyState.vue';
 import SelectField from '../shared/ui/SelectField.vue';
@@ -43,7 +43,15 @@ const explainingId = ref<number | null>(null);
 const bulkPending = ref(false);
 const explainError = ref('');
 const aiUnavailable = ref(false);
-const explanationModal = ref<{ lexemeText: string; explanation: string } | null>(null);
+const explanationModal = ref<{
+    lexemeText: string;
+    translation: string | null;
+    language: string | null;
+    explanation: string;
+    loading: boolean;
+    error: string;
+} | null>(null);
+const explainTarget = ref<MyWordItem | null>(null);
 
 const totalPages = computed(() => meta.value.last_page ?? Math.max(1, Math.ceil(meta.value.total / meta.value.per_page)));
 const canPrev = computed(() => meta.value.current_page > 1);
@@ -198,11 +206,22 @@ async function markSelectedKnown() {
 
 async function explain(row: MyWordItem) {
     if (row.content_lexeme_id === null) return;
+    explainTarget.value = row;
     explainingId.value = row.id;
+    explanationModal.value = {
+        lexemeText: row.lexeme,
+        translation: row.translation ?? null,
+        language: row.language ?? null,
+        explanation: '',
+        loading: true,
+        error: '',
+    };
     explainError.value = '';
     try {
         const data = await contentApi.explainLexeme(row.content_lexeme_id);
-        explanationModal.value = { lexemeText: row.lexeme, explanation: data.explanation };
+        if (explanationModal.value !== null) {
+            explanationModal.value = { ...explanationModal.value, explanation: data.explanation, loading: false };
+        }
     } catch (e: unknown) {
         const err = e as { response?: { status?: number; data?: { message?: string } } };
         if (err.response?.status === 503 || err.response?.status === 403) {
@@ -211,9 +230,16 @@ async function explain(row: MyWordItem) {
         } else {
             explainError.value = err.response?.data?.message ?? 'Failed to get explanation.';
         }
+        if (explanationModal.value !== null) {
+            explanationModal.value = { ...explanationModal.value, loading: false, error: explainError.value };
+        }
     } finally {
         explainingId.value = null;
     }
+}
+
+function retryExplanation() {
+    if (explainTarget.value) void explain(explainTarget.value);
 }
 
 function closeExplanation() {
@@ -417,8 +443,17 @@ watch([activeStatus, filterLevel, search], () => {
             </template>
         </PageState>
 
-        <UiDialog :open="Boolean(explanationModal)" :title="explanationModal?.lexemeText ?? 'Explanation'" @close="closeExplanation">
-            <p v-if="explanationModal" class="whitespace-pre-wrap text-sm leading-6 text-fg-secondary">{{ explanationModal.explanation }}</p>
-        </UiDialog>
+        <ExplainDialog
+            v-if="explanationModal"
+            :open="true"
+            :lexeme-text="explanationModal.lexemeText"
+            :translation="explanationModal.translation"
+            :language="explanationModal.language"
+            :explanation="explanationModal.explanation"
+            :loading="explanationModal.loading"
+            :error="explanationModal.error"
+            @close="closeExplanation"
+            @retry="retryExplanation"
+        />
     </div>
 </template>
