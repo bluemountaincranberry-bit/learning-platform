@@ -171,7 +171,7 @@ class LessonController extends Controller
             'example_translation' => $c->example_translation,
             'status' => $c->status,
             'matched_lexeme_id' => $c->matched_lexeme_id,
-            'language' => $c->run->language,
+            'language' => $c->run->lesson->language,
         ];
     }
 
