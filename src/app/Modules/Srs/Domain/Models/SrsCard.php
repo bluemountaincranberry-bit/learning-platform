@@ -17,6 +17,7 @@ class SrsCard extends Model
         return [
             'next_review_at' => 'datetime',
             'ease_factor' => 'float',
+            'deactivated_at' => 'datetime',
         ];
     }
 
@@ -24,4 +25,5 @@ class SrsCard extends Model
     {
         return $this->hasMany(SrsReview::class);
     }
+
 }

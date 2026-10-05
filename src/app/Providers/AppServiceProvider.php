@@ -12,6 +12,7 @@ use App\Modules\Content\Application\Contracts\LearningProgressReferencesInterfac
 use App\Modules\Content\Application\Contracts\LexemeLearningStateWriterInterface;
 use App\Modules\Content\Domain\Models\Content;
 use App\Modules\Content\Domain\Models\Content as ContentAggregate;
+use App\Modules\Content\Domain\Models\Lexeme;
 use App\Modules\Learning\Application\ContentLearnerStateReader;
 use App\Modules\Learning\Application\ContentReadinessProgress;
 use App\Modules\Learning\Application\Contracts\SentencePracticeLearnerContextInterface;
@@ -28,6 +29,7 @@ use App\Modules\Srs\Domain\Models\SrsCard;
 use App\Modules\User\Models\User;
 use App\Policies\ContentPolicy;
 use App\Policies\LessonPolicy;
+use App\Policies\LexemePolicy;
 use App\Policies\SrsCardPolicy;
 use App\Support\NullKafkaProducer;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -89,6 +91,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(ContentAggregate::class, ContentPolicy::class);
         Gate::policy(SrsCard::class, SrsCardPolicy::class);
         Gate::policy(Lesson::class, LessonPolicy::class);
+        Gate::policy(Lexeme::class, LexemePolicy::class);
 
         // This is an API-only app with no `password.reset` web view — point
         // the notification at the SPA's own reset-password route instead of

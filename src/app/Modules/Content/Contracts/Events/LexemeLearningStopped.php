@@ -11,6 +11,7 @@ class LexemeLearningStopped
 
     public function __construct(
         public int $userId,
+        public int $lexemeId,
         public int $contentLexemeId,
         public string $itemKey,
     ) {}

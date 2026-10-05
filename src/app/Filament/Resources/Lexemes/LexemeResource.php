@@ -17,6 +17,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Database\Eloquent\Builder;
 
 class LexemeResource extends Resource
 {
@@ -36,6 +37,11 @@ class LexemeResource extends Resource
     public static function table(Table $table): Table
     {
         return LexemesTable::configure($table);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->whereNull('owner_user_id');
     }
 
     public static function getRelations(): array

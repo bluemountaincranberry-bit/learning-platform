@@ -155,3 +155,26 @@ test('get weak topics reports no data when no failed review links to a grammar r
 
     expect($result['weak_topics'])->toBe([])->and($result)->toHaveKey('note');
 });
+
+test('get weak topics resolves contentless cards from canonical lexeme rules', function () {
+    $user = User::factory()->create();
+    $topic = GrammarTopic::query()->create(['slug' => 'personal-topic-'.uniqid(), 'language' => 'en', 'name' => 'Personal Topic', 'status' => 'active']);
+    $rule = GrammarRule::query()->create(['topic_id' => $topic->id, 'slug' => 'personal-rule-'.uniqid(), 'language' => 'en', 'title' => 'Personal Rule', 'status' => 'published']);
+    $lexeme = Lexeme::query()->create(['slug' => 'en-retain-'.uniqid(), 'language' => 'en', 'lemma' => 'retain', 'normalized_lemma' => 'retain', 'status' => 'published']);
+    $lexeme->rules()->attach($rule->id);
+    $card = SrsCard::query()->create([
+        'user_id' => $user->id,
+        'lexeme_id' => $lexeme->id,
+        'content_id' => null,
+        'item_key' => null,
+        'state' => 'reviewing',
+        'interval_days' => 2,
+        'ease_factor' => 2.1,
+        'next_review_at' => now(),
+    ]);
+    SrsReview::query()->create(['srs_card_id' => $card->id, 'grade' => 1, 'reviewed_at' => now()]);
+
+    $weakTopic = (new GetWeakTopicsTool)->execute([], new AgentToolContext(1, $user->id))['weak_topics'][0];
+
+    expect($weakTopic['grammar_rule_id'])->toBe($rule->id)->and($weakTopic['mistake_count'])->toBe(1);
+});

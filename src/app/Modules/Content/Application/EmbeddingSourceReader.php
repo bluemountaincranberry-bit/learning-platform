@@ -17,7 +17,7 @@ class EmbeddingSourceReader implements EmbeddingSourceReaderInterface
 
     public function canonicalLexemes(array $ids): array
     {
-        return Lexeme::query()->whereIn('id', $ids)->get(['id', 'lemma'])
+        return Lexeme::query()->whereNull('owner_user_id')->whereIn('id', $ids)->get(['id', 'lemma'])
             ->map(fn (Lexeme $lexeme): array => ['id' => $lexeme->id, 'text' => $lexeme->lemma])->all();
     }
 

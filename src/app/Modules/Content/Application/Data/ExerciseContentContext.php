@@ -9,6 +9,7 @@ final readonly class ExerciseContentContext
         public string $language,
         public ?string $level,
         public ?int $contentLexemeId,
+        public ?int $canonicalLexemeId,
         public ?string $lexemeType,
         public ?string $lexemeText,
         public ?int $transcriptSegmentId,

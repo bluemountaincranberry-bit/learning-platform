@@ -48,3 +48,16 @@ test('compute canonical lexeme embeddings job is idempotent', function () {
 
     expect(CanonicalLexemeEmbedding::query()->where('lexeme_id', $lex->id)->count())->toBe(1);
 });
+
+test('embedding source reader does not expose personal lexeme text', function () {
+    $owner = \App\Modules\User\Models\User::factory()->create();
+    $personal = Lexeme::query()->create([
+        'slug' => 'private-word', 'language' => 'en', 'lemma' => 'privateword',
+        'normalized_lemma' => 'privateword', 'owner_user_id' => $owner->id,
+    ]);
+
+    $rows = app(\App\Modules\Content\Application\Contracts\EmbeddingSourceReaderInterface::class)
+        ->canonicalLexemes([$personal->id]);
+
+    expect($rows)->toBeEmpty();
+});

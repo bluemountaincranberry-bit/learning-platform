@@ -14,7 +14,7 @@ final class LexemeEnrichmentCatalog implements LexemeEnrichmentCatalogInterface
 
     public function promptContext(int $lexemeId): ?array
     {
-        $lexeme = Lexeme::query()->find($lexemeId);
+        $lexeme = Lexeme::query()->whereNull('owner_user_id')->find($lexemeId);
         if ($lexeme === null) {
             return null;
         }
@@ -30,7 +30,7 @@ final class LexemeEnrichmentCatalog implements LexemeEnrichmentCatalogInterface
 
     public function applyAccepted(int $lexemeId, array $data): array
     {
-        $lexeme = Lexeme::query()->findOrFail($lexemeId);
+        $lexeme = Lexeme::query()->whereNull('owner_user_id')->findOrFail($lexemeId);
         $created = ['related' => 0, 'examples' => 0, 'translations' => 0];
 
         foreach ($data['related'] ?? [] as $row) {
@@ -42,8 +42,9 @@ final class LexemeEnrichmentCatalog implements LexemeEnrichmentCatalogInterface
             if ($relatedLexemeId === null) {
                 $lemma = trim((string) $row['lemma']);
                 $related = Lexeme::query()->firstOrCreate(
-                    ['language' => $lexeme->language, 'normalized_lemma' => Str::lower($lemma)],
+                    ['owner_user_id' => null, 'language' => $lexeme->language, 'normalized_lemma' => Str::lower($lemma)],
                     [
+                        'owner_user_id' => null,
                         'slug' => Str::slug($lexeme->language.'-'.$lemma) ?: Str::lower($lexeme->language.'-lexeme-'.Str::random(8)),
                         'lemma' => $lemma,
                         'status' => Lexeme::STATUS_DRAFT,

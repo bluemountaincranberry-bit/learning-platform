@@ -37,6 +37,7 @@ class AssociationsRelationManager extends RelationManager
                 ->label('Related lexeme')
                 ->options(
                     fn () => Lexeme::query()
+                        ->whereNull('owner_user_id')
                         ->where('id', '!=', $lexemeId)
                         ->orderBy('lemma')
                         ->limit(100)
@@ -45,6 +46,7 @@ class AssociationsRelationManager extends RelationManager
                 ->searchable()
                 ->getSearchResultsUsing(
                     fn (string $search) => Lexeme::query()
+                        ->whereNull('owner_user_id')
                         ->where('id', '!=', $lexemeId)
                         ->where('lemma', 'like', "%{$search}%")
                         ->orderBy('lemma')

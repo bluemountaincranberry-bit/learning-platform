@@ -86,3 +86,58 @@ test('getWeakGrammarTopics aggregates failed reviews up to the linked grammar ru
         ->and($topics[0]['title'])->toBe('Present Perfect')
         ->and($topics[0]['mistake_count'])->toBe(1);
 });
+
+test('contentless cards report weak words and grammar from canonical identity', function () {
+    $user = User::factory()->create();
+    $topic = GrammarTopic::query()->create(['slug' => 'canonical-topic-'.uniqid(), 'language' => 'en', 'name' => 'Canonical Topic', 'status' => 'active']);
+    $rule = GrammarRule::query()->create([
+        'topic_id' => $topic->id,
+        'slug' => 'canonical-rule-'.uniqid(),
+        'language' => 'en',
+        'title' => 'Canonical Rule',
+        'status' => GrammarRule::STATUS_PUBLISHED,
+    ]);
+    $lexeme = Lexeme::query()->create([
+        'slug' => 'private-fixture-'.uniqid(),
+        'language' => 'en',
+        'lemma' => 'make progress',
+        'normalized_lemma' => 'make progress',
+        'status' => Lexeme::STATUS_PUBLISHED,
+    ]);
+    $lexeme->rules()->attach($rule->id);
+    $card = SrsCard::query()->create([
+        'user_id' => $user->id,
+        'lexeme_id' => $lexeme->id,
+        'content_id' => null,
+        'item_key' => null,
+    ]);
+    SrsReview::query()->create(['srs_card_id' => $card->id, 'grade' => 1, 'reviewed_at' => now()]);
+
+    $stats = app(ProgressStatsService::class);
+    $learner = new StatsLearner($user->id, $user->timezone, $user->daily_goal);
+    $weakWord = $stats->getWeakWords($learner)[0];
+    $weakTopic = $stats->getWeakGrammarTopics($learner)[0];
+
+    expect($weakWord['lexeme_id'])->toBe($lexeme->id)
+        ->and($weakWord['lexeme'])->toBe('make progress')
+        ->and($weakWord['content_id'])->toBeNull()
+        ->and($weakTopic['title'])->toBe('Canonical Rule');
+});
+
+test('retention includes contentless canonical reviews grouped by lexeme', function () {
+    $user = User::factory()->create();
+    $lexeme = Lexeme::query()->create([
+        'slug' => 'retention-'.uniqid(), 'language' => 'en', 'lemma' => 'sonder',
+        'normalized_lemma' => 'sonder', 'owner_user_id' => $user->id,
+    ]);
+    $card = SrsCard::query()->create([
+        'user_id' => $user->id, 'lexeme_id' => $lexeme->id, 'content_id' => null,
+        'item_key' => null,
+    ]);
+    SrsReview::query()->create(['srs_card_id' => $card->id, 'grade' => 1, 'reviewed_at' => now()->subDays(31)]);
+    SrsReview::query()->create(['srs_card_id' => $card->id, 'grade' => 4, 'reviewed_at' => now()]);
+
+    $retention = app(ProgressStatsService::class)->getRetention(new StatsLearner($user->id, $user->timezone, $user->daily_goal));
+
+    expect($retention['30'])->toBe(['attempts' => 1, 'correct' => 1, 'accuracy' => 100.0]);
+});

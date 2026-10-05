@@ -11,18 +11,25 @@ class CreateSrsCardOnLearningStartedListener
 
     public function handle(LexemeLearningStarted $event): void
     {
-        $this->repository->firstOrCreateCard(
+        $card = $this->repository->firstOrCreateCard(
             [
                 'user_id' => $event->userId,
-                'item_key' => $event->itemKey,
+                'lexeme_id' => $event->lexemeId,
             ],
             [
+                'lexeme_id' => $event->lexemeId,
                 'content_id' => $event->contentId,
+                'item_key' => $event->itemKey,
                 'state' => 'new',
                 'interval_days' => 1,
                 'ease_factor' => 2.50,
                 'next_review_at' => now(),
+                'deactivated_at' => null,
             ]
         );
+
+        if ($card->deactivated_at !== null) {
+            $card->update(['deactivated_at' => null]);
+        }
     }
 }

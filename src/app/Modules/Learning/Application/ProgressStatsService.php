@@ -139,23 +139,25 @@ class ProgressStatsService
      * surfaced here directly instead of requiring the learner to ask the
      * chatbot "what am I getting wrong?".
      *
-     * @return list<array{lexeme: string, content_id: int, hint: string}>
+     * @return list<array{lexeme_id: ?int, lexeme: string, content_id: ?int, hint: string}>
      */
     public function getWeakWords(StatsLearner $learner): array
     {
         $rows = DB::table('srs_reviews')
             ->join('srs_cards', 'srs_cards.id', '=', 'srs_reviews.srs_card_id')
+            ->leftJoin('lexemes as canonical_lexemes', 'canonical_lexemes.id', '=', 'srs_cards.lexeme_id')
             ->where('srs_cards.user_id', $learner->userId)
             ->where('srs_reviews.grade', '<=', $this->reviewGradePolicy->failingThreshold())
-            ->select('srs_cards.item_key', 'srs_cards.content_id', DB::raw('count(*) as mistake_count'))
-            ->groupBy('srs_cards.item_key', 'srs_cards.content_id')
+            ->select('srs_cards.lexeme_id', 'canonical_lexemes.lemma', 'srs_cards.item_key', DB::raw('min(srs_cards.content_id) as content_id'), DB::raw('count(*) as mistake_count'))
+            ->groupBy('srs_cards.lexeme_id', 'canonical_lexemes.lemma', 'srs_cards.item_key')
             ->orderByDesc('mistake_count')
             ->limit(self::WEAK_WORDS_LIMIT)
             ->get();
 
         return $rows->map(fn ($r) => [
-            'lexeme' => (string) preg_replace('/^(word|phrase):/', '', (string) $r->item_key),
-            'content_id' => (int) $r->content_id,
+            'lexeme_id' => $r->lexeme_id !== null ? (int) $r->lexeme_id : null,
+            'lexeme' => $r->lemma ?: (string) preg_replace('/^(word|phrase):/', '', (string) $r->item_key),
+            'content_id' => $r->content_id !== null ? (int) $r->content_id : null,
             'hint' => (int) $r->mistake_count === 1 ? '1 missed review' : $r->mistake_count.' missed reviews',
         ])->all();
     }
@@ -170,22 +172,22 @@ class ProgressStatsService
      */
     public function getWeakGrammarTopics(StatsLearner $learner): array
     {
-        $driver = DB::connection()->getDriverName();
-        $itemKeyMatch = $driver === 'sqlite'
-            ? "(content_lexemes.type || ':' || content_lexemes.text) = srs_cards.item_key"
-            : "CONCAT(content_lexemes.type, ':', content_lexemes.text) = srs_cards.item_key";
-
         $rows = DB::table('srs_reviews')
             ->join('srs_cards', 'srs_cards.id', '=', 'srs_reviews.srs_card_id')
-            ->join('content_lexemes', function ($join) use ($itemKeyMatch): void {
-                $join->on('content_lexemes.content_id', '=', 'srs_cards.content_id')
-                    ->whereRaw($itemKeyMatch);
+            ->leftJoin('content_lexemes', function ($join): void {
+                $driver = DB::connection()->getDriverName();
+                $itemKeyMatch = $driver === 'sqlite'
+                    ? "(content_lexemes.type || ':' || content_lexemes.text) = srs_cards.item_key"
+                    : "CONCAT(content_lexemes.type, ':', content_lexemes.text) = srs_cards.item_key";
+                $join->on('content_lexemes.content_id', '=', 'srs_cards.content_id')->whereRaw($itemKeyMatch);
             })
-            ->join('grammar_rule_lexeme', 'grammar_rule_lexeme.lexeme_id', '=', 'content_lexemes.lexeme_id')
+            ->join('grammar_rule_lexeme', function ($join): void {
+                $join->whereRaw('grammar_rule_lexeme.lexeme_id = COALESCE(srs_cards.lexeme_id, content_lexemes.lexeme_id)');
+            })
             ->join('grammar_rules', 'grammar_rules.id', '=', 'grammar_rule_lexeme.grammar_rule_id')
             ->where('srs_cards.user_id', $learner->userId)
             ->where('srs_reviews.grade', '<=', $this->reviewGradePolicy->failingThreshold())
-            ->select('grammar_rules.id', 'grammar_rules.title', DB::raw('count(*) as mistake_count'))
+            ->select('grammar_rules.id', 'grammar_rules.title', DB::raw('count(DISTINCT srs_reviews.id) as mistake_count'))
             ->groupBy('grammar_rules.id', 'grammar_rules.title')
             ->orderByDesc('mistake_count')
             ->limit(self::WEAK_TOPICS_LIMIT)
@@ -300,17 +302,22 @@ class ProgressStatsService
         $rows = DB::table('srs_reviews')
             ->join('srs_cards', 'srs_cards.id', '=', 'srs_reviews.srs_card_id')
             ->where('srs_cards.user_id', $learner->userId)
-            ->whereNotNull('srs_reviews.content_lexeme_id')
-            ->select('srs_reviews.content_lexeme_id', 'srs_reviews.grade', 'srs_reviews.reviewed_at')
+            ->where(function ($query): void {
+                $query->whereNotNull('srs_cards.lexeme_id')->orWhereNotNull('srs_reviews.content_lexeme_id');
+            })
+            ->select('srs_cards.lexeme_id', 'srs_reviews.content_lexeme_id', 'srs_reviews.grade', 'srs_reviews.reviewed_at')
             ->orderBy('srs_reviews.reviewed_at')
             ->get();
-        $first = $rows->groupBy('content_lexeme_id')->map(fn ($items) => Carbon::parse($items->first()->reviewed_at));
+        $identity = fn ($row): string => $row->lexeme_id !== null
+            ? 'lexeme:'.$row->lexeme_id
+            : 'occurrence:'.$row->content_lexeme_id;
+        $first = $rows->groupBy($identity)->map(fn ($items) => Carbon::parse($items->first()->reviewed_at));
         $result = [];
         foreach ([1, 7, 30] as $days) {
-            $eligible = $rows->filter(function ($row) use ($first, $days): bool {
-                $start = $first->get($row->content_lexeme_id);
+            $eligible = $rows->filter(function ($row) use ($first, $days, $identity): bool {
+                $start = $first->get($identity($row));
 
-                return $start !== null && Carbon::parse($row->reviewed_at)->diffInDays($start) >= $days;
+                return $start !== null && $start->diffInDays(Carbon::parse($row->reviewed_at)) >= $days;
             });
             $correct = $eligible->where('grade', '>', $this->reviewGradePolicy->failingThreshold())->count();
             $result[(string) $days] = ['attempts' => $eligible->count(), 'correct' => $correct, 'accuracy' => round($correct / max(1, $eligible->count()) * 100, 1)];

@@ -31,7 +31,7 @@ class RagSourceReader implements RagSourceReaderInterface
     public function publishedLexemeExamples(?array $ids = null): iterable
     {
         $query = LexemeExample::query()
-            ->whereHas('lexeme', fn ($q) => $q->where('status', Lexeme::STATUS_PUBLISHED))
+            ->whereHas('lexeme', fn ($q) => $q->whereNull('owner_user_id')->where('status', Lexeme::STATUS_PUBLISHED))
             ->with('lexeme');
         if ($ids !== null) {
             $query->whereIn('id', $ids);

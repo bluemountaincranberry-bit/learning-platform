@@ -48,11 +48,17 @@ final class ExerciseContentGateway implements ExerciseContentGatewayInterface
             abort(422, 'The transcript segment does not belong to this content.');
         }
 
+        if ($lexeme !== null && $lexeme->lexeme_id === null) {
+            app(CanonicalLexemeSyncService::class)->sync($lexeme);
+            $lexeme->refresh();
+        }
+
         return new ExerciseContentContext(
             contentId: (int) $content->id,
             language: (string) $content->language,
             level: $content->level !== null ? (string) $content->level : null,
             contentLexemeId: $lexeme !== null ? (int) $lexeme->id : null,
+            canonicalLexemeId: $lexeme?->lexeme_id !== null ? (int) $lexeme->lexeme_id : null,
             lexemeType: $lexeme?->type,
             lexemeText: $lexeme?->text,
             transcriptSegmentId: $segment !== null ? (int) $segment->id : null,

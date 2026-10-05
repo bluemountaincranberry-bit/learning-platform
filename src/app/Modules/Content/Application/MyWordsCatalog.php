@@ -31,7 +31,13 @@ final class MyWordsCatalog implements MyWordsCatalogInterface
                     ->whereHas('content', fn (Builder $contentQuery) => $contentQuery->whereIn('status', Content::PUBLIC_STATUSES))
                     ->with('content'),
             ])
-            ->whereHas('contentLinks.content', fn (Builder $q) => $q->whereIn('status', Content::PUBLIC_STATUSES))
+            ->where(function (Builder $scope) use ($userId): void {
+                $scope->where('owner_user_id', $userId)
+                    ->orWhere(function (Builder $shared): void {
+                        $shared->whereNull('owner_user_id')
+                            ->whereHas('contentLinks.content', fn (Builder $q) => $q->whereIn('status', Content::PUBLIC_STATUSES));
+                    });
+            })
             ->whereRaw("not exists ({$skippedExists})");
 
         if (! empty($filters['language'])) {
@@ -121,9 +127,14 @@ final class MyWordsCatalog implements MyWordsCatalogInterface
             return collect();
         }
 
-        $itemKey = $this->contentLexemeItemKeySql();
+        $canonical = DB::table('user_lexeme_sources')
+            ->join('content_lexemes', 'content_lexemes.id', '=', 'user_lexeme_sources.content_lexeme_id')
+            ->where('user_lexeme_sources.user_id', $userId)
+            ->whereIn('user_lexeme_sources.lexeme_id', $lexemeIds)
+            ->select('user_lexeme_sources.lexeme_id', 'user_lexeme_sources.content_lexeme_id');
 
-        return DB::table('content_lexemes')
+        $itemKey = $this->contentLexemeItemKeySql();
+        $legacy = DB::table('content_lexemes')
             ->join('srs_cards', function ($join) use ($itemKey): void {
                 $join->on('srs_cards.content_id', '=', 'content_lexemes.content_id')
                     ->whereRaw("{$itemKey} = srs_cards.item_key");
@@ -132,13 +143,15 @@ final class MyWordsCatalog implements MyWordsCatalogInterface
             ->whereIn('content_lexemes.lexeme_id', $lexemeIds)
             ->select('content_lexemes.lexeme_id', 'content_lexemes.id as content_lexeme_id')
             ->get();
+
+        return $canonical->get()->concat($legacy)->unique('lexeme_id')->values();
     }
 
     private function reviewExistsSql(int $userId): string
     {
         $itemKey = $this->contentLexemeItemKeySql();
 
-        return "select 1 from content_lexemes join srs_cards on srs_cards.content_id = content_lexemes.content_id and {$itemKey} = srs_cards.item_key where content_lexemes.lexeme_id = lexemes.id and srs_cards.user_id = {$userId}";
+        return "select 1 from srs_cards where srs_cards.lexeme_id = lexemes.id and srs_cards.user_id = {$userId} and srs_cards.deactivated_at is null union all select 1 from content_lexemes join srs_cards on srs_cards.content_id = content_lexemes.content_id and {$itemKey} = srs_cards.item_key where content_lexemes.lexeme_id = lexemes.id and srs_cards.user_id = {$userId} and srs_cards.deactivated_at is null";
     }
 
     private function knownExistsSql(int $userId): string

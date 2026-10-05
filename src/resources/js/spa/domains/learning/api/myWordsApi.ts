@@ -13,4 +13,19 @@ export const myWordsApi = {
         if (params.page != null) query.page = params.page;
         return axios.get('/api/me/words', { params: query }).then((r) => r.data);
     },
+    addWord(input: { lemma: string; language: string }): Promise<{ lexeme: { id: number; lemma: string; language: string; is_personal: boolean } }> {
+        return axios.post('/api/me/words', input).then((r) => r.data);
+    },
+    startLearning(lexemeId: number): Promise<void> {
+        return axios.post(`/api/me/words/${lexemeId}/start-learning`).then(() => undefined);
+    },
+    stopLearning(lexemeId: number): Promise<void> {
+        return axios.post(`/api/me/words/${lexemeId}/stop-learning`).then(() => undefined);
+    },
+    markKnown(lexemeId: number): Promise<void> {
+        return axios.post(`/api/me/words/${lexemeId}/mark-known`).then(() => undefined);
+    },
+    unmarkKnown(lexemeId: number): Promise<void> {
+        return axios.delete(`/api/me/words/${lexemeId}/mark-known`).then(() => undefined);
+    },
 };

@@ -55,9 +55,10 @@ final class ReviewOutcomeHandler implements ReviewOutcomeHandlerInterface
 
         event(new ExerciseCompleted(
             userId: $outcome->userId,
-            item: (string) preg_replace('/^(word|phrase):/', '', $outcome->itemKey),
+            item: (string) preg_replace('/^(word|phrase):/', '', $outcome->itemKey ?? ''),
             grade: $outcome->grade,
             isMistake: $outcome->isFailing,
+            lexemeId: $outcome->lexemeId,
         ));
     }
 }

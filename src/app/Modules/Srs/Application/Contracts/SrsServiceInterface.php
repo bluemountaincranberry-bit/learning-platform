@@ -15,8 +15,7 @@ interface SrsServiceInterface
     public function reviewCard(int $cardId, int $grade, int $userId, IntervalCalculator $calculator, array $context = []): SrsCard;
 
     /**
-     * Item keys ("{type}:{text}") for which this user already has an SrsCard,
-     * i.e. words already in their spaced-repetition review queue.
+     * Canonical lexeme IDs for active cards in this user's repetition queue.
      */
-    public function getInReviewItemKeys(int $userId): BaseCollection;
+    public function getInReviewLexemeIds(int $userId): BaseCollection;
 }

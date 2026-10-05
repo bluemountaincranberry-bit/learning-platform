@@ -15,6 +15,7 @@ class SrsCardResource extends JsonResource
         return [
             'id' => $this->id,
             'user_id' => $this->user_id,
+            'lexeme_id' => $this->lexeme_id,
             'content_id' => $this->content_id,
             'item_key' => $this->item_key,
             'lexeme_display' => $this->lexemeDisplay(),

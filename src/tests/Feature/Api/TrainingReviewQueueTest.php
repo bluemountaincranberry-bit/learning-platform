@@ -88,6 +88,28 @@ test('review queue endpoint returns null translation and example for an orphan c
     expect($item['associations'])->toBe([]);
 });
 
+test('review queue returns a contentless canonical card without a source occurrence', function () {
+    $user = User::factory()->create();
+    $user->assignRole('user');
+    $lexeme = Lexeme::query()->create([
+        'slug' => 'personal-queue-'.uniqid(), 'language' => 'en', 'lemma' => 'sonder',
+        'normalized_lemma' => 'sonder', 'owner_user_id' => $user->id,
+    ]);
+    SrsCard::query()->create([
+        'user_id' => $user->id, 'lexeme_id' => $lexeme->id, 'content_id' => null,
+        'item_key' => null, 'state' => 'reviewing', 'interval_days' => 2,
+        'ease_factor' => 2.5, 'next_review_at' => now()->subMinute(),
+    ]);
+
+    $item = $this->actingAs($user)->getJson('/api/training/review-queue')
+        ->assertOk()->assertJsonCount(1, 'items')->json('items.0');
+
+    expect($item['lexeme_display'])->toBe('sonder')
+        ->and($item['lexeme_id'])->toBe($lexeme->id)
+        ->and($item['content_lexeme_id'])->toBeNull()
+        ->and($item['content_id'])->toBeNull();
+});
+
 test('review queue endpoint filters by content_id', function () {
     [$contentA, , ] = makeContentWithSyncedLexeme('alpha');
     [$contentB, , ] = makeContentWithSyncedLexeme('beta');

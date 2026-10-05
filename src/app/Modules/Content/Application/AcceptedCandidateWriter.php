@@ -61,7 +61,7 @@ class AcceptedCandidateWriter implements AcceptedCandidateWriterInterface
         $language = $content->language ?? 'en';
 
         if ($candidate->matched_lexeme_id !== null) {
-            $lexeme = Lexeme::query()->findOrFail($candidate->matched_lexeme_id);
+            $lexeme = Lexeme::query()->whereNull('owner_user_id')->findOrFail($candidate->matched_lexeme_id);
         } else {
             // No match: resolve/create the canonical lexeme from the
             // candidate's own lemma *before* creating the occurrence row

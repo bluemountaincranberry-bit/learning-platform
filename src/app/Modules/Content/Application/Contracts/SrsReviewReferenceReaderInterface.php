@@ -4,9 +4,9 @@ namespace App\Modules\Content\Application\Contracts;
 
 interface SrsReviewReferenceReaderInterface
 {
-    public function lexemeBelongsToContent(int $lexemeId, int $contentId): bool;
+    public function lexemeBelongsToContent(int $lexemeId, int $contentId, ?int $canonicalLexemeId = null): bool;
 
-    public function transcriptSegmentBelongsToContent(int $segmentId, int $contentId): bool;
+    public function transcriptSegmentBelongsToContent(int $segmentId, int $contentId, ?int $canonicalLexemeId = null): bool;
 
     public function lexemeIdForItemKey(int $contentId, string $itemKey): ?int;
 

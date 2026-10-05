@@ -27,11 +27,28 @@ function actingAdminForLexemes(): User
 test('admin can view the lexemes list', function () {
     actingAdminForLexemes();
     Lexeme::query()->create(['slug' => 'bathrobe', 'language' => 'en', 'lemma' => 'bathrobe', 'normalized_lemma' => 'bathrobe']);
+    Lexeme::query()->create([
+        'slug' => 'private-bathrobe', 'language' => 'en', 'lemma' => 'private bathrobe',
+        'normalized_lemma' => 'private bathrobe', 'owner_user_id' => User::factory()->create()->id,
+    ]);
 
     $response = test()->get(LexemeResource::getUrl('index'));
 
     $response->assertSuccessful();
     $response->assertSee('bathrobe');
+    $response->assertDontSee('private bathrobe');
+});
+
+test('admin lexeme resource base query excludes owner-scoped rows', function () {
+    actingAdminForLexemes();
+    $shared = Lexeme::query()->create(['slug' => 'shared-row', 'language' => 'en', 'lemma' => 'shared', 'normalized_lemma' => 'shared']);
+    Lexeme::query()->create([
+        'slug' => 'private-row', 'language' => 'en', 'lemma' => 'private', 'normalized_lemma' => 'private',
+        'owner_user_id' => User::factory()->create()->id,
+    ]);
+
+    expect(LexemeResource::getEloquentQuery()->pluck('id')->map(fn ($id) => (int) $id)->all())->toContain($shared->id)
+        ->and(LexemeResource::getEloquentQuery()->where('lemma', 'private')->exists())->toBeFalse();
 });
 
 test('admin can create a lexeme through the resource form', function () {

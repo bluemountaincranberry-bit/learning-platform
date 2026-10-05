@@ -14,6 +14,7 @@ import UiCard from '../shared/ui/UiCard.vue';
 import UiEmptyState from '../shared/ui/UiEmptyState.vue';
 import SelectField from '../shared/ui/SelectField.vue';
 import WordRow from '../shared/ui/WordRow.vue';
+import UiInput from '../shared/ui/UiInput.vue';
 import { groupAssociationsByType } from '../shared/lexemeAssociations';
 
 const router = useRouter();
@@ -29,6 +30,11 @@ const meta = ref<{ current_page: number; per_page: number; total: number; last_p
 });
 const loading = ref(true);
 const error = ref('');
+const addLemma = ref('');
+const addLanguage = ref('en');
+const addPending = ref(false);
+const addMessage = ref('');
+const addError = ref('');
 
 const activeStatus = ref<MyWordStatus>('in_learning');
 const filterLevel = ref('all');
@@ -133,10 +139,10 @@ function toggleAllVisible() {
 }
 
 async function startReview(row: MyWordItem) {
-    if (row.in_review || row.content_lexeme_id === null) return;
+    if (row.in_review) return;
     startingReviewId.value = row.id;
     try {
-        await contentApi.startLexemeLearning(row.content_lexeme_id);
+        await myWordsApi.startLearning(row.lexeme_id);
         await fetchWords();
     } catch {
         error.value = 'Failed to add to learning.';
@@ -145,11 +151,48 @@ async function startReview(row: MyWordItem) {
     }
 }
 
+async function stopReview(row: MyWordItem) {
+    startingReviewId.value = row.id;
+    try {
+        await myWordsApi.stopLearning(row.lexeme_id);
+        await fetchWords();
+    } catch {
+        error.value = 'Failed to stop learning.';
+    } finally {
+        startingReviewId.value = null;
+    }
+}
+
+async function addPersonalWord() {
+    const lemma = addLemma.value.trim();
+    const language = addLanguage.value.trim();
+    if (lemma === '' || language === '') return;
+    addPending.value = true;
+    addError.value = '';
+    addMessage.value = '';
+    try {
+        await myWordsApi.addWord({ lemma, language });
+        addLemma.value = '';
+        activeStatus.value = 'in_learning';
+        addMessage.value = `Added “${lemma}” to learning.`;
+        await fetchWords();
+    } catch (e: unknown) {
+        const err = e as { response?: { data?: { message?: string; errors?: { lemma?: string[]; language?: string[] } } } };
+        addError.value = err.response?.data?.errors?.lemma?.[0]
+            ?? err.response?.data?.errors?.language?.[0]
+            ?? err.response?.data?.message
+            ?? 'Could not add this word.';
+    } finally {
+        addPending.value = false;
+    }
+}
+
 async function markKnown(row: MyWordItem) {
-    if (row.status === 'known' || row.content_lexeme_id === null) return;
+    if (row.status === 'known') return;
     markingKnownId.value = row.id;
     try {
-        await contentApi.markLexemeLearned(row.content_lexeme_id);
+        if (row.content_lexeme_id === null) await myWordsApi.markKnown(row.lexeme_id);
+        else await contentApi.markLexemeLearned(row.content_lexeme_id);
         await fetchWords();
     } catch {
         error.value = 'Failed to mark as known.';
@@ -159,10 +202,10 @@ async function markKnown(row: MyWordItem) {
 }
 
 async function unmarkKnown(row: MyWordItem) {
-    if (row.content_lexeme_id === null) return;
     unmarkingId.value = row.id;
     try {
-        await contentApi.unmarkLexemeLearned(row.content_lexeme_id);
+        if (row.content_lexeme_id === null) await myWordsApi.unmarkKnown(row.lexeme_id);
+        else await contentApi.unmarkLexemeLearned(row.content_lexeme_id);
         await fetchWords();
     } catch {
         error.value = 'Failed to remove from known words.';
@@ -283,6 +326,21 @@ watch([activeStatus, filterLevel, search], () => {
 
 <template>
     <div class="space-y-6">
+        <form class="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 sm:flex-row sm:items-end" @submit.prevent="addPersonalWord">
+            <label class="min-w-0 flex-1 space-y-1.5 text-sm font-medium text-fg">
+                Add a word to practice
+                <UiInput v-model="addLemma" aria-label="Word" placeholder="A word or phrase" maxlength="255" required />
+            </label>
+            <label class="w-full space-y-1.5 text-sm font-medium text-fg sm:w-28">
+                Language
+                <UiInput v-model="addLanguage" aria-label="Language" placeholder="en" maxlength="8" required />
+            </label>
+            <UiButton variant="primary" :disabled="addPending || addLemma.trim() === '' || addLanguage.trim() === ''">
+                <Plus :size="14" /> {{ addPending ? 'Adding…' : 'Add word' }}
+            </UiButton>
+        </form>
+        <p v-if="addMessage" class="text-sm text-success" role="status">{{ addMessage }}</p>
+        <p v-if="addError" class="text-sm text-warning" role="alert">{{ addError }}</p>
         <MyWordsSettingsPanel
             v-model:status="activeStatus"
             v-model:search="search"
@@ -374,17 +432,27 @@ watch([activeStatus, filterLevel, search], () => {
                                 v-if="!row.in_review"
                                 variant="secondary"
                                 size="touch"
-                                :disabled="startingReviewId === row.id || row.content_lexeme_id === null"
+                                :disabled="startingReviewId === row.id"
                                 title="Add to spaced-repetition learning"
                                 @click="startReview(row)"
                             >
                                 <Plus :size="14" /> Add
                             </UiButton>
                             <UiButton
+                                v-if="row.in_review"
+                                variant="ghost"
+                                size="touch"
+                                :disabled="startingReviewId === row.id"
+                                title="Stop spaced-repetition learning while keeping review history"
+                                @click="stopReview(row)"
+                            >
+                                Stop
+                            </UiButton>
+                            <UiButton
                                 v-if="row.status !== 'known'"
                                 variant="secondary"
                                 size="touch"
-                                :disabled="markingKnownId === row.id || row.content_lexeme_id === null"
+                                :disabled="markingKnownId === row.id"
                                 title="Mark this word as already known"
                                 @click="markKnown(row)"
                             >
@@ -394,7 +462,7 @@ watch([activeStatus, filterLevel, search], () => {
                                 v-if="row.status === 'known'"
                                 variant="ghost"
                                 size="touch"
-                                :disabled="unmarkingId === row.id || row.content_lexeme_id === null"
+                                :disabled="unmarkingId === row.id"
                                 title="Remove from known words"
                                 @click="unmarkKnown(row)"
                             >

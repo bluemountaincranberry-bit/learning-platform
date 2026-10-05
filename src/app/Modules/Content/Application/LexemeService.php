@@ -31,14 +31,28 @@ class LexemeService implements LexemeServiceInterface
     {
         if ($lexeme->canonicalLexeme()->first() === null) {
             app(CanonicalLexemeSyncService::class)->sync($lexeme);
+            $lexeme->refresh();
         }
 
-        LexemeLearningStarted::dispatch($userId, $lexeme->id, "{$lexeme->type}:{$lexeme->text}", $lexeme->content_id);
+        LexemeLearningStarted::dispatch(
+            $userId,
+            (int) $lexeme->lexeme_id,
+            (int) $lexeme->id,
+            "{$lexeme->type}:{$lexeme->text}",
+            (int) $lexeme->content_id,
+            (string) $lexeme->text,
+            (string) $lexeme->content()->value('title'),
+        );
     }
 
     public function stopLearning(ContentLexeme $lexeme, int $userId): void
     {
-        LexemeLearningStopped::dispatch($userId, $lexeme->id, "{$lexeme->type}:{$lexeme->text}");
+        if ($lexeme->lexeme_id === null) {
+            app(CanonicalLexemeSyncService::class)->sync($lexeme);
+            $lexeme->refresh();
+        }
+
+        LexemeLearningStopped::dispatch($userId, (int) $lexeme->lexeme_id, (int) $lexeme->id, "{$lexeme->type}:{$lexeme->text}");
     }
 
     public function skip(ContentLexeme $lexeme, int $userId): void

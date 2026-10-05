@@ -26,7 +26,7 @@ class LearnedLexemesService
             ->pluck('lexeme_id')
             ->map(fn ($id): int => (int) $id)
             ->all();
-        $visibleLexemeIds = $this->catalog->filterPublicLexemeIds($learnedLexemeIds, $filters);
+        $visibleLexemeIds = $this->catalog->filterVisibleLexemeIds($userId, $learnedLexemeIds, $filters);
 
         $query = UserLexemeProgress::query()
             ->where('user_id', $userId)
@@ -42,7 +42,7 @@ class LearnedLexemesService
 
         $paginator = $query->orderByDesc('learned_at')->paginate($perPage);
 
-        $inReviewItemKeys = $this->srsService->getInReviewItemKeys($userId);
+        $inReviewLexemeIds = $this->srsService->getInReviewLexemeIds($userId);
         $entries = $paginator->getCollection()->map(fn (UserLexemeProgress $progress): array => [
             'progress_id' => (int) $progress->id,
             'lexeme_id' => (int) $progress->lexeme_id,
@@ -54,8 +54,7 @@ class LearnedLexemesService
             foreach ($presentation as $key => $value) {
                 $progress->setAttribute($key, $value);
             }
-            $progress->in_review = isset($presentation['item_key'])
-                && $inReviewItemKeys->has($presentation['item_key']);
+            $progress->in_review = $inReviewLexemeIds->has((int) $progress->lexeme_id);
         }
 
         return $paginator;

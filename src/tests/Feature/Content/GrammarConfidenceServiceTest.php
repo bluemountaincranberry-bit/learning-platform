@@ -30,10 +30,9 @@ function makeGrammarRuleForConfidence(): GrammarRule
 
 /**
  * Links a lexeme to the rule (grammar_rule_lexeme) and gives it one SRS
- * review at the given grade, wiring srs_cards.item_key the same way
- * GetWeakTopicsTool/GrammarConfidenceService's join expects it.
+ * review at the given grade, wired directly to the canonical identity.
  */
-function addSrsReviewForRule(User $user, Content $content, GrammarRule $rule, int $grade): void
+function addSrsReviewForRule(User $user, Content $content, GrammarRule $rule, int $grade): SrsCard
 {
     $lexeme = Lexeme::query()->create([
         'slug' => 'lex-'.uniqid(),
@@ -55,6 +54,7 @@ function addSrsReviewForRule(User $user, Content $content, GrammarRule $rule, in
         'user_id' => $user->id,
         'content_id' => $content->id,
         'item_key' => 'phrase:have done',
+        'lexeme_id' => $lexeme->id,
         'state' => 'review',
         'next_review_at' => now(),
     ]);
@@ -64,6 +64,8 @@ function addSrsReviewForRule(User $user, Content $content, GrammarRule $rule, in
         'grade' => $grade,
         'reviewed_at' => now(),
     ]);
+
+    return $card;
 }
 
 test('recalculate returns null and writes nothing when there is no signal', function () {
@@ -121,6 +123,19 @@ test('recalculate uses the SRS pass rate when there are no exam attempts', funct
     $result = app(GrammarConfidenceService::class)->recalculate($user->id, $rule);
 
     expect($result)->toBe(100.0);
+});
+
+test('multiple content occurrences contribute one canonical SRS review signal', function () {
+    $user = User::factory()->create();
+    $content = Content::factory()->create(['language' => 'en']);
+    $rule = makeGrammarRuleForConfidence();
+    $card = addSrsReviewForRule($user, $content, $rule, grade: 4);
+    ContentLexeme::query()->create([
+        'content_id' => Content::factory()->create(['language' => 'en'])->id,
+        'type' => 'phrase', 'text' => 'have done again', 'lexeme_id' => $card->lexeme_id,
+    ]);
+
+    expect(app(GrammarConfidenceService::class)->recalculate($user->id, $rule))->toBe(100.0);
 });
 
 test('recalculate blends exam and SRS signals 70/30 when both exist', function () {

@@ -35,7 +35,7 @@ class CandidateMatchStore implements CandidateMatchStoreInterface
 
     public function exactLexemeId(string $normalizedLemma, string $language): ?int
     {
-        return Lexeme::query()->where('language', $language)
+        return Lexeme::query()->whereNull('owner_user_id')->where('language', $language)
             ->where('normalized_lemma', $normalizedLemma)->value('id');
     }
 
@@ -58,7 +58,7 @@ class CandidateMatchStore implements CandidateMatchStoreInterface
 
     public function lexemeIdsForLanguage(string $language): array
     {
-        return Lexeme::query()->where('language', $language)->pluck('id')->all();
+        return Lexeme::query()->whereNull('owner_user_id')->where('language', $language)->pluck('id')->all();
     }
 
     public function updateLexemeMatch(int $candidateId, ?int $lexemeId, ?float $score): void
