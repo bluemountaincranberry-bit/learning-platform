@@ -11,6 +11,11 @@ class Lesson extends Model
 {
     protected $guarded = [];
 
+    protected $casts = [
+        'tags' => 'array',
+        'lesson_date' => 'date',
+    ];
+
     public const STATUS_ACTIVE = 'active';
 
     public const STATUS_ARCHIVED = 'archived';

@@ -24,10 +24,30 @@ class LessonController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        return DB::transaction(function () use ($request): JsonResponse {
+        $data = $request->validate([
+            'title' => 'nullable|string|max:255',
+            'lesson_date' => 'nullable|date',
+            'teacher' => 'nullable|string|max:255',
+            'topic' => 'nullable|string|max:255',
+            'language' => 'nullable|string|size:2|in:en,ru,de,fr,es,it,pl',
+            'tags' => 'nullable|array',
+            'tags.*' => 'string|max:64',
+            'notes' => 'nullable|string',
+            'homework' => 'nullable|string',
+        ]);
+
+        return DB::transaction(function () use ($request, $data): JsonResponse {
             $lesson = Lesson::query()->create([
                 'user_id' => $request->user()->id,
                 'status' => Lesson::STATUS_ACTIVE,
+                'title' => $data['title'] ?? null,
+                'lesson_date' => $data['lesson_date'] ?? null,
+                'teacher' => $data['teacher'] ?? null,
+                'topic' => $data['topic'] ?? null,
+                'language' => $data['language'] ?? 'en',
+                'tags' => $data['tags'] ?? [],
+                'notes' => $data['notes'] ?? null,
+                'homework' => $data['homework'] ?? null,
             ]);
 
             return response()->json([
@@ -39,21 +59,27 @@ class LessonController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $lessons = Lesson::query()
-            ->where('user_id', $request->user()->id)
-            ->orderByDesc('updated_at')
-            ->paginate(15);
+        $status = $request->query('status'); // all | active | archived
+        $query = Lesson::query()->where('user_id', $request->user()->id);
+        
+        if ($status === 'active') {
+            $query->where('status', Lesson::STATUS_ACTIVE);
+        } elseif ($status === 'archived') {
+            $query->where('status', Lesson::STATUS_ARCHIVED);
+        }
+        // 'all' or null = no filter
+
+        $lessons = $query->orderByDesc('updated_at')->paginate(15);
 
         $lessons->getCollection()->transform(function (Lesson $lesson): array {
-            // Approximate, latest-run-only counts for the feed (cheap: no
-            // cross-run dedup query per row) — show() does the thorough
-            // distinct count across every run for the lesson's own page.
             $run = $lesson->latestAnalysisRun;
 
             return [
                 'id' => $lesson->id,
                 'title' => $lesson->title,
-                'tutor' => $lesson->tutor,
+                'lesson_date' => $lesson->lesson_date,
+                'teacher' => $lesson->teacher,
+                'topic' => $lesson->topic,
                 'status' => $lesson->status,
                 'updated_at' => $lesson->updated_at,
                 'lexeme_count' => $run?->lexemeCandidates()->count() ?? 0,
@@ -71,7 +97,13 @@ class LessonController extends Controller
         return response()->json([
             'id' => $lesson->id,
             'title' => $lesson->title,
-            'tutor' => $lesson->tutor,
+            'lesson_date' => $lesson->lesson_date,
+            'teacher' => $lesson->teacher,
+            'topic' => $lesson->topic,
+            'language' => $lesson->language,
+            'tags' => $lesson->tags ?? [],
+            'notes' => $lesson->notes,
+            'homework' => $lesson->homework,
             'status' => $lesson->status,
             'conversation_id' => $this->assistant->conversationId($lesson->id),
             'analysis_status' => $lesson->latestAnalysisRun?->status,
@@ -216,5 +248,45 @@ class LessonController extends Controller
         Cache::put($key, $count + 1, now()->endOfDay()->addSecond());
 
         return true;
+    }
+
+    public function update(Request $request, Lesson $lesson): JsonResponse
+    {
+        $this->assertOwnsLesson($lesson, $request->user()->id);
+
+        $data = $request->validate([
+            'title' => 'nullable|string|max:255',
+            'lesson_date' => 'nullable|date',
+            'teacher' => 'nullable|string|max:255',
+            'topic' => 'nullable|string|max:255',
+            'language' => 'nullable|string|size:2|in:en,ru,de,fr,es,it,pl',
+            'tags' => 'nullable|array',
+            'tags.*' => 'string|max:64',
+            'notes' => 'nullable|string',
+            'homework' => 'nullable|string',
+            'status' => 'nullable|in:active,archived',
+        ]);
+
+        $lesson->update($data);
+
+        return response()->json(['status' => 'updated']);
+    }
+
+    public function destroy(Lesson $lesson): JsonResponse
+    {
+        $this->assertOwnsLesson($lesson, request()->user()->id);
+
+        $lesson->update(['status' => Lesson::STATUS_ARCHIVED]);
+
+        return response()->json(['status' => 'archived']);
+    }
+
+    public function restore(Lesson $lesson): JsonResponse
+    {
+        $this->assertOwnsLesson($lesson, request()->user()->id);
+
+        $lesson->update(['status' => Lesson::STATUS_ACTIVE]);
+
+        return response()->json(['status' => 'restored']);
     }
 }
