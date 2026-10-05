@@ -9,12 +9,11 @@ import { myWordsApi, type MyWordItem, type MyWordsParams, type MyWordStatus } fr
 import MyWordsSettingsPanel from './my-words/MyWordsSettingsPanel.vue';
 import UiBadge from '../shared/ui/UiBadge.vue';
 import UiButton from '../shared/ui/UiButton.vue';
-import UiDialog from '../shared/ui/UiDialog.vue';
+import ExplainDialog from '../shared/ui/ExplainDialog.vue';
 import UiCard from '../shared/ui/UiCard.vue';
 import UiEmptyState from '../shared/ui/UiEmptyState.vue';
 import SelectField from '../shared/ui/SelectField.vue';
-import SpeakButton from '../shared/ui/SpeakButton.vue';
-import WordExamples from '../shared/ui/WordExamples.vue';
+import WordRow from '../shared/ui/WordRow.vue';
 import { groupAssociationsByType } from '../shared/lexemeAssociations';
 
 const router = useRouter();
@@ -43,7 +42,16 @@ const explainingId = ref<number | null>(null);
 const bulkPending = ref(false);
 const explainError = ref('');
 const aiUnavailable = ref(false);
-const explanationModal = ref<{ lexemeText: string; explanation: string } | null>(null);
+const explanationModal = ref<{
+    lexemeText: string;
+    translation: string | null;
+    language: string | null;
+    explanation: string;
+    loading: boolean;
+    regenerating: boolean;
+    error: string;
+} | null>(null);
+const explainTarget = ref<MyWordItem | null>(null);
 
 const totalPages = computed(() => meta.value.last_page ?? Math.max(1, Math.ceil(meta.value.total / meta.value.per_page)));
 const canPrev = computed(() => meta.value.current_page > 1);
@@ -196,13 +204,29 @@ async function markSelectedKnown() {
     }
 }
 
-async function explain(row: MyWordItem) {
+async function explain(row: MyWordItem, refresh = false) {
     if (row.content_lexeme_id === null) return;
+    explainTarget.value = row;
     explainingId.value = row.id;
+    if (!refresh) {
+        explanationModal.value = {
+            lexemeText: row.lexeme,
+            translation: row.translation ?? null,
+            language: row.language ?? null,
+            explanation: '',
+            loading: true,
+            regenerating: false,
+            error: '',
+        };
+    } else if (explanationModal.value) {
+        explanationModal.value = { ...explanationModal.value, regenerating: true, error: '' };
+    }
     explainError.value = '';
     try {
-        const data = await contentApi.explainLexeme(row.content_lexeme_id);
-        explanationModal.value = { lexemeText: row.lexeme, explanation: data.explanation };
+        const data = await contentApi.explainLexeme(row.content_lexeme_id, refresh);
+        if (explanationModal.value !== null) {
+            explanationModal.value = { ...explanationModal.value, explanation: data.explanation, loading: false, regenerating: false };
+        }
     } catch (e: unknown) {
         const err = e as { response?: { status?: number; data?: { message?: string } } };
         if (err.response?.status === 503 || err.response?.status === 403) {
@@ -211,9 +235,20 @@ async function explain(row: MyWordItem) {
         } else {
             explainError.value = err.response?.data?.message ?? 'Failed to get explanation.';
         }
+        if (explanationModal.value !== null) {
+            explanationModal.value = { ...explanationModal.value, loading: false, regenerating: false, error: explainError.value };
+        }
     } finally {
         explainingId.value = null;
     }
+}
+
+function retryExplanation() {
+    if (explainTarget.value) void explain(explainTarget.value);
+}
+
+function regenerateExplanation() {
+    if (explainTarget.value) void explain(explainTarget.value, true);
 }
 
 function closeExplanation() {
@@ -296,35 +331,8 @@ watch([activeStatus, filterLevel, search], () => {
                         <span class="text-sm text-muted-foreground">{{ meta.total }} total</span>
                     </div>
 
-                    <div
-                        v-for="row in items"
-                        :key="row.id"
-                        class="grid gap-3 rounded-spa border border-border bg-surface-alt/45 p-4 transition-colors hover:border-primary/50 lg:grid-cols-[auto_1fr_auto]"
-                    >
-                        <label class="pt-1">
-                            <input
-                                type="checkbox"
-                                class="h-4 w-4 rounded border-border bg-surface"
-                                :checked="selectedIds.includes(row.id)"
-                                @change="toggleSelected(row)"
-                            />
-                        </label>
-
-                        <div class="min-w-0 space-y-1.5">
-                            <div class="flex flex-wrap items-center gap-1.5">
-                                <SpeakButton :text="row.lexeme" :language="row.language" />
-                                <RouterLink
-                                    :to="{ name: 'word.details', params: { id: row.lexeme_id } }"
-                                    class="font-medium text-fg hover:text-primary hover:underline"
-                                >
-                                    {{ row.lexeme }}
-                                </RouterLink>
-                                <UiBadge :tone="statusTone(row)">{{ statusLabel(row) }}</UiBadge>
-                                <UiBadge tone="neutral">{{ row.level || 'n/a' }}</UiBadge>
-                            </div>
-
-                            <div v-if="row.translation" class="text-sm font-medium text-fg-secondary">{{ row.translation }}</div>
-
+                    <WordRow v-for="row in items" :key="row.id" :text="row.lexeme" :translation="row.translation" :level="row.level" :lexeme-id="row.lexeme_id" :language="row.language" :examples="row.examples" :example="row.example" selectable :selected="selectedIds.includes(row.id)" @toggle-select="toggleSelected(row)">
+                        <template #row-actions><UiBadge :tone="statusTone(row)">{{ statusLabel(row) }}</UiBadge></template>
                             <div
                                 v-for="group in associationGroupsOf(row)"
                                 :key="group.type"
@@ -334,15 +342,14 @@ watch([activeStatus, filterLevel, search], () => {
                                 <UiBadge v-for="item in group.items" :key="item" :tone="group.tone">{{ item }}</UiBadge>
                             </div>
 
-                            <WordExamples :examples="row.examples" :fallback-example="row.example" :language="row.language" />
-
+                        <template #source>
                             <div class="flex flex-wrap items-center gap-2 pt-1">
                                 <span v-if="row.learned_at" class="text-xs text-muted-foreground">Known since {{ formatDate(row.learned_at) }}</span>
                                 <template v-for="context in row.contexts.slice(0, 3)" :key="context.content_lexeme_id">
                                     <RouterLink
                                         v-if="context.content_id !== null"
                                         :to="{ name: 'catalog.details', params: { id: context.content_id } }"
-                                        class="text-xs text-primary underline"
+                                        class="inline-flex min-h-11 items-center text-xs text-primary underline"
                                     >
                                         {{ context.content_title || 'Content' }}
                                     </RouterLink>
@@ -351,13 +358,12 @@ watch([activeStatus, filterLevel, search], () => {
                                 <span v-if="row.contexts.length > 3" class="text-xs text-muted-foreground">+{{ row.contexts.length - 3 }} more</span>
                                 <span v-if="!primaryContext(row)" class="text-xs text-muted-foreground">No content context</span>
                             </div>
-                        </div>
-
-                        <div class="flex flex-wrap items-start gap-2 lg:justify-end">
+                        </template>
+                        <template #actions>
                             <UiButton
                                 v-if="!aiUnavailable"
                                 variant="ghost"
-                                size="sm"
+                                size="touch"
                                 :disabled="explainingId === row.id || row.content_lexeme_id === null"
                                 title="Get a short AI explanation of this word, with an example"
                                 @click="explain(row)"
@@ -367,7 +373,7 @@ watch([activeStatus, filterLevel, search], () => {
                             <UiButton
                                 v-if="!row.in_review"
                                 variant="secondary"
-                                size="sm"
+                                size="touch"
                                 :disabled="startingReviewId === row.id || row.content_lexeme_id === null"
                                 title="Add to spaced-repetition learning"
                                 @click="startReview(row)"
@@ -377,7 +383,7 @@ watch([activeStatus, filterLevel, search], () => {
                             <UiButton
                                 v-if="row.status !== 'known'"
                                 variant="secondary"
-                                size="sm"
+                                size="touch"
                                 :disabled="markingKnownId === row.id || row.content_lexeme_id === null"
                                 title="Mark this word as already known"
                                 @click="markKnown(row)"
@@ -387,15 +393,15 @@ watch([activeStatus, filterLevel, search], () => {
                             <UiButton
                                 v-if="row.status === 'known'"
                                 variant="ghost"
-                                size="sm"
+                                size="touch"
                                 :disabled="unmarkingId === row.id || row.content_lexeme_id === null"
                                 title="Remove from known words"
                                 @click="unmarkKnown(row)"
                             >
                                 <Undo2 :size="14" /> Unlearn
                             </UiButton>
-                        </div>
-                    </div>
+                        </template>
+                    </WordRow>
                 </UiCard>
 
                 <div class="flex flex-wrap items-center gap-4">
@@ -417,8 +423,20 @@ watch([activeStatus, filterLevel, search], () => {
             </template>
         </PageState>
 
-        <UiDialog :open="Boolean(explanationModal)" :title="explanationModal?.lexemeText ?? 'Explanation'" @close="closeExplanation">
-            <p v-if="explanationModal" class="whitespace-pre-wrap text-sm leading-6 text-fg-secondary">{{ explanationModal.explanation }}</p>
-        </UiDialog>
+        <ExplainDialog
+            v-if="explanationModal"
+            :open="true"
+            :lexeme-text="explanationModal.lexemeText"
+            :translation="explanationModal.translation"
+            :language="explanationModal.language"
+            :explanation="explanationModal.explanation"
+            :loading="explanationModal.loading"
+            :error="explanationModal.error"
+            show-regenerate
+            :regenerating="explanationModal.regenerating"
+            @close="closeExplanation"
+            @retry="retryExplanation"
+            @regenerate="regenerateExplanation"
+        />
     </div>
 </template>

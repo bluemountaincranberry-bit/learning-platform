@@ -73,11 +73,11 @@ onMounted(async () => {
         <UiCard>
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <UiSectionHeader
-                    title="Мои занятия"
-                    subtitle="Заметки с уроков репетитора — слова и грамматика, которые из них извлеклись"
+                    title="My lessons"
+                    subtitle="Notes from your tutor lessons — the words and grammar pulled out of them"
                 />
                 <UiButton variant="primary" :disabled="creating" @click="startNewLesson">
-                    <Plus :size="16" /> Новое занятие
+                    <Plus :size="16" /> New lesson
                 </UiButton>
             </div>
         </UiCard>
@@ -85,10 +85,10 @@ onMounted(async () => {
         <PageState :loading="loading" :error="error">
             <template v-if="lessons.length === 0 && !loading">
                 <UiEmptyState
-                    title="Занятий пока нет"
-                    description="Начните новое занятие, чтобы записать, что вы разбирали с репетитором."
+                    title="No lessons yet"
+                    description="Start a new lesson to write down what you covered with your tutor."
                 >
-                    <UiButton variant="primary" :disabled="creating" @click="startNewLesson">Новое занятие</UiButton>
+                    <UiButton variant="primary" :disabled="creating" @click="startNewLesson">New lesson</UiButton>
                 </UiEmptyState>
             </template>
 
@@ -101,16 +101,16 @@ onMounted(async () => {
                         class="flex flex-col gap-2 rounded-spa border border-border bg-black/10 p-3 transition-colors hover:border-primary sm:flex-row sm:items-center sm:justify-between"
                     >
                         <div class="min-w-0 space-y-1">
-                            <div class="break-words font-medium text-fg">{{ lesson.title || `Занятие от ${formatDate(lesson.updated_at)}` }}</div>
+                            <div class="break-words font-medium text-fg">{{ lesson.title || `Lesson on ${formatDate(lesson.updated_at)}` }}</div>
                             <div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                 <span>{{ formatDate(lesson.updated_at) }}</span>
                                 <UiBadge v-if="lesson.tutor" tone="neutral">{{ lesson.tutor }}</UiBadge>
-                                <UiBadge v-if="lesson.status === 'archived'" tone="neutral">Архив</UiBadge>
+                                <UiBadge v-if="lesson.status === 'archived'" tone="neutral">Archived</UiBadge>
                             </div>
                         </div>
                         <div class="flex shrink-0 items-center gap-2">
-                            <UiBadge v-if="lesson.lexeme_count > 0" tone="primary">{{ lesson.lexeme_count }} слов</UiBadge>
-                            <UiBadge v-if="lesson.grammar_count > 0" tone="primary">{{ lesson.grammar_count }} грамматики</UiBadge>
+                            <UiBadge v-if="lesson.lexeme_count > 0" tone="primary">{{ lesson.lexeme_count }} {{ lesson.lexeme_count === 1 ? 'word' : 'words' }}</UiBadge>
+                            <UiBadge v-if="lesson.grammar_count > 0" tone="primary">{{ lesson.grammar_count }} grammar {{ lesson.grammar_count === 1 ? 'rule' : 'rules' }}</UiBadge>
                         </div>
                     </RouterLink>
                 </UiCard>

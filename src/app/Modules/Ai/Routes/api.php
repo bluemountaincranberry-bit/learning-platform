@@ -9,12 +9,16 @@ use App\Modules\Ai\Interfaces\Http\Controllers\Admin\PromptTemplateController;
 use App\Modules\Ai\Interfaces\Http\Controllers\AiConversationController;
 use App\Modules\Ai\Interfaces\Http\Controllers\RecommendedController;
 use App\Modules\Ai\Interfaces\Http\Controllers\SentencePracticeController;
+use App\Modules\Ai\Interfaces\Http\Controllers\TranslateController;
 use App\Modules\Ai\Interfaces\Http\Controllers\TutorConversationController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function (): void {
     Route::get('/ai/recommended/contents', [RecommendedController::class, 'contents'])->name('api.ai.recommended.contents');
     Route::get('/ai/recommended/lexemes', [RecommendedController::class, 'lexemes'])->name('api.ai.recommended.lexemes');
+    Route::post('/ai/translate', TranslateController::class)
+        ->middleware('ai.rate_limit:explain')
+        ->name('api.ai.translate');
     Route::post('/ai/conversations', [AiConversationController::class, 'store'])->name('api.ai.conversations.store');
     Route::post('/ai/conversations/{conversation}/messages', [AiConversationController::class, 'storeMessage'])
         ->middleware('ai.rate_limit:chat')

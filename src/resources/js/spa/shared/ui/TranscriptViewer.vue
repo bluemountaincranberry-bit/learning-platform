@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { ChevronDown } from 'lucide-vue-next';
+import { ChevronDown, Play } from 'lucide-vue-next';
 import type { TranscriptSegment } from '../../types';
 import { formatDuration } from '../time';
 import UiBadge from './UiBadge.vue';
@@ -119,7 +119,7 @@ watch(
         >
             <div class="flex min-w-0 items-center gap-2">
                 <UiBadge tone="neutral">Transcript</UiBadge>
-                <span class="truncate text-xs text-muted-foreground">{{ visibleSegments.length }} phrases · Click to study words</span>
+                <span class="truncate text-xs text-muted-foreground">{{ visibleSegments.length }} phrases · Click word to translate, click ▶ to jump</span>
             </div>
             <ChevronDown :size="16" class="shrink-0 text-muted-foreground transition-transform" :class="isExpanded ? 'rotate-180' : ''" />
         </button>
@@ -132,33 +132,51 @@ watch(
             </div>
 
             <div ref="container" class="max-h-96 space-y-1 overflow-y-auto pr-1">
-                <button
+                <div
                     v-for="segment in visibleSegments"
                     :key="segment.id"
-                    type="button"
-                    class="block w-full rounded-md p-2 text-left transition-colors hover:bg-accent"
-                    :class="activeSegmentId === segment.id ? 'bg-primary/10 ring-1 ring-primary/30' : ''"
+                    class="rounded-md p-2 transition-colors"
+                    :class="activeSegmentId === segment.id ? 'bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent'"
                     :data-segment-id="segment.id"
-                    @click="emit('seek', segment)"
                 >
-                    <span class="mr-2 inline-block min-w-[2.5rem] align-top text-[11px] tabular-nums text-muted-foreground" :title="segmentTimeRange(segment)">{{ formatDuration(segment.start_ms) }}</span>
-                    <span v-if="mode !== 'native'" class="text-sm leading-6 text-fg" @mouseup.stop="onSegmentMouseUp($event, segment)">
-                        <template v-for="word in words(segment)" :key="`${segment.id}-${word.start}`">
-                            <span class="whitespace-pre">{{ word.leading }}</span>
-                            <span
-                                class="cursor-pointer rounded px-0.5 underline decoration-dotted underline-offset-2"
-                                :class="word.lexemeId ? 'text-primary' : 'text-fg/80 hover:text-primary'"
-                                :data-start="word.start"
-                                :data-end="word.end"
-                                @click.stop="onWordClick(word, segment)"
-                            >{{ word.text }}</span>
-                        </template>
-                    </span>
-                    <span v-if="(mode === 'native' || mode === 'both') && nativeTranslations?.[segment.id]" class="mt-1 block pl-12 text-xs text-muted-foreground">
-                        {{ nativeTranslations[segment.id] }}
-                    </span>
-                    <span v-else-if="mode === 'native' || mode === 'both'" class="mt-1 block pl-12 text-xs text-muted-foreground">Translation unavailable</span>
-                </button>
+                    <!-- Timestamp as separate play button -->
+                    <div class="flex items-start gap-2">
+                        <button
+                            type="button"
+                            class="flex items-center gap-1.5 shrink-0 min-w-[2.5rem] text-[11px] tabular-nums text-muted-foreground hover:text-primary transition-colors p-1 rounded"
+                            :title="segmentTimeRange(segment)"
+                            @click="emit('seek', segment)"
+                            aria-label="Jump to {{ formatDuration(segment.start_ms) }}"
+                        >
+                            <Play :size="12" class="shrink-0 text-current" />
+                            <span>{{ formatDuration(segment.start_ms) }}</span>
+                        </button>
+
+                        <!-- Words area + native translation stacked one under another -->
+                        <div class="min-w-0 flex-1 space-y-1.5">
+                            <div v-if="mode !== 'native'" class="text-sm leading-6 text-fg" @mouseup.stop="onSegmentMouseUp($event, segment)">
+                                <template v-for="word in words(segment)" :key="`${segment.id}-${word.start}`">
+                                    <span class="whitespace-pre">{{ word.leading }}</span>
+                                    <span
+                                        class="cursor-pointer rounded px-0.5 underline decoration-dotted underline-offset-2"
+                                        :class="word.lexemeId ? 'text-primary' : 'text-fg/80 hover:text-primary'"
+                                        :data-start="word.start"
+                                        :data-end="word.end"
+                                        @click.stop="onWordClick(word, segment)"
+                                    >{{ word.text }}</span>
+                                </template>
+                            </div>
+
+                            <!-- Native translation -->
+                            <div v-if="mode === 'native' || mode === 'both'">
+                                <span v-if="nativeTranslations?.[segment.id]" class="block border-l-2 border-primary/30 pl-2 text-xs leading-5 text-muted-foreground">
+                                    {{ nativeTranslations[segment.id] }}
+                                </span>
+                                <span v-else class="block text-xs text-muted-foreground">Translation unavailable</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

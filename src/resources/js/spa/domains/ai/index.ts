@@ -1,6 +1,7 @@
 export { tutorApi } from './api/tutorApi';
 export { recommendedApi } from './api/recommendedApi';
 export { sentencePracticeApi } from './api/sentencePracticeApi';
+export { translateApi } from './api/translateApi';
 export type {
     SentencePracticeDirection,
     SentencePracticeCheckMode,

@@ -23,6 +23,7 @@ use App\Contracts\Ai\ManualLexemeCandidateCapability;
 use App\Contracts\Ai\PromptRegistryInterface;
 use App\Contracts\Ai\SentenceAnswerGradingCapability;
 use App\Contracts\Ai\SentenceGenerationCapability;
+use App\Contracts\Ai\TextTranslationCapability;
 use App\Modules\Ai\Application\Agent\AgentLoop;
 use App\Modules\Ai\Application\Agent\ContentAgentService;
 use App\Modules\Ai\Application\Agent\Contracts\AgentTool;
@@ -48,7 +49,9 @@ use App\Modules\Ai\Application\Capabilities\LexemeMetadataSuggestionService;
 use App\Modules\Ai\Application\Capabilities\LexemeTranslationService;
 use App\Modules\Ai\Application\Capabilities\SentenceAnswerGradingService;
 use App\Modules\Ai\Application\Capabilities\SentenceGenerationService;
+use App\Modules\Ai\Application\Capabilities\TextTranslationService;
 use App\Modules\Ai\Application\ChatContextAiService;
+use App\Modules\Ai\Application\GrammarRuleEmbeddingMergeParticipant;
 use App\Modules\Ai\Application\LessonAssistantService;
 use App\Modules\Ai\Application\LexemeEnrichmentService;
 use App\Modules\Ai\Application\ManualLexemeCandidateService;
@@ -61,6 +64,7 @@ use App\Modules\Ai\Infrastructure\ElasticsearchClient;
 use App\Modules\Ai\Infrastructure\OllamaClient;
 use App\Modules\Ai\Infrastructure\OpenAiClient;
 use App\Modules\Ai\Infrastructure\OpenAiEmbeddingsClient;
+use App\Modules\Content\Application\Contracts\GrammarRuleMergeParticipant;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -69,6 +73,7 @@ class AiServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(LessonAssistant::class, LessonAssistantService::class);
+        $this->app->tag([GrammarRuleEmbeddingMergeParticipant::class], GrammarRuleMergeParticipant::TAG);
         $this->app->singleton(AiProviderFactory::class, fn () => new AiProviderFactory(
             provider: (string) config('ai.provider', 'openai'),
             openAiApiKey: (string) (config('ai.openai.api_key') ?? ''),
@@ -120,6 +125,7 @@ class AiServiceProvider extends ServiceProvider
         $this->app->bind(ContentExamGenerationCapability::class, SentencePracticeService::class);
         $this->app->bind(AiAnalysisRunDispatcher::class, AiAnalysisRunDispatchService::class);
         $this->app->bind(LexemeExplanationCapability::class, LexemeExplanationService::class);
+        $this->app->bind(TextTranslationCapability::class, TextTranslationService::class);
         $this->app->bind(LexemeEnrichmentCapability::class, LexemeEnrichmentService::class);
         $this->app->bind(LexemeEnrichmentDispatcher::class, QueuedLexemeEnrichmentDispatcher::class);
         $this->app->bind(GrammarRuleExampleGenerationDispatcher::class, QueuedGrammarRuleExampleGenerationDispatcher::class);

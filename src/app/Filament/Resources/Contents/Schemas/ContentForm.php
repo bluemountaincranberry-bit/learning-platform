@@ -4,8 +4,9 @@ namespace App\Filament\Resources\Contents\Schemas;
 
 use App\Contracts\VideoTitleFetcherInterface;
 use App\Exceptions\SubtitleExtractionException;
-use App\Modules\Content\Domain\Models\Content;
 use App\Modules\Content\Application\Contracts\SubtitleTextExtractorInterface;
+use App\Modules\Content\Domain\Models\Content;
+use App\Modules\Content\Rules\NewYoutubeVideo;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -43,6 +44,10 @@ class ContentForm
                     ->url()
                     ->maxLength(255)
                     ->required(fn (Get $get): bool => $get('type') === 'youtube')
+                    // VIK-16: one catalog entry per YouTube video, any URL form.
+                    ->rules(fn (Get $get, string $operation): array => $get('type') === 'youtube' && $operation === 'create'
+                        ? [new NewYoutubeVideo]
+                        : [])
                     ->live(onBlur: true)
                     ->afterStateUpdated(function (Get $get, Set $set, ?string $state): void {
                         if ($get('type') !== 'youtube' || blank($state) || filled($get('title'))) {

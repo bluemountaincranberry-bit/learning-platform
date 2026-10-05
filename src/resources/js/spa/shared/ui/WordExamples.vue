@@ -44,7 +44,7 @@ const visibleExamples = computed(() => (!props.collapsible || expanded.value ? p
             <div class="flex items-center gap-2 rounded-lg px-1 py-1.5 transition-colors hover:bg-surface-alt/60">
                 <button
                     type="button"
-                    class="flex min-w-0 flex-1 items-center gap-2 text-left italic leading-6 text-fg-secondary hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    class="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left italic leading-6 text-fg-secondary hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     :title="example.example"
                     :aria-expanded="shownTranslations.has(idx)"
                     :aria-label="shownTranslations.has(idx) ? 'Hide example translation' : 'Show example translation'"
@@ -59,7 +59,7 @@ const visibleExamples = computed(() => (!props.collapsible || expanded.value ? p
                         aria-hidden="true"
                     />
                 </button>
-                <SpeakButton v-if="language" :text="example.example" :language="language" />
+                <SpeakButton v-if="language" :text="example.example" :language="language" class="-mr-1" />
             </div>
             <div
                 v-if="example.translation && shownTranslations.has(idx)"
@@ -77,8 +77,8 @@ const visibleExamples = computed(() => (!props.collapsible || expanded.value ? p
         <UiButton
             v-if="collapsible && examples.length > 1"
             variant="ghost"
-            size="sm"
-            class="h-auto px-0 py-0 text-xs"
+            size="touch"
+            class="text-xs"
             @click.stop="expanded = !expanded"
         >
             <ChevronDown :size="15" class="text-primary transition-transform" :class="expanded ? 'rotate-180' : ''" aria-hidden="true" />

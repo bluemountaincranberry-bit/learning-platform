@@ -102,8 +102,8 @@ export const contentApi = {
     },
 
     /** Explain lexeme (AI). Returns 503 when AI feature is disabled. */
-    explainLexeme(lexemeId: number): Promise<{ explanation: string }> {
-        return axios.post(`/api/lexemes/${lexemeId}/explain`).then((r) => r.data);
+    explainLexeme(lexemeId: number, refresh = false): Promise<{ explanation: string }> {
+        return axios.post(`/api/lexemes/${lexemeId}/explain`, undefined, { params: refresh ? { refresh: 1 } : undefined }).then((r) => r.data);
     },
 
     /**

@@ -27,6 +27,13 @@ export interface LexemeFormItem {
     grammar_features: Record<string, string | boolean> | null;
 }
 
+/** One saved AI explanation variant with its source content (null = generic, from this page). */
+export interface LexemeDetailExplanation {
+    id: number;
+    explanation: string;
+    content: { id: number; title: string } | null;
+}
+
 /** Full canonical dictionary entry, as returned by GET /api/dictionary/{id}. */
 export interface LexemeDetail {
     id: number;
@@ -40,6 +47,8 @@ export interface LexemeDetail {
     senses: LexemeSenseItem[];
     forms: LexemeFormItem[];
     associations: LexemeAssociationItem[];
+    /** Saved AI explanations — one per content-context (plus a generic one), each with its source. */
+    explanations: LexemeDetailExplanation[];
 }
 
 export interface LexemeDetailResponse {

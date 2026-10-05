@@ -17,7 +17,7 @@ test('extension transcript import stores segments and starts processing', functi
     Sanctum::actingAs($user, [], 'sanctum');
 
     $response = $this->postJson('/api/content/import-youtube-transcript', [
-        'source_url' => 'https://www.youtube.com/watch?v=abc123',
+        'source_url' => 'https://www.youtube.com/watch?v=abc123DEF45',
         'language' => 'en',
         'title' => 'Imported video',
         'segments' => [
@@ -37,7 +37,7 @@ test('extension transcript import rejects the same video twice for one user', fu
     $user = User::factory()->create();
     Sanctum::actingAs($user, [], 'sanctum');
     $payload = [
-        'source_url' => 'https://www.youtube.com/watch?v=duplicate123',
+        'source_url' => 'https://www.youtube.com/watch?v=duplicate12',
         'language' => 'en',
         'segments' => [['start_ms' => 0, 'text' => 'One line.']],
     ];

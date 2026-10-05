@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Modules\Content\Domain\ContentSourceKey;
 use App\Modules\Content\Domain\Events\ContentProcessingRequested;
 use App\Modules\Content\Domain\Models\Content;
 use App\Support\AiConfig;
@@ -104,21 +105,6 @@ class SeedStarterContentCommand extends Command
 
     private function videoId(string $url): ?string
     {
-        $parts = parse_url(trim($url));
-        $host = strtolower($parts['host'] ?? '');
-        $path = $parts['path'] ?? '';
-        if ($host === 'youtu.be') {
-            $id = ltrim($path, '/');
-        } elseif (in_array($host, ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'], true)) {
-            parse_str($parts['query'] ?? '', $query);
-            $id = $path === '/watch' ? ($query['v'] ?? '') : '';
-            if (preg_match('~^/(?:embed|shorts|live)/([a-zA-Z0-9_-]{11})/?$~', $path, $matches)) {
-                $id = $matches[1];
-            }
-        } else {
-            return null;
-        }
-
-        return is_string($id) && preg_match('/^[a-zA-Z0-9_-]{11}$/', $id) ? $id : null;
+        return ContentSourceKey::youtubeVideoId($url);
     }
 }

@@ -13,10 +13,10 @@ const props = defineProps<{
     <UiButton
         v-if="isSpeechSupported()"
         variant="ghost"
-        size="icon"
-        class="h-8 w-8 shrink-0"
+        size="icon-touch"
+        class="shrink-0 [&>span]:h-8 [&>span]:w-8"
         title="Pronounce"
-        aria-label="Pronounce"
+        :aria-label="`Pronounce ${text}`"
         @click.stop.prevent="speak(props.text, props.language)"
     >
         <Volume2 :size="16" />

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { EyeOff, Plus } from 'lucide-vue-next';
+import { ChevronDown, ChevronUp, EyeOff, Plus } from 'lucide-vue-next';
 import SpeakButton from '../../shared/ui/SpeakButton.vue';
 import UiBadge from '../../shared/ui/UiBadge.vue';
 import UiButton from '../../shared/ui/UiButton.vue';
@@ -12,7 +12,8 @@ import { exampleSegments } from './exampleSegments';
 /**
  * Rule page examples (VIK-39): grammar form highlighted, translation under
  * each sentence, typical mistakes, "More examples" (queued AI batch, polled
- * until done) and hiding a bad example for yourself.
+ * until done) and hiding a bad example for yourself. VIK-41: the first
+ * `previewCount` examples show up front, the rest behind "Show all".
  */
 const props = withDefaults(defineProps<{
     ruleId: number;
@@ -22,11 +23,14 @@ const props = withDefaults(defineProps<{
     authenticated?: boolean;
     /** Poll interval while AI examples are being written (tests shorten it). */
     pollMs?: number;
+    /** How many examples show before "Show all". */
+    previewCount?: number;
 }>(), {
     initialExamples: () => [],
     language: null,
     authenticated: false,
     pollMs: 2000,
+    previewCount: 3,
 });
 
 const POLL_LIMIT_MS = 90_000;
@@ -34,6 +38,7 @@ const POLL_LIMIT_MS = 90_000;
 const examples = ref<GrammarRuleExample[]>([...props.initialExamples]);
 const generating = ref(false);
 const notice = ref('');
+const expanded = ref(false);
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollStartedAt = 0;
 let disposed = false;
@@ -47,6 +52,9 @@ const rows = computed(() => examples.value.map((example) => ({
     example,
     segments: exampleSegments(example.example, example.target_spans),
 })));
+
+const collapsible = computed(() => rows.value.length > props.previewCount);
+const visibleRows = computed(() => (expanded.value || !collapsible.value ? rows.value : rows.value.slice(0, props.previewCount)));
 
 async function load(): Promise<GrammarRuleExampleGenerationStatus | null> {
     try {
@@ -87,6 +95,8 @@ async function moreExamples(): Promise<void> {
     if (generating.value) return;
     notice.value = '';
     generating.value = true;
+    // New examples land at the end of the list: open it so they are seen.
+    expanded.value = true;
     try {
         const { status } = await grammarApi.generateExamples(props.ruleId);
         if (status === 'queued' || status === 'active') {
@@ -135,11 +145,11 @@ onBeforeUnmount(() => {
             No examples yet.
         </p>
 
-        <ul v-else class="space-y-3">
+        <ul v-else class="divide-y divide-border">
             <li
-                v-for="{ example, segments } in rows"
+                v-for="{ example, segments } in visibleRows"
                 :key="example.id"
-                class="rounded-spa border border-border bg-black/10 p-3"
+                class="py-3 first:pt-0"
                 data-test="example"
             >
                 <div class="flex items-start gap-2">
@@ -148,13 +158,13 @@ onBeforeUnmount(() => {
                             <span class="sr-only">Common mistake: </span>
                             <span class="line-through decoration-rose-500/70">{{ example.mistake }}</span>
                         </p>
-                        <p class="break-words text-base leading-7 text-fg">
+                        <p class="break-words text-lg leading-7 text-fg" data-test="example-text">
                             <template v-for="(segment, index) in segments" :key="index">
                                 <strong v-if="segment.target" class="font-semibold text-primary" data-test="example-target">{{ segment.text }}</strong>
                                 <template v-else>{{ segment.text }}</template>
                             </template>
                         </p>
-                        <p v-if="example.translation" class="mt-1 break-words text-sm leading-6 text-muted-foreground">{{ example.translation }}</p>
+                        <p v-if="example.translation" class="mt-1 break-words text-base leading-6 text-muted-foreground">{{ example.translation }}</p>
                         <div v-if="example.origin === 'ai' || example.from_content || kindLabels[example.kind ?? ''] || example.kind === 'mistake'" class="mt-2 flex flex-wrap gap-1.5">
                             <UiBadge v-if="example.kind === 'mistake'" tone="danger">Common mistake</UiBadge>
                             <UiBadge v-else-if="kindLabels[example.kind ?? '']">{{ kindLabels[example.kind ?? ''] }}</UiBadge>
@@ -180,6 +190,19 @@ onBeforeUnmount(() => {
                 </div>
             </li>
         </ul>
+
+        <UiButton
+            v-if="collapsible"
+            variant="ghost"
+            size="touch"
+            class="w-full text-primary"
+            :aria-expanded="expanded ? 'true' : 'false'"
+            data-test="examples-toggle"
+            @click="expanded = !expanded"
+        >
+            <template v-if="expanded"><ChevronUp :size="16" /> Show fewer</template>
+            <template v-else><ChevronDown :size="16" /> Show all {{ rows.length }} examples</template>
+        </UiButton>
 
         <div v-if="authenticated" class="space-y-2">
             <UiButton

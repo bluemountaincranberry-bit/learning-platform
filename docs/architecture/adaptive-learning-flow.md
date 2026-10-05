@@ -1,5 +1,7 @@
 # Adaptive learning flow
 
+Продуктовые правила и инварианты: [adaptive-learning-flow-rules.md](adaptive-learning-flow-rules.md).
+
 ## Решение
 
 `Adaptive Practice` является оркестратором учебных активностей. Он выбирает
@@ -77,7 +79,10 @@ synthetic simulation для новых слов, слабого listening, speak
 
 ## Следующие улучшения
 
-- добавить полноценные audit records для publish/assignment/override;
-- расширить metrics dashboard временными графиками и cohort filters;
-- добавить pronunciation provider integration tests при подключении Azure
-  Speech credentials.
+Отдельных тикетов нет (решение VIK-37): audit records для
+publish/assignment/override и графики/cohort filters в metrics dashboard
+пересматриваются, когда профили станут пресетами Easy/Medium/Hard (VIK-30);
+pronunciation provider integration tests с Azure Speech входят в scope
+провайдера Speaking Coach (VIK-52), после одобрения бюджета/провайдера
+в VIK-49. Остальные незавершённые правила имеют адресатов VIK-30/32/33/52
+в [adaptive-learning-flow-rules.md](adaptive-learning-flow-rules.md).

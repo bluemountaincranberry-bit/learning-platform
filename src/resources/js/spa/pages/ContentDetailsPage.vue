@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import axios from 'axios';
 import { onMounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui';
@@ -12,7 +13,7 @@ import { extractYoutubeVideoId } from '../shared/youtube';
 import AskAiButton from '../shared/ui/AskAiButton.vue';
 import UiBadge from '../shared/ui/UiBadge.vue';
 import UiButton from '../shared/ui/UiButton.vue';
-import UiDialog from '../shared/ui/UiDialog.vue';
+import ExplainDialog from '../shared/ui/ExplainDialog.vue';
 import UiCard from '../shared/ui/UiCard.vue';
 import UiContentProgress from '../shared/ui/UiContentProgress.vue';
 import UiEmptyState from '../shared/ui/UiEmptyState.vue';
@@ -39,6 +40,7 @@ const {
     markingId,
     startingReviewId,
     explainingId,
+    explainError,
     fetchingExamplesId,
     aiUnavailable,
     bulkActionPending,
@@ -54,7 +56,16 @@ const {
     explainLexeme,
     fetchMoreExamples,
 } = useLexemes();
-const explanationModal = ref<{ lexemeText: string; explanation: string } | null>(null);
+const explanationModal = ref<{
+    lexemeText: string;
+    translation: string | null;
+    language: string | null;
+    explanation: string;
+    loading: boolean;
+    regenerating: boolean;
+    error: string;
+} | null>(null);
+const explainTarget = ref<LexemeWithLearned | null>(null);
 
 // Task 7.8: level filter, status filter, "select all", and the bulk-action
 // bar now live in WordListToolbar.vue (shared with StudyPage.vue). This page
@@ -79,9 +90,42 @@ function practiceContext(ids: number[]) {
     router.push({ name: 'context-practice', query: { content_id: String(contentId.value), lexeme_ids: ids.join(',') } });
 }
 
-async function explainWord(lexeme: (typeof lexemes.value)[number]) {
-    const result = await explainLexeme(lexeme);
-    if (result) explanationModal.value = result;
+async function explainWord(lexeme: (typeof lexemes.value)[number], refresh = false) {
+    explainTarget.value = lexeme;
+    if (!refresh) {
+        explanationModal.value = {
+            lexemeText: lexeme.text,
+            translation: lexeme.translation ?? null,
+            language: content.value?.language ?? null,
+            explanation: '',
+            loading: true,
+            regenerating: false,
+            error: '',
+        };
+    } else if (explanationModal.value) {
+        explanationModal.value = { ...explanationModal.value, regenerating: true, error: '' };
+    }
+    const result = await explainLexeme(lexeme, refresh);
+    if (explanationModal.value === null) return;
+    if (result) {
+        explanationModal.value = { ...explanationModal.value, explanation: result.explanation, loading: false, regenerating: false };
+    } else {
+        explanationModal.value = { ...explanationModal.value, loading: false, regenerating: false, error: explainError.value || 'Failed to get explanation.' };
+    }
+}
+
+function retryExplanation() {
+    if (explainTarget.value) void explainWord(explainTarget.value);
+}
+
+function regenerateExplanation() {
+    if (explainTarget.value) void explainWord(explainTarget.value, true);
+}
+
+function toggleExplanationReview() {
+    if (!explainTarget.value) return;
+    if (explainTarget.value.in_review) void stopLearning(explainTarget.value);
+    else void startLearning(explainTarget.value);
 }
 
 const grammarRules = ref<GrammarRule[]>([]);
@@ -168,8 +212,15 @@ async function onTranscriptWordClick(payload: { lexemeId: number | null; text: s
             lexeme: lexemes.value.find((item) => item.id === result.content_lexeme_id) ?? null,
             segment: payload.segment,
         };
-    } catch {
-        transcriptWord.value = { lexeme: null, segment: payload.segment, error: 'Lookup failed — try again.' };
+    } catch (error) {
+        // 429 (daily AI limit) and 503 (AI disabled) carry a meaningful server
+        // message; anything else is a generic failure worth retrying.
+        const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+        const serverMessage = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+        const message = (status === 429 || status === 503) && typeof serverMessage === 'string'
+            ? serverMessage
+            : 'Lookup failed — try again.';
+        transcriptWord.value = { lexeme: null, segment: payload.segment, error: message };
     }
 }
 
@@ -615,9 +666,25 @@ onMounted(() => {
                 </template>
             </UiTabs>
 
-            <UiDialog :open="Boolean(explanationModal)" :title="explanationModal?.lexemeText ?? 'Explanation'" @close="explanationModal = null">
-                <p v-if="explanationModal" class="whitespace-pre-wrap text-sm leading-6 text-fg-secondary">{{ explanationModal.explanation }}</p>
-            </UiDialog>
+            <ExplainDialog
+                v-if="explanationModal"
+                :open="true"
+                :lexeme-text="explanationModal.lexemeText"
+                :translation="explanationModal.translation"
+                :language="explanationModal.language"
+                :explanation="explanationModal.explanation"
+                :loading="explanationModal.loading"
+                :error="explanationModal.error"
+                show-review-toggle
+                :in-review="explainTarget?.in_review ?? false"
+                :review-pending="startingReviewId === explainTarget?.id"
+                show-regenerate
+                :regenerating="explanationModal.regenerating"
+                @close="explanationModal = null"
+                @retry="retryExplanation"
+                @toggle-review="toggleExplanationReview"
+                @regenerate="regenerateExplanation"
+            />
         </div>
     </PageState>
 </template>

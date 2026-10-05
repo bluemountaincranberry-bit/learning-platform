@@ -5,7 +5,9 @@ import { Paperclip, Sparkles } from 'lucide-vue-next';
 import PageState from '../components/ui/PageState.vue';
 import { useAuthStore } from '../domains/user';
 import { lessonApi, type LessonDetail, type LessonMessage } from '../domains/learning';
-import UiBadge from '../shared/ui/UiBadge.vue';
+import ChatMessage from '../shared/ui/ChatMessage.vue';
+import WordRow from '../shared/ui/WordRow.vue';
+import GrammarCard from '../shared/ui/GrammarCard.vue';
 import UiButton from '../shared/ui/UiButton.vue';
 import UiCard from '../shared/ui/UiCard.vue';
 import UiInput from '../shared/ui/UiInput.vue';
@@ -24,6 +26,8 @@ const loading = ref(true);
 const error = ref('');
 const sending = ref(false);
 const isWaiting = ref(false);
+const chatError = ref('');
+const failedMessage = ref<{ text: string; file: File | null } | null>(null);
 const analyzing = ref(false);
 
 const inputText = ref('');
@@ -50,7 +54,12 @@ function schedulePoll() {
     stopPolling();
     if (!isWaiting.value) return;
     pollTimer = setTimeout(async () => {
-        await loadMessages();
+        try {
+            await loadMessages();
+        } catch {
+            chatError.value = 'Failed to refresh messages. Try again to check the reply.';
+            return;
+        }
         // A turn finishing may have changed the lesson's source_text
         // (extracted PDF text folded in), but not its candidates — those
         // only change via analyze(), so no need to reload `lesson` here.
@@ -70,26 +79,53 @@ function onFileChange(e: Event) {
     attachment.value = files && files.length > 0 ? files[0] : null;
 }
 
-async function send() {
-    if (!canSend.value) return;
-    error.value = '';
+async function refreshMessages() {
+    if (sending.value) return;
     sending.value = true;
-    const text = inputText.value.trim();
-    const file = attachment.value;
-    inputText.value = '';
-    attachment.value = null;
-    if (fileInput.value) fileInput.value.value = '';
-
+    chatError.value = '';
     try {
-        await lessonApi.sendMessage(lessonId.value, text, file);
         await loadMessages();
         schedulePoll();
-    } catch (e: unknown) {
-        const err = e as { response?: { status?: number; data?: { message?: string } } };
-        error.value = err.response?.data?.message ?? 'Не удалось отправить сообщение.';
+    } catch {
+        chatError.value = 'Failed to refresh messages. Try again to check the reply.';
     } finally {
         sending.value = false;
     }
+}
+
+async function send(retry = false) {
+    if (sending.value || (!retry && !canSend.value)) return;
+    const text = retry ? failedMessage.value?.text ?? '' : inputText.value.trim();
+    const file = retry ? failedMessage.value?.file ?? null : attachment.value;
+    if (!text && !file) return;
+    sending.value = true;
+    chatError.value = '';
+    failedMessage.value = null;
+    let accepted = false;
+    try {
+        await lessonApi.sendMessage(lessonId.value, text, file);
+        accepted = true;
+        inputText.value = '';
+        attachment.value = null;
+        if (fileInput.value) fileInput.value.value = '';
+        await loadMessages();
+        schedulePoll();
+    } catch (e: unknown) {
+        if (accepted) {
+            chatError.value = 'Message sent. Failed to refresh messages; try again to check the reply.';
+        } else {
+            failedMessage.value = { text, file };
+            const err = e as { response?: { data?: { message?: string } } };
+            chatError.value = err.response?.data?.message ?? 'Failed to send the message.';
+        }
+    } finally {
+        sending.value = false;
+    }
+}
+
+async function retryChat() {
+    if (failedMessage.value) await send(true);
+    else await refreshMessages();
 }
 
 async function analyzeLesson() {
@@ -100,7 +136,7 @@ async function analyzeLesson() {
         await pollAnalysis();
     } catch (e: unknown) {
         const err = e as { response?: { status?: number; data?: { message?: string } } };
-        error.value = err.response?.data?.message ?? 'Не удалось разобрать урок.';
+        error.value = err.response?.data?.message ?? 'Failed to analyze the lesson.';
         analyzing.value = false;
     }
 }
@@ -131,7 +167,7 @@ onMounted(async () => {
         schedulePoll();
     } catch (e: unknown) {
         const err = e as { response?: { status?: number; data?: { message?: string } } };
-        error.value = err.response?.data?.message ?? 'Не удалось загрузить занятие.';
+        error.value = err.response?.data?.message ?? 'Failed to load the lesson.';
     } finally {
         loading.value = false;
     }
@@ -149,11 +185,11 @@ onUnmounted(() => {
                 <UiCard>
                     <div class="flex flex-wrap items-start justify-between gap-4">
                         <UiSectionHeader
-                            :title="lesson.title || 'Занятие'"
-                            :subtitle="lesson.tutor ? `Репетитор: ${lesson.tutor}` : 'Заметки этого занятия'"
+                            :title="lesson.title || 'Lesson'"
+                            :subtitle="lesson.tutor ? `Tutor: ${lesson.tutor}` : 'Notes from this lesson'"
                         />
                         <UiButton variant="primary" :disabled="analyzing" @click="analyzeLesson">
-                            <Sparkles :size="16" /> {{ analyzing ? 'Разбираю...' : 'Разобрать урок' }}
+                            <Sparkles :size="16" /> {{ analyzing ? 'Analyzing...' : 'Analyze lesson' }}
                         </UiButton>
                     </div>
                 </UiCard>
@@ -167,29 +203,13 @@ onUnmounted(() => {
                         <div class="flex-1 overflow-y-auto p-4 space-y-3 bg-black/10">
                             <template v-if="messages.length === 0">
                                 <div class="rounded-spa-lg border border-dashed border-border-strong p-5 text-sm text-muted-foreground">
-                                    Напишите, что вы разбирали на уроке, или приложите файл с заметками — потом нажмите
-                                    «Разобрать урок», чтобы вытащить из этого слова и грамматику.
+                                    Write what you covered in the lesson or attach a file with notes, then tap
+                                    “Analyze lesson” to pull out the words and grammar.
                                 </div>
                             </template>
-                            <div v-for="msg in messages" :key="msg.id" class="flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
-                                <div
-                                    class="max-w-[85%] rounded-spa-lg border px-4 py-3 text-sm leading-6"
-                                    :class="msg.role === 'user' ? 'border-primary bg-primary text-slate-950' : 'border-border bg-surface text-fg-secondary'"
-                                >
-                                    <div v-if="msg.attachment_name" class="mb-1 flex items-center gap-1 text-xs opacity-80">
-                                        <Paperclip :size="12" /> {{ msg.attachment_name }}
-                                    </div>
-                                    <template v-if="msg.content">{{ msg.content }}</template>
-                                </div>
-                            </div>
-                            <div v-if="isWaiting" class="flex justify-start">
-                                <div class="rounded-spa-lg border border-border bg-surface px-4 py-3 text-sm text-muted-foreground">
-                                    <span class="inline-flex items-center gap-2">
-                                        <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-primary"></span>
-                                        Печатает...
-                                    </span>
-                                </div>
-                            </div>
+                            <ChatMessage v-for="msg in messages" :key="msg.id" :role="msg.role" :content="msg.content" :attachments="msg.attachment_name ? [{ name: msg.attachment_name, status: 'Attached' }] : []" />
+                            <ChatMessage v-if="isWaiting" role="assistant" loading loading-label="Typing..." />
+                            <ChatMessage v-if="chatError" role="assistant" :error="chatError" retryable :loading="sending" @retry="retryChat" />
                             <div ref="messagesEnd" />
                         </div>
 
@@ -205,67 +225,31 @@ onUnmounted(() => {
                                 <UiInput
                                     v-model="inputText"
                                     type="text"
-                                    placeholder="Что вы сегодня учили?"
+                                    placeholder="What did you learn today?"
                                     :disabled="sending"
                                     @keydown.enter.prevent="send()"
                                 />
-                                <UiButton variant="primary" :disabled="!canSend" @click="send()">Отправить</UiButton>
+                                <UiButton variant="primary" :disabled="!canSend" @click="send()">Send</UiButton>
                             </div>
                         </div>
                     </div>
                 </UiCard>
 
                 <UiCard class="space-y-3">
-                    <UiSectionHeader title="Слова" :subtitle="`${lesson.lexemes.length} из этого занятия`" />
-                    <UiEmptyState v-if="lesson.lexemes.length === 0" title="Пока пусто" description="Нажмите «Разобрать урок», когда запишете заметки." />
+                    <UiSectionHeader title="Words" :subtitle="`${lesson.lexemes.length} from this lesson`" />
+                    <UiEmptyState v-if="lesson.lexemes.length === 0" title="Nothing yet" description="Tap “Analyze lesson” once you have written your notes." />
                     <div v-else class="space-y-2">
-                        <div
-                            v-for="w in lesson.lexemes"
-                            :key="w.id"
-                            class="flex flex-col gap-1 rounded-spa border border-border bg-black/10 p-2.5 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                            <div class="min-w-0 space-y-0.5">
-                                <RouterLink
-                                    v-if="w.matched_lexeme_id"
-                                    :to="{ name: 'word.details', params: { id: w.matched_lexeme_id } }"
-                                    class="font-medium text-fg hover:text-primary hover:underline"
-                                >
-                                    {{ w.text }}
-                                </RouterLink>
-                                <span v-else class="font-medium text-fg">{{ w.text }}</span>
-                                <p v-if="w.translation" class="text-sm text-muted-foreground">{{ w.translation }}</p>
-                            </div>
-                            <UiBadge :tone="w.status === 'matched' ? 'primary' : 'neutral'">
-                                {{ w.status === 'matched' ? 'Уже в словаре' : 'Новое' }}
-                            </UiBadge>
-                        </div>
+                        <WordRow v-for="w in lesson.lexemes" :key="w.id" :text="w.text" :language="w.language" :translation="w.translation" :level="w.level" :lexeme-id="w.matched_lexeme_id" :example="w.example" :examples="w.example ? [{ example: w.example, translation: w.example_translation, is_primary: true }] : []">
+                            <span class="text-xs text-muted-foreground">{{ w.status === 'matched' ? 'Already in your dictionary' : 'New' }}</span>
+                        </WordRow>
                     </div>
                 </UiCard>
 
                 <UiCard class="space-y-3">
-                    <UiSectionHeader title="Грамматика" :subtitle="`${lesson.grammar.length} из этого занятия`" />
-                    <UiEmptyState v-if="lesson.grammar.length === 0" title="Пока пусто" description="Нажмите «Разобрать урок», когда запишете заметки." />
+                    <UiSectionHeader title="Grammar" :subtitle="`${lesson.grammar.length} from this lesson`" />
+                    <UiEmptyState v-if="lesson.grammar.length === 0" title="Nothing yet" description="Tap “Analyze lesson” once you have written your notes." />
                     <div v-else class="space-y-2">
-                        <div
-                            v-for="g in lesson.grammar"
-                            :key="g.id"
-                            class="flex flex-col gap-1 rounded-spa border border-border bg-black/10 p-2.5 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                            <div class="min-w-0 space-y-0.5">
-                                <RouterLink
-                                    v-if="g.matched_grammar_rule_id"
-                                    :to="{ name: 'grammar.details', params: { id: g.matched_grammar_rule_id } }"
-                                    class="font-medium text-fg hover:text-primary hover:underline"
-                                >
-                                    {{ g.title }}
-                                </RouterLink>
-                                <span v-else class="font-medium text-fg">{{ g.title }}</span>
-                                <p v-if="g.summary" class="text-sm text-muted-foreground line-clamp-2">{{ g.summary }}</p>
-                            </div>
-                            <UiBadge :tone="g.status === 'linked' ? 'success' : 'neutral'">
-                                {{ g.status === 'linked' ? 'Добавлено в мою грамматику' : 'Новое' }}
-                            </UiBadge>
-                        </div>
+                        <GrammarCard v-for="g in lesson.grammar" :key="g.id" :title="g.title" :rule-id="g.matched_grammar_rule_id" :summary="g.summary" :status="g.status === 'linked' ? 'Added to My grammar' : 'New'" />
                     </div>
                 </UiCard>
             </template>

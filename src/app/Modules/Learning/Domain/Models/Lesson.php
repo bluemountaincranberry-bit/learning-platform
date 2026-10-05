@@ -30,6 +30,7 @@ class Lesson extends Model
     public function distinctLexemeCandidates(): \Illuminate\Support\Collection
     {
         return LessonLexemeCandidate::query()
+            ->with(['run:id,lesson_id', 'run.lesson:id,language'])
             ->whereIn('lesson_analysis_run_id', $this->analysisRuns()->pluck('id'))
             ->orderByDesc('id')->get()->unique('normalized_text')->values();
     }

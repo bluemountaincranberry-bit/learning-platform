@@ -327,7 +327,7 @@ const menuItemClass =
 
         <div
             v-if="selectedIds.size > 0"
-            class="sticky bottom-[4.75rem] z-20 mt-2 space-y-2 border-y border-border bg-card/95 p-3 shadow-[0_-8px_28px_rgba(15,23,42,0.08)] backdrop-blur sm:rounded-xl sm:border lg:bottom-4"
+            class="sticky bottom-[var(--spa-mobile-nav-height)] z-20 mt-2 space-y-2 border-y border-border bg-card/95 p-3 shadow-[0_-8px_28px_rgba(15,23,42,0.08)] backdrop-blur sm:rounded-xl sm:border lg:bottom-4"
         >
             <div class="flex items-center gap-2 text-sm">
                 <label class="flex min-h-11 cursor-pointer items-center gap-2 text-muted-foreground">

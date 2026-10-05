@@ -21,34 +21,75 @@ type YoutubePlayer = {
 };
 type YoutubeWindow = Window & { YT?: { Player: new (element: HTMLIFrameElement, options: Record<string, unknown>) => YoutubePlayer } };
 let player: YoutubePlayer | null = null;
+let isReady = false;
 let timer: number | null = null;
 let segmentTimer: number | null = null;
+// A seek requested before the player API is ready would silently do nothing
+// (the video then starts from 0 on play). Queue it and flush on onReady.
+let pendingSegment: { startMs: number; endMs: number | null } | null = null;
+
+function flushPending(): void {
+    if (!isReady || !player || pendingSegment === null) return;
+    const { startMs, endMs } = pendingSegment;
+    pendingSegment = null;
+    replaySegment(startMs, endMs);
+}
 
 function loadPlayer(): void {
     const YT = (window as YoutubeWindow).YT;
     if (!YT || !iframe.value) return;
     player = new YT.Player(iframe.value as unknown as HTMLIFrameElement, {
         events: {
-            onReady: () => emit('ready'),
+            onReady: () => {
+                isReady = true;
+                emit('ready');
+                flushPending();
+            },
         },
     });
     timer = window.setInterval(() => {
-        if (player) emit('time-update', Math.round(player.getCurrentTime() * 1000));
+        if (!player || !isReady) return;
+        try {
+            emit('time-update', Math.round(player.getCurrentTime() * 1000));
+        } catch {
+            // Player not usable yet — next tick retries.
+        }
     }, 300);
 }
 
 function seekTo(timeMs: number): void {
-    player?.seekTo(Math.max(0, timeMs / 1000), true);
+    if (!player || !isReady) {
+        pendingSegment = { startMs: timeMs, endMs: timeMs };
+        return;
+    }
+    try {
+        player.seekTo(Math.max(0, timeMs / 1000), true);
+    } catch {
+        pendingSegment = { startMs: timeMs, endMs: timeMs };
+    }
 }
 
 function replaySegment(startMs: number, endMs: number | null): void {
+    if (!player || !isReady) {
+        pendingSegment = { startMs, endMs };
+        return;
+    }
     if (segmentTimer !== null) window.clearTimeout(segmentTimer);
-    seekTo(Math.max(0, startMs - 300));
-    player?.playVideo();
+    try {
+        player.seekTo(Math.max(0, (startMs - 300) / 1000), true);
+        player.playVideo();
+    } catch {
+        pendingSegment = { startMs, endMs };
+        return;
+    }
 
     const duration = Math.max(1000, (endMs ?? startMs + 5000) - startMs + 600);
     segmentTimer = window.setTimeout(() => {
-        player?.pauseVideo();
+        try {
+            player?.pauseVideo();
+        } catch {
+            // Player gone — nothing to pause.
+        }
         segmentTimer = null;
     }, duration);
 }

@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import vue from '@vitejs/plugin-vue';
+import { lessonPwa } from './scripts/pwa/vite-pwa.mjs';
 
 export default defineConfig({
     plugins: [
         vue(),
+        lessonPwa(),
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.js', 'resources/js/spa/main.ts'],
             refresh: true,

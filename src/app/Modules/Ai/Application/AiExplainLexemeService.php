@@ -27,10 +27,10 @@ class AiExplainLexemeService
     /**
      * @throws AiClientException
      */
-    public function explain(string $lexemeText, ?string $language = null, ?int $contentLexemeId = null): string
+    public function explain(string $lexemeText, ?string $language = null, ?int $contentLexemeId = null, bool $refresh = false): string
     {
         return (new LexemeExplanationService($this->client, $this->promptRegistry, $this->tracedCall))
-            ->explain($lexemeText, $language, $contentLexemeId);
+            ->explain($lexemeText, $language, $contentLexemeId, $refresh);
     }
 
     /**

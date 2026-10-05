@@ -64,6 +64,11 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function (): void {
     Route::post('/dictionary/{word}/more-examples', [LexemeController::class, 'moreExamples'])
         ->middleware('ai.rate_limit:explain')
         ->name('api.dictionary.more-examples');
+    Route::post('/dictionary/{word}/explain', [LexemeController::class, 'explainWord'])
+        ->middleware('ai.rate_limit:explain')
+        ->name('api.dictionary.explain');
+    Route::delete('/dictionary/{word}/explanations/{explanation}', [LexemeController::class, 'destroyExplanation'])
+        ->name('api.dictionary.explanations.destroy');
 
     Route::post('/grammar-rules/{rule}/start-learning', [GrammarRuleController::class, 'startLearning'])->name('api.grammar-rules.start-learning');
     Route::post('/grammar-rules/{rule}/mark-learned', [GrammarRuleController::class, 'markLearned'])->name('api.grammar-rules.mark-learned');

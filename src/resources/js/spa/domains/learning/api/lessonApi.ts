@@ -29,6 +29,7 @@ export interface LessonMessage {
 }
 
 export interface LessonLexemeCandidate {
+    language: string;
     id: number;
     text: string;
     type: string;

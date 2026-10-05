@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Check, Plus, Undo2 } from 'lucide-vue-next';
 import PageState from '../components/ui/PageState.vue';
-import AskAiButton from '../shared/ui/AskAiButton.vue';
-import UiBadge from '../shared/ui/UiBadge.vue';
 import UiButton from '../shared/ui/UiButton.vue';
-import UiCard from '../shared/ui/UiCard.vue';
 import UiSectionHeader from '../shared/ui/UiSectionHeader.vue';
 import GrammarRuleExamples from '../widgets/grammar/GrammarRuleExamples.vue';
+import GrammarRuleHeader from '../widgets/grammar/GrammarRuleHeader.vue';
 import MarkdownContent from '../shared/ui/MarkdownContent.vue';
 import ExercisePractice from '../widgets/grammar/ExercisePractice.vue';
 import { grammarApi } from '../domains/content';
@@ -78,12 +75,24 @@ async function removeFromMyList(): Promise<void> {
     }
 }
 
-// Task 6.1: context for AskAiButton.
-const aiContext = computed(() => ({
-    type: 'grammar' as const,
-    id: rule.value?.id ?? '',
-    title: rule.value?.title ?? '',
-}));
+/** Back to where the learner came from (My grammar, a content page…); the grammar list on a direct visit. */
+function goBack(): void {
+    if (router.options.history.state.back) router.back();
+    else router.push({ name: 'grammar' });
+}
+
+function practice(): void {
+    document.getElementById('rule-exercises')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/** Task 6.1 chat entry (same query params as AskAiButton), opened from the ⋯ menu. */
+function discuss(): void {
+    if (!rule.value) return;
+    router.push({
+        name: 'chat',
+        query: { context_type: 'grammar', context_id: String(rule.value.id), context_title: rule.value.title },
+    });
+}
 
 onMounted(loadRule);
 </script>
@@ -93,70 +102,43 @@ onMounted(loadRule);
         <template #retry>
             <UiButton variant="secondary" size="sm" @click="loadRule">Try again</UiButton>
         </template>
-        <div class="space-y-6">
-            <UiCard class="space-y-4">
-                <div class="flex flex-wrap items-start justify-between gap-4">
-                    <div class="space-y-3">
-                        <div class="flex flex-wrap gap-2">
-                            <UiBadge tone="primary">grammar</UiBadge>
-                            <UiBadge tone="neutral">{{ rule?.language }}</UiBadge>
-                            <UiBadge v-if="rule?.level" tone="neutral">{{ rule?.level }}</UiBadge>
-                            <UiBadge v-if="rule?.topic" tone="neutral">{{ rule?.topic.name }}</UiBadge>
-                        </div>
-                        <div>
-                            <h2 class="text-2xl font-semibold text-fg">{{ rule?.title }}</h2>
-                            <p v-if="rule?.summary" class="mt-2 text-sm leading-6 text-muted">{{ rule?.summary }}</p>
-                        </div>
-                    </div>
-                    <div class="flex flex-wrap gap-2">
-                        <AskAiButton v-if="rule" :context="aiContext" label="Discuss with AI" />
-                        <UiButton variant="secondary" @click="router.push({ name: 'grammar' })">Back to grammar</UiButton>
-                    </div>
-                </div>
-                <div v-if="authStore.isAuthenticated && rule" class="flex flex-wrap items-center gap-2 border-t border-border pt-4">
-                    <template v-if="!rule.learned">
-                        <UiBadge v-if="rule.in_my_list" tone="primary">In your grammar list</UiBadge>
-                        <UiButton v-else variant="secondary" size="sm" :disabled="progressBusy" @click="addToMyList">
-                            <Plus :size="14" /> Add to my grammar
-                        </UiButton>
-                        <UiButton variant="primary" size="sm" :disabled="progressBusy" @click="markLearned">
-                            <Check :size="14" /> Mark as learned
-                        </UiButton>
-                        <UiButton v-if="rule.in_my_list" variant="ghost" size="sm" :disabled="progressBusy" @click="removeFromMyList">
-                            <Undo2 :size="14" /> Remove
-                        </UiButton>
-                    </template>
-                    <template v-else>
-                        <UiBadge tone="success">Learned</UiBadge>
-                        <UiButton variant="ghost" size="sm" :disabled="progressBusy" @click="removeFromMyList">
-                            <Undo2 :size="14" /> Remove
-                        </UiButton>
-                    </template>
-                </div>
-            </UiCard>
+        <!-- VIK-41: compact header; full-width sections on the phone, cards from sm (as VIK-38). -->
+        <div v-if="rule" class="space-y-6">
+            <section class="sm:rounded-xl sm:border sm:border-border sm:bg-card sm:p-5" data-test="rule-header">
+                <GrammarRuleHeader
+                    :rule="rule"
+                    :authenticated="authStore.isAuthenticated"
+                    :busy="progressBusy"
+                    @back="goBack"
+                    @add="addToMyList"
+                    @practice="practice"
+                    @learned="markLearned"
+                    @remove="removeFromMyList"
+                    @discuss="discuss"
+                />
+            </section>
 
-            <UiCard class="space-y-4">
-                <UiSectionHeader title="Explanation" />
-                <MarkdownContent :content="rule?.body" />
-            </UiCard>
+            <section class="space-y-3 border-t border-border pt-5 sm:rounded-xl sm:border sm:bg-card sm:p-5">
+                <UiSectionHeader title="Explanation" :subtitle="rule.topic?.name" />
+                <p v-if="rule.summary" class="text-base leading-7 text-muted-foreground">{{ rule.summary }}</p>
+                <MarkdownContent :content="rule.body" />
+            </section>
 
-            <UiCard v-if="rule" class="space-y-4">
+            <section class="space-y-3 border-t border-border pt-5 sm:rounded-xl sm:border sm:bg-card sm:p-5">
                 <UiSectionHeader title="Examples" />
-                <div class="space-y-3">
-                    <GrammarRuleExamples
-                        :rule-id="rule.id"
-                        :initial-examples="rule.examples ?? []"
-                        :language="rule.language"
-                        :authenticated="authStore.isAuthenticated"
-                    />
-                </div>
-            </UiCard>
+                <GrammarRuleExamples
+                    :rule-id="rule.id"
+                    :initial-examples="rule.examples ?? []"
+                    :language="rule.language"
+                    :authenticated="authStore.isAuthenticated"
+                />
+            </section>
 
-            <UiCard class="space-y-4">
+            <section id="rule-exercises" class="scroll-mt-24 space-y-3 border-t border-border pt-5 sm:rounded-xl sm:border sm:bg-card sm:p-5">
                 <UiSectionHeader title="Exercises" subtitle="Practice this rule" />
                 <ExercisePractice v-if="exercises.length > 0" :exercises="exercises" />
                 <p v-else class="text-sm text-muted-foreground">No exercises yet for this rule.</p>
-            </UiCard>
+            </section>
         </div>
     </PageState>
 </template>

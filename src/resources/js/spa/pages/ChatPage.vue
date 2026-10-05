@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted } from 'vue';
+import { ref, reactive, computed, nextTick, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
+import ChatMessageView from '../shared/ui/ChatMessage.vue';
 import UiButton from '../shared/ui/UiButton.vue';
 import UiCard from '../shared/ui/UiCard.vue';
 import UiInput from '../shared/ui/UiInput.vue';
@@ -70,6 +71,7 @@ function handleToolEvent(event: TutorToolEvent): void {
 // context_type/context_ref_id/context_label fields on the request.
 const discussingLabel = ref<string | null>(null);
 const contextToInject = ref<EntryContext | null>(null);
+const failedTurn = ref<{ text: string; context: EntryContext | null } | null>(null);
 
 onMounted(() => {
     const type = route.query.context_type;
@@ -133,18 +135,15 @@ async function ensureConversation(): Promise<number> {
     }
 }
 
-async function send(textOverride?: string) {
+async function send(textOverride?: string, retry = false) {
     const text = (textOverride ?? inputText.value)?.trim();
     if (!text || sending.value) return;
 
+    sending.value = true;
     error.value = '';
     let assistantMessage: ChatMessage | null = null;
-    // Captured up front and consumed at most once: contextToInject is
-    // cleared as soon as this message is sent, regardless of outcome, so a
-    // failed send doesn't leave the context to be silently retried on the
-    // next unrelated message.
-    const context = contextToInject.value;
-    contextToInject.value = null;
+    const context = retry ? failedTurn.value?.context ?? null : contextToInject.value;
+    failedTurn.value = null;
     try {
         const cid = await ensureConversation();
         messages.value.push({ role: 'user', content: text });
@@ -161,7 +160,7 @@ async function send(textOverride?: string) {
 
         // Placeholder streamed into as SSE deltas arrive (task 3.6) — starts
         // empty, rendered as the "thinking" state until the first chunk lands.
-        assistantMessage = { role: 'assistant', content: '' };
+        assistantMessage = reactive<ChatMessage>({ role: 'assistant', content: '' });
         messages.value.push(assistantMessage);
 
         toolStatus.value = null;
@@ -190,6 +189,7 @@ async function send(textOverride?: string) {
             assistantMessage.quiz = result.quiz;
         }
 
+        contextToInject.value = null;
         await scrollToBottom();
     } catch (e: unknown) {
         const err = e as { response?: { status?: number; data?: { message?: string } } };
@@ -201,12 +201,10 @@ async function send(textOverride?: string) {
         } else {
             error.value = err.response?.data?.message ?? 'Failed to send message.';
         }
-        if (assistantMessage && messages.value[messages.value.length - 1] === assistantMessage) {
-            messages.value.pop();
-        }
-        if (messages.value.length > 0 && messages.value[messages.value.length - 1].role === 'user') {
-            messages.value.pop();
-        }
+        failedTurn.value = { text, context };
+        if (assistantMessage) messages.value = messages.value.filter((message) => message !== assistantMessage);
+        if (messages.value.at(-1)?.role === 'user' && messages.value.at(-1)?.content === text) messages.value.pop();
+        inputText.value = text;
     } finally {
         sending.value = false;
         toolStatus.value = null;
@@ -220,6 +218,7 @@ async function scrollToBottom() {
 
 function startNewChat() {
     conversationId.value = null;
+    failedTurn.value = null;
     messages.value = [];
     error.value = '';
     aiDisabled.value = false;
@@ -282,32 +281,13 @@ function startNewChat() {
                             </div>
                         </template>
                         <div v-for="(msg, i) in messages" :key="i" class="space-y-2">
-                            <div class="flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
-                                <div
-                                    class="max-w-[85%] rounded-spa-lg border px-4 py-3 text-sm leading-6"
-                                    :class="
-                                        msg.role === 'user'
-                                            ? 'border-primary bg-primary text-slate-950'
-                                            : 'border-border bg-surface text-fg-secondary'
-                                    "
-                                >
-                                    <template v-if="msg.role === 'assistant' && msg.content === '' && sending">
-                                        <span class="inline-flex items-center gap-2 text-muted-foreground">
-                                            <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-primary"></span>
-                                            {{ toolStatus ? `${toolStatus}...` : 'Thinking...' }}
-                                        </span>
-                                    </template>
-                                    <template v-else>{{ msg.content }}</template>
-                                </div>
-                            </div>
+                            <ChatMessageView :role="msg.role" :content="msg.content" :loading="msg.role === 'assistant' && msg.content === '' && sending" :loading-label="toolStatus ? `${toolStatus}...` : null" />
                             <QuizCard v-if="msg.quiz && msg.quiz.length > 0" :questions="msg.quiz" />
                         </div>
                         <div ref="messagesEnd" />
                     </div>
 
-                    <div v-if="error" class="border-t border-border px-4 py-2 text-sm text-warning" role="alert">
-                        {{ error }}
-                    </div>
+                    <ChatMessageView v-if="error" role="assistant" :error="error" :retryable="Boolean(failedTurn) && !sending" :loading="sending" @retry="send(failedTurn?.text, true)" />
 
                     <div
                         v-if="discussingLabel"

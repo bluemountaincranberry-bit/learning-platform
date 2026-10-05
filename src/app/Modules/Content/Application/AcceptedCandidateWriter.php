@@ -3,6 +3,7 @@
 namespace App\Modules\Content\Application;
 
 use App\Modules\Content\Application\Contracts\AcceptedCandidateWriterInterface;
+use App\Modules\Content\Application\Contracts\CandidateMatchStoreInterface;
 use App\Modules\Content\Application\Contracts\GrammarCatalogServiceInterface;
 use App\Modules\Content\Domain\Models\Content;
 use App\Modules\Content\Domain\Models\ContentGrammarCandidate;
@@ -23,6 +24,7 @@ class AcceptedCandidateWriter implements AcceptedCandidateWriterInterface
         private readonly GrammarCatalogServiceInterface $grammarCatalogService,
         private readonly CanonicalLexemeSyncService $canonicalLexemeSyncService,
         private readonly LexemeSenseSyncService $lexemeSenseSyncService,
+        private readonly CandidateMatchStoreInterface $candidateMatches,
     ) {}
 
     public function apply(int $runId, int $contentId, string $translationLanguage, \Closure $onGrammarRuleCreated): array
@@ -242,10 +244,19 @@ class AcceptedCandidateWriter implements AcceptedCandidateWriterInterface
 
     private function applyGrammarCandidate(Content $content, ContentGrammarCandidate $candidate, string $translationLanguage, \Closure $onGrammarRuleCreated): void
     {
-        $ruleId = $candidate->matched_grammar_rule_id;
+        $language = $content->language ?? 'en';
+
+        // VIK-16: re-check the title identity at write time. Matching may
+        // have run before a same-titled rule was applied by another run
+        // (or for a candidate matched before exact matching existed).
+        $ruleId = $candidate->matched_grammar_rule_id
+            ?? $this->candidateMatches->exactGrammarRuleId((string) $candidate->title, $language);
+
+        if ($ruleId !== null && $candidate->matched_grammar_rule_id === null) {
+            $candidate->matched_grammar_rule_id = $ruleId;
+        }
 
         if ($ruleId === null) {
-            $language = $content->language ?? 'en';
 
             // AI-proposed grammar has no topic of its own; new rules land in a
             // shared "AI Suggested" bucket per language, published immediately
@@ -291,7 +302,8 @@ class AcceptedCandidateWriter implements AcceptedCandidateWriterInterface
 
         $this->attachGrammarRuleExample($ruleId, $content->id, $content->language ?? 'en', $translationLanguage, $candidate);
 
-        $candidate->update(['status' => ContentGrammarCandidate::STATUS_APPLIED]);
+        $candidate->status = ContentGrammarCandidate::STATUS_APPLIED;
+        $candidate->save();
     }
 
     /**
