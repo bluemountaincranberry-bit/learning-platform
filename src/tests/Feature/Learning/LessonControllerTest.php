@@ -259,7 +259,7 @@ test('lesson word payload includes its source language for pronunciation', funct
     $lesson = Lesson::query()->create(['user_id' => $user->id, 'status' => Lesson::STATUS_ACTIVE, 'language' => 'fr']);
     $run = $lesson->analysisRuns()->create(['status' => 'completed']);
     $run->lexemeCandidates()->create([
-        'text' => 'bonjour', 'normalized_text' => 'bonjour', 'type' => 'word', 'status' => 'new',
+        'lesson_id' => $lesson->id, 'text' => 'bonjour', 'normalized_text' => 'bonjour', 'type' => 'word', 'status' => 'new',
     ]);
 
     test()->getJson("/api/lessons/{$lesson->id}")->assertOk()

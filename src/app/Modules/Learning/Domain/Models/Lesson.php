@@ -27,6 +27,21 @@ class Lesson extends Model
         return $this->hasMany(LessonAnalysisRun::class);
     }
 
+    public function lexemeCandidates(): HasMany
+    {
+        return $this->hasMany(LessonLexemeCandidate::class);
+    }
+
+    public function grammarCandidates(): HasMany
+    {
+        return $this->hasMany(LessonGrammarCandidate::class);
+    }
+
+    public function corrections(): HasMany
+    {
+        return $this->hasMany(LessonCorrection::class);
+    }
+
     public function latestAnalysisRun(): HasOne
     {
         return $this->hasOne(LessonAnalysisRun::class)->latestOfMany();
@@ -34,16 +49,13 @@ class Lesson extends Model
 
     public function distinctLexemeCandidates(): \Illuminate\Support\Collection
     {
-        return LessonLexemeCandidate::query()
-            ->with(['run:id,lesson_id', 'run.lesson:id,language'])
-            ->whereIn('lesson_analysis_run_id', $this->analysisRuns()->pluck('id'))
+        return $this->lexemeCandidates()
             ->orderByDesc('id')->get()->unique('normalized_text')->values();
     }
 
     public function distinctGrammarCandidates(): \Illuminate\Support\Collection
     {
-        return LessonGrammarCandidate::query()
-            ->whereIn('lesson_analysis_run_id', $this->analysisRuns()->pluck('id'))
+        return $this->grammarCandidates()
             ->orderByDesc('id')->get()
             ->unique(fn (LessonGrammarCandidate $candidate) => Str::lower(trim($candidate->title)))
             ->values();

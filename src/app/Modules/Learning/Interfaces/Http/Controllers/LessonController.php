@@ -51,7 +51,8 @@ class LessonController extends Controller
     public function index(LessonIndexRequest $request): JsonResponse
     {
         $status = $request->query('status', 'active'); // active by default; all | active | archived
-        $query = Lesson::query()->where('user_id', $request->user()->id);
+        $query = Lesson::query()->withCount(['lexemeCandidates', 'grammarCandidates', 'corrections'])
+            ->where('user_id', $request->user()->id);
 
         if ($status === 'active') {
             $query->where('status', Lesson::STATUS_ACTIVE);
@@ -63,8 +64,6 @@ class LessonController extends Controller
         $lessons = $query->orderByDesc('updated_at')->paginate(15);
 
         $lessons->getCollection()->transform(function (Lesson $lesson): array {
-            $run = $lesson->latestAnalysisRun;
-
             return [
                 'id' => $lesson->id,
                 'title' => $lesson->title,
@@ -73,8 +72,9 @@ class LessonController extends Controller
                 'topic' => $lesson->topic,
                 'status' => $lesson->status,
                 'updated_at' => $lesson->updated_at,
-                'lexeme_count' => $run?->lexemeCandidates()->count() ?? 0,
-                'grammar_count' => $run?->grammarCandidates()->count() ?? 0,
+                'lexeme_count' => $lesson->lexeme_candidates_count,
+                'grammar_count' => $lesson->grammar_candidates_count,
+                'correction_count' => $lesson->corrections_count,
             ];
         });
 
@@ -100,6 +100,10 @@ class LessonController extends Controller
             'analysis_status' => $lesson->latestAnalysisRun?->status,
             'lexemes' => $lesson->distinctLexemeCandidates()->map(fn ($c) => $this->lexemePayload($c))->values(),
             'grammar' => $lesson->distinctGrammarCandidates()->map(fn ($c) => $this->grammarPayload($c))->values(),
+            'corrections' => $lesson->corrections()->orderBy('id')->get()->map(fn ($item) => [
+                'id' => $item->id, 'original_text' => $item->original_text, 'corrected_text' => $item->corrected_text,
+                'explanation' => $item->explanation, 'source' => $item->source,
+            ])->values(),
         ]);
     }
 
@@ -194,7 +198,7 @@ class LessonController extends Controller
             'example_translation' => $c->example_translation,
             'status' => $c->status,
             'matched_lexeme_id' => $c->matched_lexeme_id,
-            'language' => $c->run->lesson->language,
+            'language' => $c->lesson->language,
         ];
     }
 

@@ -1,10 +1,21 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Paperclip, Sparkles, Save, Loader2 } from 'lucide-vue-next';
+import { Paperclip, Sparkles, Save, Plus, Undo2 } from 'lucide-vue-next';
 import PageState from '../components/ui/PageState.vue';
 import { useAuthStore } from '../domains/user';
-import { lessonApi, type LessonDetail, type LessonMessage } from '../domains/learning';
+import {
+    lessonApi,
+    type LessonCorrection,
+    type LessonCorrectionInput,
+    type LessonDetail,
+    type LessonGrammarCandidate,
+    type LessonGrammarInput,
+    type LessonItemCollection,
+    type LessonLexemeCandidate,
+    type LessonLexemeInput,
+    type LessonMessage,
+} from '../domains/learning';
 import ChatMessage from '../shared/ui/ChatMessage.vue';
 import WordRow from '../shared/ui/WordRow.vue';
 import GrammarCard from '../shared/ui/GrammarCard.vue';
@@ -34,6 +45,19 @@ const analyzing = ref(false);
 const saving = ref(false);
 const archiving = ref(false);
 const tagsDraft = ref('');
+const itemError = ref('');
+const itemSaving = ref(false);
+const undoItem = ref<{ collection: LessonItemCollection; id: number } | null>(null);
+const undoMessage = ref('');
+const editingLexemeId = ref<number | null>(null);
+const editingGrammarId = ref<number | null>(null);
+const editingCorrectionId = ref<number | null>(null);
+const showLexemeForm = ref(false);
+const showGrammarForm = ref(false);
+const showCorrectionForm = ref(false);
+const lexemeDraft = ref<LessonLexemeInput>({ text: '', type: 'word', translation: '', level: '', example: '', example_translation: '' });
+const grammarDraft = ref<LessonGrammarInput>({ title: '', summary: '', body: '', example: '', example_translation: '' });
+const correctionDraft = ref<LessonCorrectionInput>({ original_text: '', corrected_text: '', explanation: '' });
 
 const inputText = ref('');
 const attachment = ref<File | null>(null);
@@ -55,9 +79,172 @@ const canSend = computed(() => (inputText.value.trim() !== '' || attachment.valu
 
 async function loadLesson() {
     lesson.value = await lessonApi.get(lessonId.value);
+    lesson.value.corrections ??= [];
     lesson.value.lesson_date = lesson.value.lesson_date?.slice(0, 10) ?? null;
     lesson.value.language = lesson.value.language || 'en';
     tagsDraft.value = (lesson.value.tags ?? []).join(', ');
+}
+
+function addLexeme() {
+    editingLexemeId.value = null;
+    showLexemeForm.value = true;
+    lexemeDraft.value = { text: '', type: 'word', translation: '', level: '', example: '', example_translation: '' };
+    itemError.value = '';
+}
+
+function editLexeme(item: LessonLexemeCandidate) {
+    editingLexemeId.value = item.id;
+    showLexemeForm.value = true;
+    lexemeDraft.value = {
+        text: item.text, type: item.type, translation: item.translation ?? '', level: item.level ?? '',
+        example: item.example ?? '', example_translation: item.example_translation ?? '',
+    };
+    itemError.value = '';
+}
+
+function cancelLexemeEdit() {
+    editingLexemeId.value = null;
+    showLexemeForm.value = false;
+    lexemeDraft.value = { text: '', type: 'word', translation: '', level: '', example: '', example_translation: '' };
+}
+
+async function saveLexeme() {
+    if (!lesson.value) return;
+    itemSaving.value = true;
+    itemError.value = '';
+    try {
+        const item = editingLexemeId.value === null
+            ? await lessonApi.createLexeme(lessonId.value, lexemeDraft.value)
+            : await lessonApi.updateLexeme(lessonId.value, editingLexemeId.value, lexemeDraft.value);
+        const index = lesson.value.lexemes.findIndex((candidate) => candidate.id === item.id);
+        if (index === -1) lesson.value.lexemes.unshift(item);
+        else lesson.value.lexemes[index] = item;
+        cancelLexemeEdit();
+    } catch {
+        itemError.value = 'Failed to save this word. Try again.';
+    } finally {
+        itemSaving.value = false;
+    }
+}
+
+function addGrammar() {
+    editingGrammarId.value = null;
+    showGrammarForm.value = true;
+    grammarDraft.value = { title: '', summary: '', body: '', example: '', example_translation: '' };
+    itemError.value = '';
+}
+
+function editGrammar(item: LessonGrammarCandidate) {
+    editingGrammarId.value = item.id;
+    showGrammarForm.value = true;
+    grammarDraft.value = { title: item.title, summary: item.summary ?? '', body: item.body ?? '', example: item.example ?? '', example_translation: item.example_translation ?? '' };
+    itemError.value = '';
+}
+
+function cancelGrammarEdit() {
+    editingGrammarId.value = null;
+    showGrammarForm.value = false;
+    grammarDraft.value = { title: '', summary: '', body: '', example: '', example_translation: '' };
+}
+
+async function saveGrammar() {
+    if (!lesson.value) return;
+    itemSaving.value = true;
+    itemError.value = '';
+    try {
+        const item = editingGrammarId.value === null
+            ? await lessonApi.createGrammar(lessonId.value, grammarDraft.value)
+            : await lessonApi.updateGrammar(lessonId.value, editingGrammarId.value, grammarDraft.value);
+        const index = lesson.value.grammar.findIndex((candidate) => candidate.id === item.id);
+        if (index === -1) lesson.value.grammar.unshift(item);
+        else lesson.value.grammar[index] = item;
+        cancelGrammarEdit();
+    } catch {
+        itemError.value = 'Failed to save this grammar point. Try again.';
+    } finally {
+        itemSaving.value = false;
+    }
+}
+
+function addCorrection() {
+    editingCorrectionId.value = null;
+    showCorrectionForm.value = true;
+    correctionDraft.value = { original_text: '', corrected_text: '', explanation: '' };
+    itemError.value = '';
+}
+
+function editCorrection(item: LessonCorrection) {
+    editingCorrectionId.value = item.id;
+    showCorrectionForm.value = true;
+    correctionDraft.value = { original_text: item.original_text, corrected_text: item.corrected_text, explanation: item.explanation ?? '' };
+    itemError.value = '';
+}
+
+function cancelCorrectionEdit() {
+    editingCorrectionId.value = null;
+    showCorrectionForm.value = false;
+    correctionDraft.value = { original_text: '', corrected_text: '', explanation: '' };
+}
+
+async function saveCorrection() {
+    if (!lesson.value) return;
+    itemSaving.value = true;
+    itemError.value = '';
+    try {
+        const item = editingCorrectionId.value === null
+            ? await lessonApi.createCorrection(lessonId.value, correctionDraft.value)
+            : await lessonApi.updateCorrection(lessonId.value, editingCorrectionId.value, correctionDraft.value);
+        const index = lesson.value.corrections.findIndex((candidate) => candidate.id === item.id);
+        if (index === -1) lesson.value.corrections.unshift(item);
+        else lesson.value.corrections[index] = item;
+        cancelCorrectionEdit();
+    } catch {
+        itemError.value = 'Failed to save this correction. Try again.';
+    } finally {
+        itemSaving.value = false;
+    }
+}
+
+async function deleteLessonItem(collection: LessonItemCollection, id: number) {
+    if (!lesson.value) return;
+    itemSaving.value = true;
+    itemError.value = '';
+    try {
+        if (collection === 'lexemes') {
+            await lessonApi.deleteLexeme(lessonId.value, id);
+            lesson.value.lexemes = lesson.value.lexemes.filter((item) => item.id !== id);
+        } else if (collection === 'grammar') {
+            await lessonApi.deleteGrammar(lessonId.value, id);
+            lesson.value.grammar = lesson.value.grammar.filter((item) => item.id !== id);
+        } else {
+            await lessonApi.deleteCorrection(lessonId.value, id);
+            lesson.value.corrections = lesson.value.corrections.filter((item) => item.id !== id);
+        }
+        undoItem.value = { collection, id };
+        undoMessage.value = 'Removed from this lesson.';
+    } catch {
+        itemError.value = 'Failed to remove this item. Try again.';
+    } finally {
+        itemSaving.value = false;
+    }
+}
+
+async function restoreLessonItem() {
+    if (!lesson.value || !undoItem.value) return;
+    const deleted = undoItem.value;
+    itemSaving.value = true;
+    itemError.value = '';
+    try {
+        if (deleted.collection === 'lexemes') lesson.value.lexemes.unshift(await lessonApi.restoreLexeme(lessonId.value, deleted.id));
+        else if (deleted.collection === 'grammar') lesson.value.grammar.unshift(await lessonApi.restoreGrammar(lessonId.value, deleted.id));
+        else lesson.value.corrections.unshift(await lessonApi.restoreCorrection(lessonId.value, deleted.id));
+        undoItem.value = null;
+        undoMessage.value = '';
+    } catch {
+        itemError.value = 'Could not restore this item. Reload the lesson and try again.';
+    } finally {
+        itemSaving.value = false;
+    }
 }
 
 async function loadMessages() {
@@ -304,6 +491,16 @@ onUnmounted(() => {
                 <!-- Tabs -->
                 <UiTabs v-model="activeTab" :tabs="tabs" class="mb-4" />
 
+                <div v-if="undoMessage" class="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-spa-lg border border-border bg-surface p-3 text-sm" role="status">
+                    <span>{{ undoMessage }}</span>
+                    <UiButton variant="secondary" size="touch" :disabled="itemSaving" @click="restoreLessonItem">
+                        <Undo2 :size="16" /> Undo
+                    </UiButton>
+                </div>
+                <div v-if="itemError" class="rounded-spa-lg border border-warning-border bg-warning-bg p-3 text-sm text-warning-fg" role="alert">
+                    {{ itemError }}
+                </div>
+
                 <!-- Notes Tab -->
                 <div v-if="activeTab === 'notes'" class="space-y-4">
                     <UiCard class="space-y-4">
@@ -346,8 +543,40 @@ onUnmounted(() => {
                 <!-- Words Tab -->
                 <div v-if="activeTab === 'words'" class="space-y-4">
                     <UiCard class="space-y-3">
-                        <UiSectionHeader title="Words" :subtitle="`${lesson.lexemes.length} from this lesson`" />
-                        <UiEmptyState v-if="lesson.lexemes.length === 0" title="Nothing yet" description="Tap “Analyze lesson” once you have written your notes." />
+                        <div class="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                            <UiSectionHeader title="Words" :subtitle="`${lesson.lexemes.length} from this lesson`" />
+                            <UiButton variant="primary" size="touch" @click="addLexeme"><Plus :size="16" /> Add word</UiButton>
+                        </div>
+                        <form v-if="showLexemeForm" class="grid min-w-0 gap-3 rounded-spa-lg border border-border bg-black/5 p-3" @submit.prevent="saveLexeme">
+                            <p class="text-sm font-medium">{{ editingLexemeId === null ? 'Add a word or phrase' : 'Edit word or phrase' }}</p>
+                            <div class="grid min-w-0 gap-3 sm:grid-cols-2">
+                                <label class="min-w-0 space-y-1 text-sm">Word or phrase
+                                    <UiInput v-model="lexemeDraft.text" required maxlength="255" placeholder="e.g. look after" />
+                                </label>
+                                <label class="min-w-0 space-y-1 text-sm">Type
+                                    <select v-model="lexemeDraft.type" class="h-11 w-full min-w-0 rounded-md border border-border bg-surface px-3 text-base text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                        <option value="word">Word</option><option value="phrase">Phrase</option><option value="phrasal_verb">Phrasal verb</option><option value="idiom">Idiom</option><option value="collocation">Collocation</option>
+                                    </select>
+                                </label>
+                                <label class="min-w-0 space-y-1 text-sm">Translation
+                                    <UiInput v-model="lexemeDraft.translation" maxlength="5000" placeholder="Translation" />
+                                </label>
+                                <label class="min-w-0 space-y-1 text-sm">Level
+                                    <UiInput v-model="lexemeDraft.level" maxlength="4" placeholder="A2" />
+                                </label>
+                                <label class="min-w-0 space-y-1 text-sm sm:col-span-2">Example
+                                    <UiInput v-model="lexemeDraft.example" maxlength="10000" placeholder="Example sentence" />
+                                </label>
+                                <label class="min-w-0 space-y-1 text-sm sm:col-span-2">Example translation
+                                    <UiInput v-model="lexemeDraft.example_translation" maxlength="10000" placeholder="Translation of the example" />
+                                </label>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <UiButton type="submit" variant="primary" size="touch" :disabled="itemSaving">{{ itemSaving ? 'Saving…' : 'Save word' }}</UiButton>
+                                <UiButton type="button" variant="secondary" size="touch" @click="cancelLexemeEdit">Cancel</UiButton>
+                            </div>
+                        </form>
+                        <UiEmptyState v-if="lesson.lexemes.length === 0" title="Nothing yet" description="Add a word here, or analyze this lesson to find words." />
                         <div v-else class="space-y-2">
                             <WordRow
                                 v-for="w in lesson.lexemes"
@@ -361,6 +590,12 @@ onUnmounted(() => {
                                 :examples="w.example ? [{ example: w.example, translation: w.example_translation, is_primary: true }] : []"
                             >
                                 <span class="text-xs text-muted-foreground">{{ w.status === 'matched' ? 'Already in your dictionary' : 'New' }}</span>
+                                <template #actions>
+                                    <div class="flex flex-wrap gap-2">
+                                        <UiButton variant="secondary" size="touch" :disabled="itemSaving" @click="editLexeme(w)">Edit</UiButton>
+                                        <UiButton variant="danger" size="touch" :disabled="itemSaving" @click="deleteLessonItem('lexemes', w.id)">Remove</UiButton>
+                                    </div>
+                                </template>
                             </WordRow>
                         </div>
                     </UiCard>
@@ -369,8 +604,33 @@ onUnmounted(() => {
                 <!-- Grammar Tab -->
                 <div v-if="activeTab === 'grammar'" class="space-y-4">
                     <UiCard class="space-y-3">
-                        <UiSectionHeader title="Grammar" :subtitle="`${lesson.grammar.length} from this lesson`" />
-                        <UiEmptyState v-if="lesson.grammar.length === 0" title="Nothing yet" description="Tap “Analyze lesson” once you have written your notes." />
+                        <div class="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                            <UiSectionHeader title="Grammar" :subtitle="`${lesson.grammar.length} from this lesson`" />
+                            <UiButton variant="primary" size="touch" @click="addGrammar"><Plus :size="16" /> Add grammar</UiButton>
+                        </div>
+                        <form v-if="showGrammarForm" class="grid min-w-0 gap-3 rounded-spa-lg border border-border bg-black/5 p-3" @submit.prevent="saveGrammar">
+                            <p class="text-sm font-medium">{{ editingGrammarId === null ? 'Add a grammar point' : 'Edit grammar point' }}</p>
+                            <label class="min-w-0 space-y-1 text-sm">Title
+                                <UiInput v-model="grammarDraft.title" required maxlength="255" placeholder="e.g. Past habits with used to" />
+                            </label>
+                            <label class="min-w-0 space-y-1 text-sm">Summary
+                                <textarea v-model="grammarDraft.summary" maxlength="10000" rows="3" class="w-full min-w-0 rounded-md border border-border bg-surface p-3 text-base text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="When and how to use this pattern" />
+                            </label>
+                            <label class="min-w-0 space-y-1 text-sm">Example
+                                <UiInput v-model="grammarDraft.example" maxlength="10000" placeholder="Example sentence" />
+                            </label>
+                            <label class="min-w-0 space-y-1 text-sm">Example translation
+                                <UiInput v-model="grammarDraft.example_translation" maxlength="10000" placeholder="Translation of the example" />
+                            </label>
+                            <label class="min-w-0 space-y-1 text-sm">Details
+                                <textarea v-model="grammarDraft.body" maxlength="20000" rows="4" class="w-full min-w-0 rounded-md border border-border bg-surface p-3 text-base text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="Optional rule details" />
+                            </label>
+                            <div class="flex flex-wrap gap-2">
+                                <UiButton type="submit" variant="primary" size="touch" :disabled="itemSaving">{{ itemSaving ? 'Saving…' : 'Save grammar' }}</UiButton>
+                                <UiButton type="button" variant="secondary" size="touch" @click="cancelGrammarEdit">Cancel</UiButton>
+                            </div>
+                        </form>
+                        <UiEmptyState v-if="lesson.grammar.length === 0" title="Nothing yet" description="Add a grammar point here, or analyze this lesson to find grammar." />
                         <div v-else class="space-y-2">
                             <GrammarCard
                                 v-for="g in lesson.grammar"
@@ -379,15 +639,54 @@ onUnmounted(() => {
                                 :rule-id="g.matched_grammar_rule_id"
                                 :summary="g.summary"
                                 :status="g.status === 'linked' ? 'Added to My grammar' : 'New'"
-                            />
+                            >
+                                <template #actions>
+                                    <UiButton variant="secondary" size="touch" :disabled="itemSaving" @click="editGrammar(g)">Edit</UiButton>
+                                    <UiButton variant="danger" size="touch" :disabled="itemSaving" @click="deleteLessonItem('grammar', g.id)">Remove</UiButton>
+                                </template>
+                            </GrammarCard>
                         </div>
                     </UiCard>
                 </div>
 
-                <!-- Corrections will become editable with VIK-17. -->
                 <div v-if="activeTab === 'corrections'" class="space-y-4">
-                    <UiCard>
-                        <UiEmptyState title="Corrections" description="Manual corrections will be available in VIK-17." />
+                    <UiCard class="space-y-3">
+                        <div class="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                            <UiSectionHeader title="Corrections" :subtitle="`${lesson.corrections.length} from this lesson`" />
+                            <UiButton variant="primary" size="touch" @click="addCorrection"><Plus :size="16" /> Add correction</UiButton>
+                        </div>
+                        <form v-if="showCorrectionForm" class="grid min-w-0 gap-3 rounded-spa-lg border border-border bg-black/5 p-3" @submit.prevent="saveCorrection">
+                            <p class="text-sm font-medium">{{ editingCorrectionId === null ? 'Add a correction' : 'Edit correction' }}</p>
+                            <div class="grid min-w-0 gap-3 sm:grid-cols-2">
+                                <label class="min-w-0 space-y-1 text-sm">What you said
+                                    <textarea v-model="correctionDraft.original_text" required maxlength="10000" rows="3" class="w-full min-w-0 rounded-md border border-border bg-surface p-3 text-base text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="Original wording" />
+                                </label>
+                                <label class="min-w-0 space-y-1 text-sm">Correct form
+                                    <textarea v-model="correctionDraft.corrected_text" required maxlength="10000" rows="3" class="w-full min-w-0 rounded-md border border-border bg-surface p-3 text-base text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="Corrected wording" />
+                                </label>
+                            </div>
+                            <label class="min-w-0 space-y-1 text-sm">Why
+                                <textarea v-model="correctionDraft.explanation" maxlength="10000" rows="3" class="w-full min-w-0 rounded-md border border-border bg-surface p-3 text-base text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="Optional explanation" />
+                            </label>
+                            <div class="flex flex-wrap gap-2">
+                                <UiButton type="submit" variant="primary" size="touch" :disabled="itemSaving">{{ itemSaving ? 'Saving…' : 'Save correction' }}</UiButton>
+                                <UiButton type="button" variant="secondary" size="touch" @click="cancelCorrectionEdit">Cancel</UiButton>
+                            </div>
+                        </form>
+                        <UiEmptyState v-if="lesson.corrections.length === 0" title="Nothing yet" description="Add a teacher correction to keep the original and corrected wording together." />
+                        <div v-else class="space-y-2">
+                            <article v-for="correction in lesson.corrections" :key="correction.id" class="min-w-0 space-y-3 rounded-spa-lg border border-border bg-surface p-3">
+                                <div class="grid min-w-0 gap-3 sm:grid-cols-2">
+                                    <div class="min-w-0"><span class="text-xs font-medium text-muted-foreground">What you said</span><p class="break-words text-base text-fg">{{ correction.original_text }}</p></div>
+                                    <div class="min-w-0"><span class="text-xs font-medium text-muted-foreground">Correct form</span><p class="break-words text-base font-semibold text-fg">{{ correction.corrected_text }}</p></div>
+                                </div>
+                                <p v-if="correction.explanation" class="break-words text-sm text-muted-foreground"><span class="font-medium text-fg-secondary">Why: </span>{{ correction.explanation }}</p>
+                                <div class="flex flex-wrap gap-2">
+                                    <UiButton variant="secondary" size="touch" :disabled="itemSaving" @click="editCorrection(correction)">Edit</UiButton>
+                                    <UiButton variant="danger" size="touch" :disabled="itemSaving" @click="deleteLessonItem('corrections', correction.id)">Remove</UiButton>
+                                </div>
+                            </article>
+                        </div>
                     </UiCard>
                 </div>
 

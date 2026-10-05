@@ -154,6 +154,7 @@ onMounted(async () => {
                         <div class="flex shrink-0 items-center gap-2">
                             <UiBadge v-if="lesson.lexeme_count > 0" tone="primary">{{ lesson.lexeme_count }} {{ lesson.lexeme_count === 1 ? 'word' : 'words' }}</UiBadge>
                             <UiBadge v-if="lesson.grammar_count > 0" tone="primary">{{ lesson.grammar_count }} grammar {{ lesson.grammar_count === 1 ? 'rule' : 'rules' }}</UiBadge>
+                            <UiBadge v-if="lesson.correction_count > 0" tone="primary">{{ lesson.correction_count }} {{ lesson.correction_count === 1 ? 'correction' : 'corrections' }}</UiBadge>
                         </div>
                     </RouterLink>
                 </UiCard>

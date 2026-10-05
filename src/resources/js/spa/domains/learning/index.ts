@@ -28,4 +28,15 @@ export type {
 } from '../../types/api/TrainingReviewQueueResponse';
 
 export { lessonApi } from './api/lessonApi';
-export type { LessonSummary, LessonDetail, LessonMessage } from './api/lessonApi';
+export type {
+    LessonSummary,
+    LessonDetail,
+    LessonMessage,
+    LessonLexemeCandidate,
+    LessonGrammarCandidate,
+    LessonCorrection,
+    LessonLexemeInput,
+    LessonGrammarInput,
+    LessonCorrectionInput,
+    LessonItemCollection,
+} from './api/lessonApi';

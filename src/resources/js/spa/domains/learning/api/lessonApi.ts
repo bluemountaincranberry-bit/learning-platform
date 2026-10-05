@@ -20,6 +20,7 @@ export interface LessonSummary {
     updated_at: string;
     lexeme_count: number;
     grammar_count: number;
+    correction_count: number;
 }
 
 export interface LessonMessage {
@@ -41,6 +42,7 @@ export interface LessonLexemeCandidate {
     example_translation: string | null;
     status: 'pending' | 'matched' | 'new';
     matched_lexeme_id: number | null;
+    source: 'ai' | 'manual';
 }
 
 export interface LessonGrammarCandidate {
@@ -51,6 +53,26 @@ export interface LessonGrammarCandidate {
     example_translation: string | null;
     status: 'pending' | 'linked' | 'new';
     matched_grammar_rule_id: number | null;
+    body?: string | null;
+    source: 'ai' | 'manual';
+}
+
+export interface LessonCorrection {
+    id: number;
+    original_text: string;
+    corrected_text: string;
+    explanation: string | null;
+    source: 'ai' | 'manual';
+}
+
+export type LessonLexemeInput = Pick<LessonLexemeCandidate, 'text'> & Partial<Pick<LessonLexemeCandidate, 'type' | 'level' | 'translation' | 'example' | 'example_translation'>>;
+export type LessonGrammarInput = Pick<LessonGrammarCandidate, 'title'> & Partial<Pick<LessonGrammarCandidate, 'summary' | 'body' | 'example' | 'example_translation'>>;
+export type LessonCorrectionInput = Pick<LessonCorrection, 'original_text' | 'corrected_text'> & Partial<Pick<LessonCorrection, 'explanation'>>;
+export type LessonItemCollection = 'lexemes' | 'grammar' | 'corrections';
+
+function lessonItemPath(lessonId: number, collection: LessonItemCollection, itemId?: number): string {
+    const path = `/api/lessons/${lessonId}/${collection}`;
+    return itemId === undefined ? path : `${path}/${itemId}`;
 }
 
 export interface LessonDetail {
@@ -68,6 +90,7 @@ export interface LessonDetail {
     analysis_status: 'pending' | 'running' | 'completed' | 'failed' | null;
     lexemes: LessonLexemeCandidate[];
     grammar: LessonGrammarCandidate[];
+    corrections: LessonCorrection[];
 }
 
 export type UpdateLessonInput = Pick<LessonDetail, 'title' | 'lesson_date' | 'teacher' | 'topic' | 'language' | 'tags' | 'notes' | 'homework'>;
@@ -113,5 +136,53 @@ export const lessonApi = {
 
     restore(lessonId: number): Promise<void> {
         return axios.post(`/api/lessons/${lessonId}/restore`).then(() => undefined);
+    },
+
+    createLexeme(lessonId: number, data: LessonLexemeInput): Promise<LessonLexemeCandidate> {
+        return axios.post(lessonItemPath(lessonId, 'lexemes'), data).then((r) => r.data);
+    },
+
+    updateLexeme(lessonId: number, itemId: number, data: Partial<LessonLexemeInput>): Promise<LessonLexemeCandidate> {
+        return axios.put(lessonItemPath(lessonId, 'lexemes', itemId), data).then((r) => r.data);
+    },
+
+    deleteLexeme(lessonId: number, itemId: number): Promise<void> {
+        return axios.delete(lessonItemPath(lessonId, 'lexemes', itemId)).then(() => undefined);
+    },
+
+    restoreLexeme(lessonId: number, itemId: number): Promise<LessonLexemeCandidate> {
+        return axios.post(`${lessonItemPath(lessonId, 'lexemes', itemId)}/restore`).then((r) => r.data);
+    },
+
+    createGrammar(lessonId: number, data: LessonGrammarInput): Promise<LessonGrammarCandidate> {
+        return axios.post(lessonItemPath(lessonId, 'grammar'), data).then((r) => r.data);
+    },
+
+    updateGrammar(lessonId: number, itemId: number, data: Partial<LessonGrammarInput>): Promise<LessonGrammarCandidate> {
+        return axios.put(lessonItemPath(lessonId, 'grammar', itemId), data).then((r) => r.data);
+    },
+
+    deleteGrammar(lessonId: number, itemId: number): Promise<void> {
+        return axios.delete(lessonItemPath(lessonId, 'grammar', itemId)).then(() => undefined);
+    },
+
+    restoreGrammar(lessonId: number, itemId: number): Promise<LessonGrammarCandidate> {
+        return axios.post(`${lessonItemPath(lessonId, 'grammar', itemId)}/restore`).then((r) => r.data);
+    },
+
+    createCorrection(lessonId: number, data: LessonCorrectionInput): Promise<LessonCorrection> {
+        return axios.post(lessonItemPath(lessonId, 'corrections'), data).then((r) => r.data);
+    },
+
+    updateCorrection(lessonId: number, itemId: number, data: Partial<LessonCorrectionInput>): Promise<LessonCorrection> {
+        return axios.put(lessonItemPath(lessonId, 'corrections', itemId), data).then((r) => r.data);
+    },
+
+    deleteCorrection(lessonId: number, itemId: number): Promise<void> {
+        return axios.delete(lessonItemPath(lessonId, 'corrections', itemId)).then(() => undefined);
+    },
+
+    restoreCorrection(lessonId: number, itemId: number): Promise<LessonCorrection> {
+        return axios.post(`${lessonItemPath(lessonId, 'corrections', itemId)}/restore`).then((r) => r.data);
     },
 };

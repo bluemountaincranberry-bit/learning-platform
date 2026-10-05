@@ -55,12 +55,12 @@ class LessonStore implements LessonAnalysisStoreInterface, LessonNotesWriterInte
             $run = LessonAnalysisRun::query()->lockForUpdate()->findOrFail($runId);
             foreach ($lexemes as $attributes) {
                 if (! $run->lexemeCandidates()->where('normalized_text', $attributes['normalized_text'])->exists()) {
-                    $this->createLexemeCandidate($runId, $attributes);
+                    $this->persistLexemeCandidate($runId, $run->lesson_id, $attributes);
                 }
             }
             foreach ($grammar as $attributes) {
                 if (! $run->grammarCandidates()->whereRaw('LOWER(title) = ?', [mb_strtolower($attributes['title'])])->exists()) {
-                    $this->createGrammarCandidate($runId, $attributes);
+                    $this->persistGrammarCandidate($runId, $run->lesson_id, $attributes);
                 }
             }
         });
@@ -68,18 +68,34 @@ class LessonStore implements LessonAnalysisStoreInterface, LessonNotesWriterInte
 
     public function createLexemeCandidate(int $runId, array $attributes): void
     {
+        $run = LessonAnalysisRun::query()->findOrFail($runId);
+        $this->persistLexemeCandidate($runId, $run->lesson_id, $attributes);
+    }
+
+    /** @param array<string, mixed> $attributes */
+    private function persistLexemeCandidate(int $runId, int $lessonId, array $attributes): void
+    {
         $type = $attributes['type'] ?? null;
         $attributes['type'] = is_string($type) && in_array($type, LessonLexemeCandidate::TYPES, true)
             ? $type : LessonLexemeCandidate::TYPE_WORD;
         LessonLexemeCandidate::query()->create([
-            ...$attributes, 'lesson_analysis_run_id' => $runId, 'status' => LessonLexemeCandidate::STATUS_PENDING,
+            ...$attributes, 'lesson_analysis_run_id' => $runId, 'lesson_id' => $lessonId,
+            'status' => LessonLexemeCandidate::STATUS_PENDING, 'source' => 'ai',
         ]);
     }
 
     public function createGrammarCandidate(int $runId, array $attributes): void
     {
+        $run = LessonAnalysisRun::query()->findOrFail($runId);
+        $this->persistGrammarCandidate($runId, $run->lesson_id, $attributes);
+    }
+
+    /** @param array<string, mixed> $attributes */
+    private function persistGrammarCandidate(int $runId, int $lessonId, array $attributes): void
+    {
         LessonGrammarCandidate::query()->create([
-            ...$attributes, 'lesson_analysis_run_id' => $runId, 'status' => LessonGrammarCandidate::STATUS_PENDING,
+            ...$attributes, 'lesson_analysis_run_id' => $runId, 'lesson_id' => $lessonId,
+            'status' => LessonGrammarCandidate::STATUS_PENDING, 'source' => 'ai',
         ]);
     }
 

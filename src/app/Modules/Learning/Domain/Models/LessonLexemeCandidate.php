@@ -4,9 +4,12 @@ namespace App\Modules\Learning\Domain\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LessonLexemeCandidate extends Model
 {
+    use SoftDeletes;
+
     protected $guarded = [];
 
     public const TYPE_WORD = 'word';
@@ -37,5 +40,10 @@ class LessonLexemeCandidate extends Model
     public function run(): BelongsTo
     {
         return $this->belongsTo(LessonAnalysisRun::class, 'lesson_analysis_run_id');
+    }
+
+    public function lesson(): BelongsTo
+    {
+        return $this->belongsTo(Lesson::class);
     }
 }

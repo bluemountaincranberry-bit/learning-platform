@@ -32,11 +32,13 @@ class LessonAnalysisRun extends Model
 
     public function lexemeCandidates(): HasMany
     {
-        return $this->hasMany(LessonLexemeCandidate::class);
+        return $this->hasMany(LessonLexemeCandidate::class)
+            ->withAttributes(['lesson_id' => $this->lesson_id, 'source' => 'ai']);
     }
 
     public function grammarCandidates(): HasMany
     {
-        return $this->hasMany(LessonGrammarCandidate::class);
+        return $this->hasMany(LessonGrammarCandidate::class)
+            ->withAttributes(['lesson_id' => $this->lesson_id, 'source' => 'ai']);
     }
 }
