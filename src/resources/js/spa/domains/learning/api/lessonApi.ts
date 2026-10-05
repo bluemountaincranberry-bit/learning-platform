@@ -13,7 +13,9 @@ import axios from 'axios';
 export interface LessonSummary {
     id: number;
     title: string | null;
-    tutor: string | null;
+    lesson_date: string | null;
+    teacher: string | null;
+    topic: string | null;
     status: 'active' | 'archived';
     updated_at: string;
     lexeme_count: number;
@@ -54,7 +56,13 @@ export interface LessonGrammarCandidate {
 export interface LessonDetail {
     id: number;
     title: string | null;
-    tutor: string | null;
+    lesson_date: string | null;
+    teacher: string | null;
+    topic: string | null;
+    language: string;
+    tags: string[];
+    notes: string | null;
+    homework: string | null;
     status: 'active' | 'archived';
     conversation_id: number | null;
     analysis_status: 'pending' | 'running' | 'completed' | 'failed' | null;
@@ -63,8 +71,10 @@ export interface LessonDetail {
 }
 
 export const lessonApi = {
-    list(page = 1): Promise<{ data: LessonSummary[]; meta: { current_page: number; per_page: number; total: number; last_page?: number } }> {
-        return axios.get('/api/lessons', { params: { page } }).then((r) => r.data);
+    list(page = 1, status?: 'all' | 'active' | 'archived'): Promise<{ data: LessonSummary[]; meta: { current_page: number; per_page: number; total: number; last_page?: number } }> {
+        const params: Record<string, string | number> = { page };
+        if (status && status !== 'all') params.status = status;
+        return axios.get('/api/lessons', { params }).then((r) => r.data);
     },
 
     create(): Promise<{ lesson_id: number; conversation_id: number }> {
@@ -89,5 +99,17 @@ export const lessonApi = {
 
     analyze(lessonId: number): Promise<{ run_id: number; status: string }> {
         return axios.post(`/api/lessons/${lessonId}/analyze`).then((r) => r.data);
+    },
+
+    update(lessonId: number, data: Partial<LessonSummary> & { notes?: string | null; homework?: string | null; status?: 'active' | 'archived' }): Promise<void> {
+        return axios.put(`/api/lessons/${lessonId}`, data).then(() => undefined);
+    },
+
+    destroy(lessonId: number): Promise<void> {
+        return axios.delete(`/api/lessons/${lessonId}`).then(() => undefined);
+    },
+
+    restore(lessonId: number): Promise<void> {
+        return axios.post(`/api/lessons/${lessonId}/restore`).then(() => undefined);
     },
 };

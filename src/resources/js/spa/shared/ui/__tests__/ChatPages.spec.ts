@@ -38,6 +38,10 @@ describe('chat page retry seams', () => {
         api.sendMessage.mockResolvedValue(undefined);
         const wrapper = await renderPage(LessonDetailPage, '/lessons/3');
         await flushPromises();
+        // Switch to Chat tab first
+        const chatTab = wrapper.findAll('button[role="tab"]').find((node) => node.text() === 'Chat');
+        if (chatTab) await chatTab.trigger('click');
+        await flushPromises();
         await wrapper.get('input[type="text"]').setValue('Notes');
         await button(wrapper, 'Send').trigger('click');
         await flushPromises();
@@ -52,6 +56,10 @@ describe('chat page retry seams', () => {
         api.listMessages.mockResolvedValue({ messages: [], is_waiting: false });
         api.sendMessage.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(undefined);
         const wrapper = await renderPage(LessonDetailPage, '/lessons/3');
+        await flushPromises();
+        // Switch to Chat tab first
+        const chatTab = wrapper.findAll('button[role="tab"]').find((node) => node.text() === 'Chat');
+        if (chatTab) await chatTab.trigger('click');
         await flushPromises();
         const file = new File(['notes'], 'notes.pdf', { type: 'application/pdf' });
         Object.defineProperty(wrapper.get('input[type="file"]').element, 'files', { value: [file] });
@@ -70,6 +78,10 @@ describe('chat page retry seams', () => {
         api.get.mockResolvedValue({ id: 3, title: 'French lesson', grammar: [], lexemes: [{ id: 4, text: 'bonjour', language: 'fr', example: 'Bonjour tout le monde.', example_translation: 'Hello everyone.', status: 'new' }] });
         api.listMessages.mockResolvedValue({ messages: [], is_waiting: false });
         const wrapper = await renderPage(LessonDetailPage, '/lessons/3');
+        await flushPromises();
+        // Switch to Words tab first (pronunciation test is on words)
+        const wordsTab = wrapper.findAll('button[role="tab"]').find((node) => node.text() === 'Words');
+        if (wordsTab) await wordsTab.trigger('click');
         await flushPromises();
         await wrapper.get('button[aria-label="bonjour. Show details"]').trigger('click');
         await wrapper.get('button[aria-label="Pronounce bonjour"]').trigger('click');
