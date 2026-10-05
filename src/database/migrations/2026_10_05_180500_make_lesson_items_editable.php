@@ -16,14 +16,18 @@ return new class extends Migration
                 $table->softDeletes();
             });
 
-            $candidates = DB::table($tableName)->get(['id', 'lesson_analysis_run_id']);
-            $lessonIds = DB::table('lesson_analysis_runs')->pluck('lesson_id', 'id');
-            foreach ($candidates as $candidate) {
-                $lessonId = $lessonIds[$candidate->lesson_analysis_run_id] ?? null;
-                if ($lessonId !== null) {
-                    DB::table($tableName)->where('id', $candidate->id)->update(['lesson_id' => $lessonId]);
-                }
-            }
+            DB::table($tableName.' as candidates')
+                ->join('lesson_analysis_runs as runs', 'runs.id', '=', 'candidates.lesson_analysis_run_id')
+                ->whereNull('candidates.lesson_id')
+                ->select('candidates.id', 'runs.lesson_id')
+                ->orderBy('candidates.id')
+                ->chunk(500, function ($candidates) use ($tableName): void {
+                    foreach ($candidates->groupBy('lesson_id') as $lessonId => $items) {
+                        DB::table($tableName)
+                            ->whereIn('id', $items->pluck('id'))
+                            ->update(['lesson_id' => $lessonId]);
+                    }
+                });
 
             if (DB::table($tableName)->whereNull('lesson_id')->exists()) {
                 throw new RuntimeException("Cannot migrate {$tableName}: an item is not linked to a lesson.");
