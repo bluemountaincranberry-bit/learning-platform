@@ -33,6 +33,14 @@ function coverageFixture(): array
     return [$text, $expected];
 }
 
+function coverageGrammarFixture(): array
+{
+    $expected = json_decode(file_get_contents(base_path('tests/Fixtures/pdf/grammar-unit-1.expected.json')), true)['items'];
+    $text = app(PdfTextExtractorInterface::class)->extractFromPath(base_path('tests/Fixtures/pdf/grammar-unit-1.pdf'));
+
+    return [$text, $expected];
+}
+
 function coverageNormalize(string $s): string
 {
     $s = preg_replace('/\[[^\]]*\]/u', ' ', str_replace('’', "'", $s));
@@ -54,6 +62,22 @@ function coverageRecall(LessonAnalysisRun $run, array $expected): array
     $missing = array_values(array_filter($expected, function ($key) use ($found) {
         foreach ($found as $text) {
             if (str_contains(preg_replace('/\s+/', ' ', $text), preg_replace('/\s+/', ' ', coverageNormalize($key)))) {
+                return false;
+            }
+        }
+
+        return true;
+    }));
+
+    return [1 - count($missing) / count($expected), $missing];
+}
+
+function coverageGrammarRecall(LessonAnalysisRun $run, array $expected): array
+{
+    $found = $run->grammarCandidates()->pluck('title')->map(fn ($t) => coverageNormalize($t))->all();
+    $missing = array_values(array_filter($expected, function ($title) use ($found) {
+        foreach ($found as $candidate) {
+            if (str_contains($candidate, coverageNormalize($title))) {
                 return false;
             }
         }
@@ -104,4 +128,35 @@ test('live model finds substantially all items of the PDF word list', function (
 
     [$recall, $missing] = coverageRecall($run, $expected);
     expect($recall)->toBeGreaterThanOrEqual((float) env('AI_COVERAGE_MIN_RECALL', 0.95), 'missing: '.implode('; ', $missing).' | found '.$run->lexemeCandidates()->count().': '.$run->lexemeCandidates()->pluck('text')->implode(' | '));
+})->skip(fn () => ! env('AI_COVERAGE_EVAL'), 'Set AI_COVERAGE_EVAL=1 to run against the real provider.');
+
+test('every grammar point of a long PDF, including the last, reaches the model', function () {
+    [$text, $expected] = coverageGrammarFixture();
+    expect(mb_strlen($text))->toBeGreaterThan((int) config('ai.analysis.lesson_chunk_chars'));
+
+    $client = Mockery::mock(AiJsonClient::class);
+    $client->shouldReceive('completeJson')->andReturnUsing(function ($system, $user) use ($expected) {
+        $shown = coverageNormalize($user);
+        $grammar = array_values(array_filter($expected, fn ($title) => str_contains($shown, coverageNormalize($title))));
+
+        return ['lexemes' => [], 'grammar' => array_map(fn ($title) => ['title' => $title, 'summary' => 'summary', 'example' => 'example'], $grammar)];
+    });
+
+    $run = coverageRun($text);
+    (new LessonAnalysisService($client, app(TracedLlmCall::class), app(PromptRegistryInterface::class), app(LessonAnalysisStoreInterface::class)))
+        ->analyze($run->id);
+
+    [$recall, $missing] = coverageGrammarRecall($run, $expected);
+    expect($missing)->toBe([])->and($recall)->toEqual(1.0)
+        ->and($run->grammarCandidates()->pluck('title')->all())->toContain('Time Clauses');
+});
+
+test('live model finds substantially all grammar points of the PDF handout', function () {
+    [$text, $expected] = coverageGrammarFixture();
+
+    $run = coverageRun($text);
+    app(LessonAnalysisService::class)->analyze($run->id);
+
+    [$recall, $missing] = coverageGrammarRecall($run, $expected);
+    expect($recall)->toBeGreaterThanOrEqual((float) env('AI_COVERAGE_MIN_RECALL', 0.95), 'missing: '.implode('; ', $missing).' | found '.$run->grammarCandidates()->count().': '.$run->grammarCandidates()->pluck('title')->implode(' | '));
 })->skip(fn () => ! env('AI_COVERAGE_EVAL'), 'Set AI_COVERAGE_EVAL=1 to run against the real provider.');

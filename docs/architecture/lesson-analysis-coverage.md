@@ -75,6 +75,29 @@ items of the PDF (distinctive opening words). `LessonAnalysisCoverageTest`:
 - **On demand** (`AI_COVERAGE_EVAL=1`): runs the real provider and requires
   recall ≥ `AI_COVERAGE_MIN_RECALL` (default 0.95), listing the missing items.
 
+### Grammar coverage
+
+The word-list fixture is vocabulary only — the prompt (correctly) returns an
+empty grammar list for it, so grammar needed its own fixture.
+`tests/Fixtures/pdf/grammar-unit-1.pdf` is a generated handout of 48 numbered
+grammar points (~5 900 characters, so it spans several parts), and
+`tests/Fixtures/pdf/grammar-unit-1.expected.json` lists their titles. The same
+two tiers cover it: an always-on stand-in-model test proves every grammar
+point — including the last, "Time Clauses" — reaches the model and is
+persisted as a candidate, and an on-demand (`AI_COVERAGE_EVAL=1`) live-recall
+test against the real provider.
+
 ```bash
 AI_COVERAGE_EVAL=1 make test ARGS="--filter=LessonAnalysisCoverageTest"
 ```
+
+## Presentation
+
+The lesson's extracted words and grammar are shown with the shared learning
+components from VIK-43 — `WordRow` (click a row to expand its detail card)
+and `GrammarCard` (a linked rule links to the rule page) — the same components
+My words and My grammar use, so the lesson page looks like the rest of the app
+and every item opens to more detail. Items stay linked to their lesson. The
+lesson detail page fits a 360px and 390px viewport with no horizontal scroll
+(verified with a Playwright check that mocks the lesson API and loads the real
+SPA, including long unbreakable words and long grammar titles).
