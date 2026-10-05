@@ -41,12 +41,13 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const messagesEnd = ref<HTMLElement | null>(null);
 const notesTextarea = ref<HTMLTextAreaElement | null>(null);
 
-const activeTab = ref<'notes' | 'words' | 'grammar' | 'chat'>('notes');
+const activeTab = ref<'notes' | 'words' | 'grammar' | 'corrections' | 'chat'>('notes');
 
 const tabs = [
     { key: 'notes', label: 'Notes' },
     { key: 'words', label: 'Words' },
     { key: 'grammar', label: 'Grammar' },
+    { key: 'corrections', label: 'Corrections' },
     { key: 'chat', label: 'Chat' },
 ] as const;
 
@@ -312,6 +313,7 @@ onUnmounted(() => {
                                 <textarea
                                     ref="notesTextarea"
                                     v-model="lesson.notes"
+                                    :style="{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }"
                                     class="w-full min-h-[180px] max-h-[500px] resize-none rounded-spa border border-border bg-surface p-4 text-base font-mono text-fg placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     placeholder="Write your lesson notes here…"
                                     @input="autoResizeTextarea(notesTextarea)"
@@ -379,6 +381,13 @@ onUnmounted(() => {
                                 :status="g.status === 'linked' ? 'Added to My grammar' : 'New'"
                             />
                         </div>
+                    </UiCard>
+                </div>
+
+                <!-- Corrections will become editable with VIK-17. -->
+                <div v-if="activeTab === 'corrections'" class="space-y-4">
+                    <UiCard>
+                        <UiEmptyState title="Corrections" description="Manual corrections will be available in VIK-17." />
                     </UiCard>
                 </div>
 

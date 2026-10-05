@@ -95,7 +95,8 @@ The lesson page becomes a **single scrolling page** with tabs/sections:
 │ Language       Tags                 │
 │ [en]           [work, speaking]      │
 │ ─────────────────────────────────── │
-│ [Notes] [Words] [Grammar] [Chat]    │ segment tabs (full width)
+│ [Notes] [Words] [Grammar]           │ segment tabs (wrap on phone)
+│ [Corrections] [Chat]                │
 │ ─────────────────────────────────── │
 │                                     │
 │  ┌───────────────────────────────┐  │

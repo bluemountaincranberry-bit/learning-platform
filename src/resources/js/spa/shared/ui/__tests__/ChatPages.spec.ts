@@ -133,4 +133,16 @@ describe('chat page retry seams', () => {
         expect(api.restore).toHaveBeenCalledWith(3);
     });
 
+    it('shows the corrections placeholder without taking work from VIK-17', async () => {
+        api.get.mockResolvedValue({ id: 3, title: 'Lesson', status: 'active', language: 'en', tags: [], notes: '', homework: '', grammar: [], lexemes: [] });
+        api.listMessages.mockResolvedValue({ messages: [], is_waiting: false });
+        const wrapper = await renderPage(LessonDetailPage, '/lessons/3');
+        await flushPromises();
+
+        const correctionsTab = wrapper.findAll('button[role="tab"]').find((node) => node.text() === 'Corrections');
+        expect(correctionsTab).toBeDefined();
+        await correctionsTab!.trigger('click');
+        expect(wrapper.text()).toContain('Manual corrections will be available in VIK-17.');
+    });
+
 });

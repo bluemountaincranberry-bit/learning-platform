@@ -8,9 +8,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\SendLessonMessageRequest;
 use App\Modules\Learning\Domain\Models\Lesson;
 use App\Modules\Learning\Domain\Models\LessonAnalysisRun;
+use App\Modules\Learning\Interfaces\Http\Requests\LessonFieldsRequest;
+use App\Modules\Learning\Interfaces\Http\Requests\LessonIndexRequest;
 use App\Support\AiConfig;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -22,19 +23,9 @@ class LessonController extends Controller
         private readonly LessonNotesWriterInterface $notes,
     ) {}
 
-    public function store(Request $request): JsonResponse
+    public function store(LessonFieldsRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'title' => 'nullable|string|max:255',
-            'lesson_date' => 'nullable|date',
-            'teacher' => 'nullable|string|max:255',
-            'topic' => 'nullable|string|max:255',
-            'language' => 'nullable|string|max:8|regex:/^[a-z]{2,3}(?:-[A-Z]{2})?$/',
-            'tags' => 'nullable|array',
-            'tags.*' => 'string|max:64',
-            'notes' => 'nullable|string',
-            'homework' => 'nullable|string',
-        ]);
+        $data = $request->validated();
 
         return DB::transaction(function () use ($request, $data): JsonResponse {
             $lesson = Lesson::query()->create([
@@ -57,9 +48,8 @@ class LessonController extends Controller
         });
     }
 
-    public function index(Request $request): JsonResponse
+    public function index(LessonIndexRequest $request): JsonResponse
     {
-        $request->validate(['status' => 'sometimes|in:all,active,archived']);
         $status = $request->query('status', 'active'); // active by default; all | active | archived
         $query = Lesson::query()->where('user_id', $request->user()->id);
 
@@ -91,9 +81,9 @@ class LessonController extends Controller
         return response()->json($lessons);
     }
 
-    public function show(Request $request, Lesson $lesson): JsonResponse
+    public function show(Lesson $lesson): JsonResponse
     {
-        $this->assertOwnsLesson($lesson, $request->user()->id);
+        $this->authorize('view', $lesson);
 
         return response()->json([
             'id' => $lesson->id,
@@ -119,9 +109,9 @@ class LessonController extends Controller
      * same "queued job, poll for the reply" shape — this agent's turns
      * aren't streamed).
      */
-    public function messages(Request $request, Lesson $lesson): JsonResponse
+    public function messages(Lesson $lesson): JsonResponse
     {
-        $this->assertOwnsLesson($lesson, $request->user()->id);
+        $this->authorize('view', $lesson);
 
         return response()->json($this->assistant->messages($lesson->id));
     }
@@ -132,7 +122,7 @@ class LessonController extends Controller
             return response()->json(['message' => 'AI agent feature is disabled.'], 503);
         }
 
-        $this->assertOwnsLesson($lesson, $request->user()->id);
+        $this->authorize('view', $lesson);
 
         $content = trim((string) $request->validated('content'));
         $attachment = $request->file('attachment');
@@ -169,9 +159,9 @@ class LessonController extends Controller
         return response()->json(['status' => 'queued'], 202);
     }
 
-    public function analyze(Request $request, Lesson $lesson): JsonResponse
+    public function analyze(Lesson $lesson): JsonResponse
     {
-        $this->assertOwnsLesson($lesson, $request->user()->id);
+        $this->authorize('view', $lesson);
 
         if (! AiConfig::isEnabled()) {
             return response()->json(['message' => 'AI analysis feature is disabled.'], 503);
@@ -225,13 +215,6 @@ class LessonController extends Controller
         ];
     }
 
-    private function assertOwnsLesson(Lesson $lesson, int $userId): void
-    {
-        if ($lesson->user_id !== $userId) {
-            abort(404);
-        }
-    }
-
     private function consumeRateLimit(int $userId): bool
     {
         $limit = (int) config('ai.agent.turns_per_day', 0);
@@ -251,22 +234,13 @@ class LessonController extends Controller
         return true;
     }
 
-    public function update(Request $request, Lesson $lesson): JsonResponse
+    public function update(LessonFieldsRequest $request, Lesson $lesson): JsonResponse
     {
-        $this->assertOwnsLesson($lesson, $request->user()->id);
-
-        $data = $request->validate([
-            'title' => 'nullable|string|max:255',
-            'lesson_date' => 'nullable|date',
-            'teacher' => 'nullable|string|max:255',
-            'topic' => 'nullable|string|max:255',
-            'language' => 'sometimes|required|string|max:8|regex:/^[a-z]{2,3}(?:-[A-Z]{2})?$/',
-            'tags' => 'nullable|array',
-            'tags.*' => 'string|max:64',
-            'notes' => 'nullable|string',
-            'homework' => 'nullable|string',
-            'status' => 'nullable|in:active,archived',
-        ]);
+        $this->authorize('update', $lesson);
+        $data = $request->validated();
+        if (array_key_exists('language', $data) && $data['language'] === null) {
+            $data['language'] = 'en';
+        }
 
         $lesson->update($data);
 
@@ -275,7 +249,7 @@ class LessonController extends Controller
 
     public function destroy(Lesson $lesson): JsonResponse
     {
-        $this->assertOwnsLesson($lesson, request()->user()->id);
+        $this->authorize('delete', $lesson);
 
         $lesson->update(['status' => Lesson::STATUS_ARCHIVED]);
 
@@ -284,7 +258,7 @@ class LessonController extends Controller
 
     public function restore(Lesson $lesson): JsonResponse
     {
-        $this->assertOwnsLesson($lesson, request()->user()->id);
+        $this->authorize('restore', $lesson);
 
         $lesson->update(['status' => Lesson::STATUS_ACTIVE]);
 

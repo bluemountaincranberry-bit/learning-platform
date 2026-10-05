@@ -3,6 +3,7 @@
 use App\Modules\Learning\Domain\Models\Lesson;
 use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 
 uses(RefreshDatabase::class);
 
@@ -54,6 +55,7 @@ test('lesson fields can be created edited and archived without deleting the less
     test()->getJson('/api/lessons?status=archived')->assertOk()->assertJsonPath('data.0.id', $lessonId);
     test()->postJson("/api/lessons/{$lessonId}/restore")->assertOk();
     test()->getJson('/api/lessons')->assertOk()->assertJsonPath('data.0.id', $lessonId);
+    test()->putJson("/api/lessons/{$lessonId}", ['language' => 'english'])->assertUnprocessable();
 
     expect(Lesson::query()->findOrFail($lessonId)->status)->toBe(Lesson::STATUS_ACTIVE);
 });
@@ -65,7 +67,31 @@ test('a lesson owner is the only user who can edit or archive it', function () {
 
     test()->putJson("/api/lessons/{$lesson->id}", ['notes' => 'Intrusion'])->assertNotFound();
     test()->deleteJson("/api/lessons/{$lesson->id}")->assertNotFound();
+    test()->postJson("/api/lessons/{$lesson->id}/restore")->assertNotFound();
 
     expect($lesson->fresh()->status)->toBe(Lesson::STATUS_ACTIVE)
         ->and($lesson->fresh()->notes)->toBeNull();
+});
+
+test('migration backfills lesson date and teacher without changing source text', function () {
+    $user = User::factory()->create();
+    $lesson = Lesson::query()->create([
+        'user_id' => $user->id,
+        'status' => Lesson::STATUS_ACTIVE,
+        'tutor' => 'Anna',
+        'source_text' => 'Existing captured notes.',
+        'created_at' => Carbon::parse('2026-09-18 13:30:00', 'UTC'),
+    ]);
+    $migration = require database_path('migrations/2026_10_05_151257_add_fields_to_lessons_table.php');
+
+    $migration->down();
+    $migration->up();
+
+    $migratedLesson = Lesson::query()->findOrFail($lesson->id);
+    expect($migratedLesson->lesson_date->toDateString())->toBe('2026-09-18')
+        ->and($migratedLesson->teacher)->toBe('Anna')
+        ->and($migratedLesson->notes)->toBe('')
+        ->and($migratedLesson->homework)->toBe('')
+        ->and($migratedLesson->tags)->toBe([])
+        ->and($migratedLesson->source_text)->toBe('Existing captured notes.');
 });
