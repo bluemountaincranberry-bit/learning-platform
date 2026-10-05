@@ -29,7 +29,7 @@ class LessonController extends Controller
             'lesson_date' => 'nullable|date',
             'teacher' => 'nullable|string|max:255',
             'topic' => 'nullable|string|max:255',
-            'language' => 'nullable|string|size:2|in:en,ru,de,fr,es,it,pl',
+            'language' => 'nullable|string|max:8|regex:/^[a-z]{2,3}(?:-[A-Z]{2})?$/',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:64',
             'notes' => 'nullable|string',
@@ -59,9 +59,10 @@ class LessonController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $status = $request->query('status'); // all | active | archived
+        $request->validate(['status' => 'sometimes|in:all,active,archived']);
+        $status = $request->query('status', 'active'); // active by default; all | active | archived
         $query = Lesson::query()->where('user_id', $request->user()->id);
-        
+
         if ($status === 'active') {
             $query->where('status', Lesson::STATUS_ACTIVE);
         } elseif ($status === 'archived') {
@@ -259,7 +260,7 @@ class LessonController extends Controller
             'lesson_date' => 'nullable|date',
             'teacher' => 'nullable|string|max:255',
             'topic' => 'nullable|string|max:255',
-            'language' => 'nullable|string|size:2|in:en,ru,de,fr,es,it,pl',
+            'language' => 'sometimes|required|string|max:8|regex:/^[a-z]{2,3}(?:-[A-Z]{2})?$/',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:64',
             'notes' => 'nullable|string',

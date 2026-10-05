@@ -1,7 +1,7 @@
 # VIK-12: Lesson page — header fields, editable notes, archive
 
-**Date:** 2026-10-05  
-**Status:** Design pass (mockup + note)  
+**Date:** 2026-10-05
+**Status:** Design pass (mockup + note)
 **Scope:** Entire lesson page redesign — header, notes editor, words/grammar/corrections blocks, attachments, optional AI chat tab.
 
 ---
@@ -87,7 +87,13 @@ The lesson page becomes a **single scrolling page** with tabs/sections:
 ```
 ┌─────────────────────────────────────┐ 390 px
 │ ◀  Business idioms         10:42    │ header (sticky on scroll? no)
-│ Tutor: Anna  •  5 Oct 2026          │
+│ [Save] [Archive lesson]             │
+│ Title          Date                 │
+│ [Business idioms] [2026-10-05]      │
+│ Teacher        Topic                │
+│ [Anna]         [Business idioms]     │
+│ Language       Tags                 │
+│ [en]           [work, speaking]      │
 │ ─────────────────────────────────── │
 │ [Notes] [Words] [Grammar] [Chat]    │ segment tabs (full width)
 │ ─────────────────────────────────── │
@@ -125,7 +131,7 @@ The **current chat UI moves to the Chat tab**. The Notes tab is the default/land
 - Toolbar above keyboard (or inline top): **Bold, Italic, Heading, Bullet list, Numbered list**.
 - **Safe-area-aware**: `padding-bottom: env(safe-area-inset-bottom) + 16px` so the textarea is never covered by the home indicator/bottom nav when focused.
 - Keyboard type: `enterkeyhint="done"`, `inputmode="text"`.
-- Save: **auto-save on blur** + explicit "Save" button in header (sticky? or just top-right).
+- Save: notes auto-save on blur; the header's explicit "Save" button persists all editable fields together.
 - Markdown rendering: preview mode toggle (edit/preview) — v2, keep simple edit-only for v1.
 
 ---
@@ -175,8 +181,8 @@ Each row:
 
 | AC | Covered by |
 |---|---|
-| Create lesson, fill header & notes, save, reopen — data is there | API create/show + Notes tab editor |
-| Edit and archive work; archived hidden by default | PUT/DELETE endpoints + list filter |
+| Create lesson, fill header & notes, save, reopen — data is there | API round-trip feature test + lesson header editor |
+| Edit and archive work; archived hidden by default | PUT/archive/restore feature and UI tests + active-by-default list filter |
 | 360 px notes editor full-width, never covered by bottom nav | Safe-area padding + auto-grow textarea |
 | AI chat no longer main input; optional tab | 4-tab layout, Notes default |
 

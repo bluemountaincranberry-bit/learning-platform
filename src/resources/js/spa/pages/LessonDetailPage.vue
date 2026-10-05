@@ -32,6 +32,8 @@ const chatError = ref('');
 const failedMessage = ref<{ text: string; file: File | null } | null>(null);
 const analyzing = ref(false);
 const saving = ref(false);
+const archiving = ref(false);
+const tagsDraft = ref('');
 
 const inputText = ref('');
 const attachment = ref<File | null>(null);
@@ -52,6 +54,9 @@ const canSend = computed(() => (inputText.value.trim() !== '' || attachment.valu
 
 async function loadLesson() {
     lesson.value = await lessonApi.get(lessonId.value);
+    lesson.value.lesson_date = lesson.value.lesson_date?.slice(0, 10) ?? null;
+    lesson.value.language = lesson.value.language || 'en';
+    tagsDraft.value = (lesson.value.tags ?? []).join(', ');
 }
 
 async function loadMessages() {
@@ -172,20 +177,48 @@ function autoResizeTextarea(el: HTMLTextAreaElement | null) {
     el.style.height = `${Math.min(el.scrollHeight, 400)}px`;
 }
 
-async function saveNotes() {
+async function saveLesson() {
     if (!lesson.value) return;
     saving.value = true;
     error.value = '';
     try {
+        const tags = tagsDraft.value.split(',').map((tag) => tag.trim()).filter(Boolean);
         await lessonApi.update(lessonId.value, {
+            title: lesson.value.title,
+            lesson_date: lesson.value.lesson_date,
+            teacher: lesson.value.teacher,
+            topic: lesson.value.topic,
+            language: lesson.value.language || 'en',
+            tags,
             notes: lesson.value.notes,
             homework: lesson.value.homework,
         });
+        lesson.value.tags = tags;
     } catch (e: unknown) {
         const err = e as { response?: { data?: { message?: string } } };
-        error.value = err.response?.data?.message ?? 'Failed to save notes.';
+        error.value = err.response?.data?.message ?? 'Failed to save lesson.';
     } finally {
         saving.value = false;
+    }
+}
+
+async function toggleArchive() {
+    if (!lesson.value) return;
+    archiving.value = true;
+    error.value = '';
+    try {
+        if (lesson.value.status === 'archived') {
+            await lessonApi.restore(lessonId.value);
+            lesson.value.status = 'active';
+        } else {
+            await lessonApi.destroy(lessonId.value);
+            lesson.value.status = 'archived';
+        }
+    } catch (e: unknown) {
+        const err = e as { response?: { data?: { message?: string } } };
+        error.value = err.response?.data?.message ?? 'Failed to update lesson status.';
+    } finally {
+        archiving.value = false;
     }
 }
 
@@ -224,13 +257,42 @@ onUnmounted(() => {
                             :subtitle="lesson.teacher ? `Teacher: ${lesson.teacher}` : (lesson.lesson_date ? `Date: ${new Date(lesson.lesson_date).toLocaleDateString()}` : 'Notes from this lesson')"
                         />
                         <div class="flex items-center gap-2">
-                            <UiButton variant="secondary" :disabled="saving" @click="saveNotes">
+                            <UiButton variant="secondary" :disabled="archiving" @click="toggleArchive">
+                                {{ archiving ? 'Saving...' : lesson.status === 'archived' ? 'Restore lesson' : 'Archive lesson' }}
+                            </UiButton>
+                            <UiButton variant="secondary" :disabled="saving" @click="saveLesson">
                                 <Save :size="16" class="mr-1" /> {{ saving ? 'Saving...' : 'Save' }}
                             </UiButton>
                             <UiButton variant="primary" :disabled="analyzing" @click="analyzeLesson">
                                 <Sparkles :size="16" /> {{ analyzing ? 'Analyzing...' : 'Analyze lesson' }}
                             </UiButton>
                         </div>
+                        </div>
+                    <div class="mt-5 grid min-w-0 grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
+                        <label class="block min-w-0 space-y-2">
+                            <span class="text-sm font-medium text-fg-secondary">Title</span>
+                            <UiInput id="lesson-title" :model-value="lesson.title ?? ''" placeholder="Lesson title" @update:model-value="lesson.title = $event" />
+                        </label>
+                        <label class="block min-w-0 space-y-2">
+                            <span class="text-sm font-medium text-fg-secondary">Date</span>
+                            <UiInput id="lesson-date" :model-value="lesson.lesson_date ?? ''" type="date" @update:model-value="lesson.lesson_date = $event || null" />
+                        </label>
+                        <label class="block min-w-0 space-y-2">
+                            <span class="text-sm font-medium text-fg-secondary">Teacher or group</span>
+                            <UiInput id="lesson-teacher" :model-value="lesson.teacher ?? ''" placeholder="Teacher or group" @update:model-value="lesson.teacher = $event" />
+                        </label>
+                        <label class="block min-w-0 space-y-2">
+                            <span class="text-sm font-medium text-fg-secondary">Topic</span>
+                            <UiInput id="lesson-topic" :model-value="lesson.topic ?? ''" placeholder="Topic" @update:model-value="lesson.topic = $event" />
+                        </label>
+                        <label class="block min-w-0 space-y-2">
+                            <span class="text-sm font-medium text-fg-secondary">Language code</span>
+                            <UiInput id="lesson-language" :model-value="lesson.language" maxlength="8" placeholder="en" @update:model-value="lesson.language = $event" />
+                        </label>
+                        <label class="block min-w-0 space-y-2 sm:col-span-2">
+                            <span class="text-sm font-medium text-fg-secondary">Tags</span>
+                            <UiInput id="lesson-tags" v-model="tagsDraft" placeholder="Comma-separated tags" />
+                        </label>
                     </div>
                 </UiCard>
 
@@ -253,10 +315,12 @@ onUnmounted(() => {
                                     class="w-full min-h-[180px] max-h-[500px] resize-none rounded-spa border border-border bg-surface p-4 text-base font-mono text-fg placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     placeholder="Write your lesson notes here…"
                                     @input="autoResizeTextarea(notesTextarea)"
-                                    @keydown.enter.exact.prevent="saveNotes()"
+                                    @blur="saveLesson"
+                                    @keydown.ctrl.enter.exact.prevent="saveLesson()"
+                                    @keydown.meta.enter.exact.prevent="saveLesson()"
                                 ></textarea>
                                 <p class="mt-2 text-xs text-muted-foreground">
-                                    Auto-saves on blur. Press Ctrl+Enter to save.
+                                    Saves automatically on blur. Press Ctrl+Enter to save now.
                                 </p>
                             </label>
                         </div>

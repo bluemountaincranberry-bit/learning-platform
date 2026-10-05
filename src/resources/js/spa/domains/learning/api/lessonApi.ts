@@ -70,6 +70,8 @@ export interface LessonDetail {
     grammar: LessonGrammarCandidate[];
 }
 
+export type UpdateLessonInput = Pick<LessonDetail, 'title' | 'lesson_date' | 'teacher' | 'topic' | 'language' | 'tags' | 'notes' | 'homework'>;
+
 export const lessonApi = {
     list(page = 1, status?: 'all' | 'active' | 'archived'): Promise<{ data: LessonSummary[]; meta: { current_page: number; per_page: number; total: number; last_page?: number } }> {
         const params: Record<string, string | number> = { page };
@@ -101,7 +103,7 @@ export const lessonApi = {
         return axios.post(`/api/lessons/${lessonId}/analyze`).then((r) => r.data);
     },
 
-    update(lessonId: number, data: Partial<LessonSummary> & { notes?: string | null; homework?: string | null; status?: 'active' | 'archived' }): Promise<void> {
+    update(lessonId: number, data: Partial<UpdateLessonInput>): Promise<void> {
         return axios.put(`/api/lessons/${lessonId}`, data).then(() => undefined);
     },
 

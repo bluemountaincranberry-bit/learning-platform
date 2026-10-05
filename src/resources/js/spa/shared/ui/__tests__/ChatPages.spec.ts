@@ -3,7 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import ChatPage from '../../../pages/ChatPage.vue';
 import LessonDetailPage from '../../../pages/LessonDetailPage.vue';
-const api = vi.hoisted(() => ({ createConversation: vi.fn(), streamMessage: vi.fn(), get: vi.fn(), listMessages: vi.fn(), sendMessage: vi.fn(), speak: vi.fn() }));
+const api = vi.hoisted(() => ({ createConversation: vi.fn(), streamMessage: vi.fn(), get: vi.fn(), listMessages: vi.fn(), sendMessage: vi.fn(), update: vi.fn(), destroy: vi.fn(), restore: vi.fn(), speak: vi.fn() }));
 vi.mock('../../../shared/lib/speech', () => ({ isSpeechSupported: () => true, speak: api.speak }));
 vi.mock('../../../domains/ai', () => ({ tutorApi: api }));
 vi.mock('../../../domains/user', () => ({ useAuthStore: () => ({ isAuthenticated: true, canAccessTutorAgent: true }) }));
@@ -42,7 +42,7 @@ describe('chat page retry seams', () => {
         const chatTab = wrapper.findAll('button[role="tab"]').find((node) => node.text() === 'Chat');
         if (chatTab) await chatTab.trigger('click');
         await flushPromises();
-        await wrapper.get('input[type="text"]').setValue('Notes');
+        await wrapper.get('input[placeholder="What did you learn today?"]').setValue('Notes');
         await button(wrapper, 'Send').trigger('click');
         await flushPromises();
         await button(wrapper, 'Try again').trigger('click');
@@ -64,11 +64,11 @@ describe('chat page retry seams', () => {
         const file = new File(['notes'], 'notes.pdf', { type: 'application/pdf' });
         Object.defineProperty(wrapper.get('input[type="file"]').element, 'files', { value: [file] });
         await wrapper.get('input[type="file"]').trigger('change');
-        await wrapper.get('input[type="text"]').setValue('Original notes');
+        await wrapper.get('input[placeholder="What did you learn today?"]').setValue('Original notes');
         await button(wrapper, 'Send').trigger('click');
         await flushPromises();
         expect(wrapper.text()).toContain('notes.pdf');
-        await wrapper.get('input[type="text"]').setValue('Edited draft');
+        await wrapper.get('input[placeholder="What did you learn today?"]').setValue('Edited draft');
         await button(wrapper, 'Try again').trigger('click');
         await flushPromises();
         expect(api.sendMessage.mock.calls[1]).toEqual([3, 'Original notes', file]);
@@ -88,6 +88,49 @@ describe('chat page retry seams', () => {
         expect(api.speak).toHaveBeenCalledWith('bonjour', 'fr');
         await wrapper.get('button[aria-label="Pronounce Bonjour tout le monde."]').trigger('click');
         expect(api.speak).toHaveBeenCalledWith('Bonjour tout le monde.', 'fr');
+    });
+
+    it('saves editable lesson fields together from the lesson header', async () => {
+        api.get.mockResolvedValue({
+            id: 3, title: 'Lesson', lesson_date: '2026-10-05T00:00:00.000000Z', teacher: 'Marie',
+            topic: 'Travel', language: 'fr', tags: ['speaking'], notes: 'Original', homework: '',
+            grammar: [], lexemes: [],
+        });
+        api.listMessages.mockResolvedValue({ messages: [], is_waiting: false });
+        api.update.mockResolvedValue(undefined);
+        const wrapper = await renderPage(LessonDetailPage, '/lessons/3');
+        await flushPromises();
+
+        await wrapper.get('#lesson-title').setValue('French class');
+        await wrapper.get('#lesson-date').setValue('2026-10-12');
+        await wrapper.get('#lesson-teacher').setValue('Marie');
+        await wrapper.get('#lesson-topic').setValue('At the station');
+        await wrapper.get('#lesson-language').setValue('ja');
+        await wrapper.get('#lesson-tags').setValue('travel, review');
+        await wrapper.get('textarea').setValue('Updated notes');
+        await button(wrapper, 'Save').trigger('click');
+        await flushPromises();
+
+        expect(api.update).toHaveBeenCalledWith(3, {
+            title: 'French class', lesson_date: '2026-10-12', teacher: 'Marie', topic: 'At the station',
+            language: 'ja', tags: ['travel', 'review'], notes: 'Updated notes', homework: '',
+        });
+    });
+
+    it('archives and restores the lesson without deleting it', async () => {
+        api.get.mockResolvedValue({ id: 3, title: 'Lesson', status: 'active', language: 'en', tags: [], notes: '', homework: '', grammar: [], lexemes: [] });
+        api.listMessages.mockResolvedValue({ messages: [], is_waiting: false });
+        api.destroy.mockResolvedValue(undefined);
+        api.restore.mockResolvedValue(undefined);
+        const wrapper = await renderPage(LessonDetailPage, '/lessons/3');
+        await flushPromises();
+
+        await button(wrapper, 'Archive lesson').trigger('click');
+        await flushPromises();
+        expect(api.destroy).toHaveBeenCalledWith(3);
+        await button(wrapper, 'Restore lesson').trigger('click');
+        await flushPromises();
+        expect(api.restore).toHaveBeenCalledWith(3);
     });
 
 });
