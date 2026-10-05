@@ -257,7 +257,7 @@ onUnmounted(() => {
                             :title="lesson.title || 'Lesson'"
                             :subtitle="lesson.teacher ? `Teacher: ${lesson.teacher}` : (lesson.lesson_date ? `Date: ${new Date(lesson.lesson_date).toLocaleDateString()}` : 'Notes from this lesson')"
                         />
-                        <div class="flex items-center gap-2">
+                        <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                             <UiButton variant="secondary" :disabled="archiving" @click="toggleArchive">
                                 {{ archiving ? 'Saving...' : lesson.status === 'archived' ? 'Restore lesson' : 'Archive lesson' }}
                             </UiButton>

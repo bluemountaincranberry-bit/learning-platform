@@ -21,7 +21,7 @@ Add columns to `lessons` table:
 
 ```php
 $table->date('lesson_date')->nullable();      // date of the lesson
-$table->string('teacher')->nullable();        // rename tutor -> teacher/group
+$table->string('teacher')->nullable();        // new canonical lesson field; legacy tutor data is copied
 $table->string('topic')->nullable();          // lesson topic
 $table->string('language', 8)->default('en')->change(); // already exists
 $table->json('tags')->nullable();             // array of tag strings
@@ -195,7 +195,7 @@ Each row:
 |---|---|
 | Archive = soft delete or status? | `status: archived` (already exists) |
 | Unarchive needed? | Yes — `POST /restore` endpoint |
-| `tutor` → `teacher` rename or alias? | **Rename in migration**, keep getter for compat |
+| `tutor` → `teacher` migration/API compatibility? | The API and SPA use `teacher`; the migration copies legacy `tutor` values and retains the old DB column. There is one bundled client, so no legacy API alias/getter is needed. |
 | Markdown in notes? | Yes, v1 stores raw Markdown; preview toggle v2 |
 | Tags: free text or controlled vocab? | Free text array (student's own tags) |
 
