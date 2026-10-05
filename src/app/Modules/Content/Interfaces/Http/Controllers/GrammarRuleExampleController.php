@@ -11,6 +11,7 @@ use App\Modules\Content\Domain\Models\GrammarRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Rule page examples (VIK-39): the list (with the latest AI batch status,
@@ -27,7 +28,7 @@ class GrammarRuleExampleController extends Controller
     public function index(Request $request, GrammarRule $rule): JsonResponse
     {
         $userId = $request->user('sanctum')?->id;
-        $this->authorizeRule($rule, $userId === null ? null : (int) $userId);
+        Gate::forUser($request->user('sanctum'))->authorize('view', $rule);
 
         // Public route: the sanctum guard is checked explicitly, as in GrammarRuleController.
         $examples = $rule->status === GrammarRule::STATUS_PERSONAL
@@ -42,7 +43,7 @@ class GrammarRuleExampleController extends Controller
 
     public function generate(Request $request, GrammarRule $rule): JsonResponse
     {
-        $this->authorizeRule($rule, (int) $request->user()->id);
+        Gate::forUser($request->user())->authorize('view', $rule);
 
         $user = $request->user();
         $result = $this->generations->request(
@@ -64,18 +65,10 @@ class GrammarRuleExampleController extends Controller
 
     public function hide(Request $request, GrammarRule $rule, int $example): Response
     {
-        $this->authorizeRule($rule, (int) $request->user()->id);
+        Gate::forUser($request->user())->authorize('view', $rule);
         abort_unless($this->reader->hide($rule->id, $example, $request->user()->id), 404);
 
         return response()->noContent();
     }
 
-    private function authorizeRule(GrammarRule $rule, ?int $userId): void
-    {
-        abort_unless(
-            $rule->status === GrammarRule::STATUS_PUBLISHED
-            || ($rule->status === GrammarRule::STATUS_PERSONAL && $userId !== null && (int) $rule->owner_user_id === $userId),
-            404,
-        );
-    }
 }

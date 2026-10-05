@@ -46,7 +46,7 @@ class GrammarRuleController extends Controller
 
     public function show(Request $request, GrammarRule $rule): JsonResponse
     {
-        $this->authorizeRule($rule, $request->user('sanctum')?->id);
+        Gate::forUser($request->user('sanctum'))->authorize('view', $rule);
 
         $rule = $this->grammarCatalogService->getRule($rule);
         if ($rule->status === GrammarRule::STATUS_PERSONAL) {
@@ -80,7 +80,7 @@ class GrammarRuleController extends Controller
 
     public function startLearning(Request $request, GrammarRule $rule): JsonResponse
     {
-        $this->authorizeRule($rule, $request->user()->id);
+        Gate::forUser($request->user())->authorize('view', $rule);
 
         $this->grammarProgressService->startLearning($rule, $request->user()->id);
 
@@ -89,7 +89,7 @@ class GrammarRuleController extends Controller
 
     public function markLearned(Request $request, GrammarRule $rule): JsonResponse
     {
-        $this->authorizeRule($rule, $request->user()->id);
+        Gate::forUser($request->user())->authorize('view', $rule);
 
         $this->grammarProgressService->markLearned($rule, $request->user()->id);
 
@@ -98,7 +98,7 @@ class GrammarRuleController extends Controller
 
     public function unmarkLearned(Request $request, GrammarRule $rule): JsonResponse
     {
-        $this->authorizeRule($rule, $request->user()->id);
+        Gate::forUser($request->user())->authorize('view', $rule);
 
         $this->grammarProgressService->unmarkLearned($rule, $request->user()->id);
 
@@ -113,7 +113,7 @@ class GrammarRuleController extends Controller
      */
     public function setConfidence(Request $request, GrammarRule $rule): JsonResponse
     {
-        $this->authorizeRule($rule, $request->user()->id);
+        Gate::forUser($request->user())->authorize('view', $rule);
 
         $validated = $request->validate([
             'confidence' => ['nullable', 'numeric', 'min:0', 'max:100'],
@@ -126,7 +126,7 @@ class GrammarRuleController extends Controller
 
     public function exercises(Request $request, GrammarRule $rule): JsonResponse
     {
-        $this->authorizeRule($rule, $request->user('sanctum')?->id);
+        Gate::forUser($request->user('sanctum'))->authorize('view', $rule);
 
         $exercises = $rule->exercises()->where('status', GrammarRuleExercise::STATUS_PUBLISHED)->get();
 
@@ -167,12 +167,4 @@ class GrammarRuleController extends Controller
         }
     }
 
-    private function authorizeRule(GrammarRule $rule, ?int $userId): void
-    {
-        abort_unless(
-            $rule->status === GrammarRule::STATUS_PUBLISHED
-            || ($rule->status === GrammarRule::STATUS_PERSONAL && $userId !== null && $rule->owner_user_id === $userId),
-            404,
-        );
-    }
 }
