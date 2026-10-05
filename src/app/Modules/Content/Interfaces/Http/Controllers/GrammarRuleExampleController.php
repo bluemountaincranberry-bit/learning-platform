@@ -26,20 +26,23 @@ class GrammarRuleExampleController extends Controller
 
     public function index(Request $request, GrammarRule $rule): JsonResponse
     {
-        abort_unless($rule->status === GrammarRule::STATUS_PUBLISHED, 404);
+        $userId = $request->user('sanctum')?->id;
+        $this->authorizeRule($rule, $userId === null ? null : (int) $userId);
 
         // Public route: the sanctum guard is checked explicitly, as in GrammarRuleController.
-        $userId = $request->user('sanctum')?->id;
+        $examples = $rule->status === GrammarRule::STATUS_PERSONAL
+            ? $rule->examples()->orderBy('sort_order')->get()
+            : $this->reader->forLearner($rule->id, $userId);
 
         return response()->json([
-            'examples' => GrammarRuleExampleResource::collection($this->reader->forLearner($rule->id, $userId)),
+            'examples' => GrammarRuleExampleResource::collection($examples),
             'generation' => ['status' => $this->generations->latestStatus($rule->id)],
         ]);
     }
 
     public function generate(Request $request, GrammarRule $rule): JsonResponse
     {
-        abort_unless($rule->status === GrammarRule::STATUS_PUBLISHED, 404);
+        $this->authorizeRule($rule, (int) $request->user()->id);
 
         $user = $request->user();
         $result = $this->generations->request(
@@ -61,8 +64,18 @@ class GrammarRuleExampleController extends Controller
 
     public function hide(Request $request, GrammarRule $rule, int $example): Response
     {
+        $this->authorizeRule($rule, (int) $request->user()->id);
         abort_unless($this->reader->hide($rule->id, $example, $request->user()->id), 404);
 
         return response()->noContent();
+    }
+
+    private function authorizeRule(GrammarRule $rule, ?int $userId): void
+    {
+        abort_unless(
+            $rule->status === GrammarRule::STATUS_PUBLISHED
+            || ($rule->status === GrammarRule::STATUS_PERSONAL && $userId !== null && (int) $rule->owner_user_id === $userId),
+            404,
+        );
     }
 }

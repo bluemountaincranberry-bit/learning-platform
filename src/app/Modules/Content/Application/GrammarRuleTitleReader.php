@@ -9,6 +9,6 @@ final class GrammarRuleTitleReader implements GrammarRuleTitleReaderInterface
 {
     public function titlesForIds(array $ruleIds): array
     {
-        return GrammarRule::query()->whereIn('id', $ruleIds)->pluck('title')->all();
+        return GrammarRule::query()->whereNull('owner_user_id')->whereIn('id', $ruleIds)->pluck('title')->all();
     }
 }

@@ -4,6 +4,7 @@ namespace App\Modules\Learning\Interfaces\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Learning\Application\LessonItemService;
+use App\Modules\Learning\Application\LessonGrammarSelectionService;
 use App\Modules\Learning\Domain\Models\Lesson;
 use App\Modules\Learning\Domain\Models\LessonCorrection;
 use App\Modules\Learning\Domain\Models\LessonGrammarCandidate;
@@ -13,6 +14,7 @@ use App\Modules\Learning\Interfaces\Http\Requests\LessonGrammarRequest;
 use App\Modules\Learning\Interfaces\Http\Requests\LessonLexemeRequest;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class LessonItemController extends Controller
@@ -77,6 +79,13 @@ class LessonItemController extends Controller
         return response()->json($this->grammar($this->items->restoreGrammar($lesson, $item)));
     }
 
+    public function addGrammarToMyGrammar(Request $request, Lesson $lesson, int $item, LessonGrammarSelectionService $selection): JsonResponse
+    {
+        $this->authorize('update', $lesson);
+
+        return response()->json($selection->addToMyGrammar($lesson, $item, (int) $request->user()->id));
+    }
+
     public function storeCorrection(LessonCorrectionRequest $request, Lesson $lesson): JsonResponse
     {
         $this->authorize('update', $lesson);
@@ -124,6 +133,7 @@ class LessonItemController extends Controller
             'id' => $item->id, 'title' => $item->title, 'summary' => $item->summary, 'body' => $item->body,
             'example' => $item->example, 'example_translation' => $item->example_translation,
             'status' => $item->status, 'matched_grammar_rule_id' => $item->matched_grammar_rule_id,
+            'personal_grammar_rule_id' => $item->personal_grammar_rule_id,
             'source' => $item->source,
         ];
     }

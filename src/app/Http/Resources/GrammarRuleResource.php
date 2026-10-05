@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Modules\Content\Domain\Models\GrammarRule;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -25,10 +26,15 @@ class GrammarRuleResource extends JsonResource
             'level' => $this->level,
             'summary' => $this->summary,
             'body' => $this->body,
-            'topic' => $this->whenLoaded('topic', fn (): array => [
+            'topic' => $this->whenLoaded('topic', fn (): ?array => $this->topic === null ? null : [
                 'id' => $this->topic->id,
                 'name' => $this->topic->name,
             ]),
+            'is_personal' => $this->status === GrammarRule::STATUS_PERSONAL,
+            'source_lesson' => $this->when(
+                $this->status === GrammarRule::STATUS_PERSONAL,
+                fn (): array => ['id' => $this->source_lesson_id, 'title' => $this->source_lesson_title],
+            ),
             'examples' => $this->whenLoaded('examples', fn () => GrammarRuleExampleResource::collection($this->examples->values())),
             'in_my_list' => $this->when(isset($this->in_my_list), fn (): bool => (bool) $this->in_my_list),
             'learned' => $this->when(isset($this->learned), fn (): bool => (bool) $this->learned),

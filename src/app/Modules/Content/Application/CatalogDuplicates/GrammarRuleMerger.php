@@ -83,6 +83,9 @@ final class GrammarRuleMerger
         if ($keep->id === $duplicate->id) {
             throw new DuplicateMergeRefused('A rule cannot be merged into itself.');
         }
+        if ($keep->owner_user_id !== null || $duplicate->owner_user_id !== null) {
+            throw new DuplicateMergeRefused('Personal rules cannot be merged into the shared grammar catalog.');
+        }
         if ($keep->language !== $duplicate->language) {
             throw new DuplicateMergeRefused(sprintf('Rules #%d and #%d are in different languages.', $keep->id, $duplicate->id));
         }

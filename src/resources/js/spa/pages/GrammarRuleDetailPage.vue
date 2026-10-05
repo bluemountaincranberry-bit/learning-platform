@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { RouterLink } from 'vue-router';
 import PageState from '../components/ui/PageState.vue';
 import UiButton from '../shared/ui/UiButton.vue';
 import UiSectionHeader from '../shared/ui/UiSectionHeader.vue';
@@ -122,6 +123,13 @@ onMounted(loadRule);
                 <UiSectionHeader title="Explanation" :subtitle="rule.topic?.name" />
                 <p v-if="rule.summary" class="text-base leading-7 text-muted-foreground">{{ rule.summary }}</p>
                 <MarkdownContent :content="rule.body" />
+                <p v-if="rule.is_personal && rule.source_lesson" class="text-sm text-muted-foreground" data-test="personal-rule-source">
+                    From lesson:
+                    <RouterLink v-if="rule.source_lesson.id" :to="{ name: 'lesson.details', params: { id: rule.source_lesson.id } }" class="font-medium text-primary underline">
+                        {{ rule.source_lesson.title ?? 'View lesson' }}
+                    </RouterLink>
+                    <span v-else>{{ rule.source_lesson.title ?? 'Lesson no longer available' }}</span>
+                </p>
             </section>
 
             <section class="space-y-3 border-t border-border pt-5 sm:rounded-xl sm:border sm:bg-card sm:p-5">
@@ -134,7 +142,7 @@ onMounted(loadRule);
                 />
             </section>
 
-            <section id="rule-exercises" class="scroll-mt-24 space-y-3 border-t border-border pt-5 sm:rounded-xl sm:border sm:bg-card sm:p-5">
+            <section v-if="!rule.is_personal" id="rule-exercises" class="scroll-mt-24 space-y-3 border-t border-border pt-5 sm:rounded-xl sm:border sm:bg-card sm:p-5">
                 <UiSectionHeader title="Exercises" subtitle="Practice this rule" />
                 <ExercisePractice v-if="exercises.length > 0" :exercises="exercises" />
                 <p v-else class="text-sm text-muted-foreground">No exercises yet for this rule.</p>

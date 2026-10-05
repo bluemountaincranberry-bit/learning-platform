@@ -25,6 +25,9 @@ class GrammarRule extends Model
 
     public const STATUS_ARCHIVED = 'archived';
 
+    /** A learner-owned rule; never part of the shared catalog. */
+    public const STATUS_PERSONAL = 'personal';
+
     public const STATUSES = [self::STATUS_DRAFT, self::STATUS_REVIEW, self::STATUS_PUBLISHED, self::STATUS_ARCHIVED];
 
     protected static function booted(): void

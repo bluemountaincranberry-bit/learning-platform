@@ -8,6 +8,7 @@ use App\Modules\Ai\Domain\Models\CanonicalLexemeEmbedding;
 use App\Modules\Ai\Domain\Models\GrammarRuleEmbedding;
 use App\Modules\Content\Application\Contracts\CandidateMatchStoreInterface;
 use App\Modules\Content\Application\Contracts\ContentAnalysisSourceReaderInterface;
+use App\Modules\Content\Domain\Models\GrammarRule;
 use Illuminate\Support\Collection;
 
 class CandidateMatchingService
@@ -124,7 +125,10 @@ class CandidateMatchingService
         }
 
         $modelVersion = config('ai.embeddings.model', 'text-embedding-3-small');
-        $rows = GrammarRuleEmbedding::query()->where('model_version', $modelVersion)->get();
+        $rows = GrammarRuleEmbedding::query()
+            ->where('model_version', $modelVersion)
+            ->whereHas('grammarRule', fn ($query) => $query->whereNull('owner_user_id')->where('status', '!=', GrammarRule::STATUS_ARCHIVED))
+            ->get();
 
         if ($rows->isEmpty()) {
             return;
@@ -221,7 +225,10 @@ class CandidateMatchingService
         }
 
         $modelVersion = config('ai.embeddings.model', 'text-embedding-3-small');
-        $rows = GrammarRuleEmbedding::query()->where('model_version', $modelVersion)->get();
+        $rows = GrammarRuleEmbedding::query()
+            ->where('model_version', $modelVersion)
+            ->whereHas('grammarRule', fn ($query) => $query->whereNull('owner_user_id')->where('status', '!=', GrammarRule::STATUS_ARCHIVED))
+            ->get();
 
         if ($rows->isEmpty()) {
             return ['grammar_rule_id' => null, 'score' => null];

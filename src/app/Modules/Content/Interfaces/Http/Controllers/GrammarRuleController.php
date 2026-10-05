@@ -46,11 +46,15 @@ class GrammarRuleController extends Controller
 
     public function show(Request $request, GrammarRule $rule): JsonResponse
     {
-        abort_unless($rule->status === GrammarRule::STATUS_PUBLISHED, 404);
+        $this->authorizeRule($rule, $request->user('sanctum')?->id);
 
         $rule = $this->grammarCatalogService->getRule($rule);
-        // Learner order and the learner's hidden examples (VIK-39), not the admin list.
-        $rule->setRelation('examples', $this->exampleReader->forLearner($rule->id, $request->user('sanctum')?->id));
+        if ($rule->status === GrammarRule::STATUS_PERSONAL) {
+            $rule->setRelation('examples', $rule->examples()->get());
+        } else {
+            // Learner order and the learner's hidden examples (VIK-39), not the admin list.
+            $rule->setRelation('examples', $this->exampleReader->forLearner($rule->id, $request->user('sanctum')?->id));
+        }
         $this->annotateWithProgress($request, collect([$rule]));
 
         return response()->json([
@@ -76,7 +80,7 @@ class GrammarRuleController extends Controller
 
     public function startLearning(Request $request, GrammarRule $rule): JsonResponse
     {
-        abort_unless($rule->status === GrammarRule::STATUS_PUBLISHED, 404);
+        $this->authorizeRule($rule, $request->user()->id);
 
         $this->grammarProgressService->startLearning($rule, $request->user()->id);
 
@@ -85,7 +89,7 @@ class GrammarRuleController extends Controller
 
     public function markLearned(Request $request, GrammarRule $rule): JsonResponse
     {
-        abort_unless($rule->status === GrammarRule::STATUS_PUBLISHED, 404);
+        $this->authorizeRule($rule, $request->user()->id);
 
         $this->grammarProgressService->markLearned($rule, $request->user()->id);
 
@@ -94,7 +98,7 @@ class GrammarRuleController extends Controller
 
     public function unmarkLearned(Request $request, GrammarRule $rule): JsonResponse
     {
-        abort_unless($rule->status === GrammarRule::STATUS_PUBLISHED, 404);
+        $this->authorizeRule($rule, $request->user()->id);
 
         $this->grammarProgressService->unmarkLearned($rule, $request->user()->id);
 
@@ -109,7 +113,7 @@ class GrammarRuleController extends Controller
      */
     public function setConfidence(Request $request, GrammarRule $rule): JsonResponse
     {
-        abort_unless($rule->status === GrammarRule::STATUS_PUBLISHED, 404);
+        $this->authorizeRule($rule, $request->user()->id);
 
         $validated = $request->validate([
             'confidence' => ['nullable', 'numeric', 'min:0', 'max:100'],
@@ -120,9 +124,9 @@ class GrammarRuleController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    public function exercises(GrammarRule $rule): JsonResponse
+    public function exercises(Request $request, GrammarRule $rule): JsonResponse
     {
-        abort_unless($rule->status === GrammarRule::STATUS_PUBLISHED, 404);
+        $this->authorizeRule($rule, $request->user('sanctum')?->id);
 
         $exercises = $rule->exercises()->where('status', GrammarRuleExercise::STATUS_PUBLISHED)->get();
 
@@ -161,5 +165,14 @@ class GrammarRuleController extends Controller
             $rule->confidence_manual = $flags['confidence_manual']->get($rule->id);
             $rule->confidence_calculated = $flags['confidence_calculated']->get($rule->id);
         }
+    }
+
+    private function authorizeRule(GrammarRule $rule, ?int $userId): void
+    {
+        abort_unless(
+            $rule->status === GrammarRule::STATUS_PUBLISHED
+            || ($rule->status === GrammarRule::STATUS_PERSONAL && $userId !== null && $rule->owner_user_id === $userId),
+            404,
+        );
     }
 }

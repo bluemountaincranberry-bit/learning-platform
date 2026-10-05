@@ -26,6 +26,7 @@ class ComputeGrammarRuleEmbeddingsCommand extends Command
                 ->all();
 
             $ids = GrammarRule::query()
+                ->whereNull('owner_user_id')
                 ->whereNotIn('id', $existingIds)
                 ->pluck('id')
                 ->all();

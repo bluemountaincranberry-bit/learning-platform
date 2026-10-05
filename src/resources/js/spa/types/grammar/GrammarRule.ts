@@ -13,7 +13,7 @@ export interface GrammarRuleExample {
     mistake: string | null;
     /** The grammar form inside `example`: [start, end) offsets in characters (code points). Null when not marked. */
     target_spans: [number, number][] | null;
-    origin: 'admin' | 'ai' | 'content';
+    origin: 'admin' | 'ai' | 'content' | 'lesson';
     /** Taken from a video/lesson (real context). */
     from_content: boolean;
 }
@@ -41,6 +41,8 @@ export interface GrammarRule {
     level: string | null;
     summary: string | null;
     body: string | null;
+    is_personal?: boolean;
+    source_lesson?: { id: number | null; title: string | null };
     topic?: GrammarRuleTopic;
     examples?: GrammarRuleExample[];
     /** Present only when the request is authenticated. */

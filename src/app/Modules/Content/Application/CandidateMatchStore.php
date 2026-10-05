@@ -47,6 +47,7 @@ class CandidateMatchStore implements CandidateMatchStoreInterface
         }
 
         $id = GrammarRule::query()
+            ->whereNull('owner_user_id')
             ->where('language', $language)
             ->where('normalized_title', $normalized)
             ->where('status', '!=', GrammarRule::STATUS_ARCHIVED)

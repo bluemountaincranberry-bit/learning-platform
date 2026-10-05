@@ -23,6 +23,7 @@ final class CatalogDuplicateFinder
     public function grammarRuleGroups(): array
     {
         return GrammarRule::query()
+            ->whereNull('owner_user_id')
             ->where('status', '!=', GrammarRule::STATUS_ARCHIVED)
             ->whereNotNull('normalized_title')
             ->orderBy('id')

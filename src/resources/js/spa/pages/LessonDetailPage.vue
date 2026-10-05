@@ -166,6 +166,28 @@ async function saveGrammar() {
     }
 }
 
+async function addGrammarToMyGrammar(item: LessonGrammarCandidate) {
+    if (!lesson.value) return;
+    itemSaving.value = true;
+    itemError.value = '';
+    try {
+        const result = await lessonApi.addGrammarToMyGrammar(lessonId.value, item.id);
+        const index = lesson.value.grammar.findIndex((candidate) => candidate.id === item.id);
+        if (index !== -1) {
+            lesson.value.grammar[index] = {
+                ...lesson.value.grammar[index],
+                matched_grammar_rule_id: result.matched_grammar_rule_id,
+                personal_grammar_rule_id: result.personal_grammar_rule_id,
+                status: result.status,
+            };
+        }
+    } catch {
+        itemError.value = 'Failed to add this rule to My grammar. Try again.';
+    } finally {
+        itemSaving.value = false;
+    }
+}
+
 function addCorrection() {
     editingCorrectionId.value = null;
     showCorrectionForm.value = true;
@@ -636,11 +658,12 @@ onUnmounted(() => {
                                 v-for="g in lesson.grammar"
                                 :key="g.id"
                                 :title="g.title"
-                                :rule-id="g.matched_grammar_rule_id"
+                                :rule-id="g.personal_grammar_rule_id ?? g.matched_grammar_rule_id"
                                 :summary="g.summary"
-                                :status="g.status === 'linked' ? 'Added to My grammar' : 'New'"
+                                :status="g.personal_grammar_rule_id || g.matched_grammar_rule_id ? 'In My grammar' : 'Not added'"
                             >
                                 <template #actions>
+                                    <UiButton v-if="!g.personal_grammar_rule_id && !g.matched_grammar_rule_id" variant="primary" size="touch" :disabled="itemSaving" @click="addGrammarToMyGrammar(g)">Add to My grammar</UiButton>
                                     <UiButton variant="secondary" size="touch" :disabled="itemSaving" @click="editGrammar(g)">Edit</UiButton>
                                     <UiButton variant="danger" size="touch" :disabled="itemSaving" @click="deleteLessonItem('grammar', g.id)">Remove</UiButton>
                                 </template>

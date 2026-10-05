@@ -6,7 +6,7 @@ import LessonDetailPage from '../../../pages/LessonDetailPage.vue';
 const api = vi.hoisted(() => ({
     createConversation: vi.fn(), streamMessage: vi.fn(), get: vi.fn(), listMessages: vi.fn(), sendMessage: vi.fn(), update: vi.fn(),
     destroy: vi.fn(), restore: vi.fn(), speak: vi.fn(), createLexeme: vi.fn(), updateLexeme: vi.fn(), deleteLexeme: vi.fn(), restoreLexeme: vi.fn(),
-    createGrammar: vi.fn(), updateGrammar: vi.fn(), deleteGrammar: vi.fn(), restoreGrammar: vi.fn(),
+    createGrammar: vi.fn(), updateGrammar: vi.fn(), deleteGrammar: vi.fn(), restoreGrammar: vi.fn(), addGrammarToMyGrammar: vi.fn(),
     createCorrection: vi.fn(), updateCorrection: vi.fn(), deleteCorrection: vi.fn(), restoreCorrection: vi.fn(),
 }));
 vi.mock('../../../shared/lib/speech', () => ({ isSpeechSupported: () => true, speak: api.speak }));
@@ -14,7 +14,7 @@ vi.mock('../../../domains/ai', () => ({ tutorApi: api }));
 vi.mock('../../../domains/user', () => ({ useAuthStore: () => ({ isAuthenticated: true, canAccessTutorAgent: true }) }));
 vi.mock('../../../domains/learning', () => ({ lessonApi: api }));
 async function renderPage(component: typeof ChatPage | typeof LessonDetailPage, path: string) {
-    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/chat', component: ChatPage }, { path: '/lessons/:id', component: LessonDetailPage }] });
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/chat', component: ChatPage }, { path: '/lessons/:id', component: LessonDetailPage }, { path: '/grammar/:id', name: 'grammar.details', component: { template: '<div />' } }] });
     await router.push(path);
     return mount(component, { global: { plugins: [router], stubs: { QuizCard: true } } });
 }
@@ -230,6 +230,28 @@ describe('chat page retry seams', () => {
         await button(wrapper, 'Undo').trigger('click');
         await flushPromises();
         expect(api.restoreCorrection).toHaveBeenCalledWith(3, 20);
+    });
+
+    it('adds a lesson grammar point to My grammar and removes the New dead end', async () => {
+        api.get.mockResolvedValue({
+            id: 3, title: 'Lesson', status: 'active', language: 'en', tags: [], notes: '', homework: '', lexemes: [], corrections: [],
+            grammar: [{ id: 10, title: 'Past habits', summary: 'Use used to.', body: 'Use the infinitive.', example: 'I used to swim.', example_translation: null, status: 'new', matched_grammar_rule_id: null, personal_grammar_rule_id: null, source: 'manual' }],
+        });
+        api.listMessages.mockResolvedValue({ messages: [], is_waiting: false });
+        api.addGrammarToMyGrammar.mockResolvedValue({
+            grammar_rule_id: 42, matched_grammar_rule_id: null, personal_grammar_rule_id: 42,
+            is_personal: true, in_my_grammar: true, status: 'linked',
+        });
+        const wrapper = await renderPage(LessonDetailPage, '/lessons/3');
+        await flushPromises();
+        await wrapper.findAll('button[role="tab"]').find((node) => node.text() === 'Grammar')!.trigger('click');
+        expect(wrapper.text()).toContain('Not added');
+        expect(wrapper.text()).not.toContain('New');
+        await button(wrapper, 'Add to My grammar').trigger('click');
+        await flushPromises();
+        expect(api.addGrammarToMyGrammar).toHaveBeenCalledWith(3, 10);
+        expect(wrapper.text()).toContain('In My grammar');
+        expect(wrapper.text()).not.toContain('Add to My grammar');
     });
 
 });

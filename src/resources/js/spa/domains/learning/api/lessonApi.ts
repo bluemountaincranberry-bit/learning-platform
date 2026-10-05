@@ -53,6 +53,7 @@ export interface LessonGrammarCandidate {
     example_translation: string | null;
     status: 'pending' | 'linked' | 'new';
     matched_grammar_rule_id: number | null;
+    personal_grammar_rule_id: number | null;
     body?: string | null;
     source: 'ai' | 'manual';
 }
@@ -168,6 +169,17 @@ export const lessonApi = {
 
     restoreGrammar(lessonId: number, itemId: number): Promise<LessonGrammarCandidate> {
         return axios.post(`${lessonItemPath(lessonId, 'grammar', itemId)}/restore`).then((r) => r.data);
+    },
+
+    addGrammarToMyGrammar(lessonId: number, itemId: number): Promise<{
+        grammar_rule_id: number;
+        matched_grammar_rule_id: number | null;
+        personal_grammar_rule_id: number | null;
+        is_personal: boolean;
+        in_my_grammar: true;
+        status: 'linked';
+    }> {
+        return axios.post(`${lessonItemPath(lessonId, 'grammar', itemId)}/add-to-my-grammar`).then((r) => r.data);
     },
 
     createCorrection(lessonId: number, data: LessonCorrectionInput): Promise<LessonCorrection> {

@@ -41,6 +41,8 @@ class AdminGrammarRuleController extends Controller
 
     public function show(GrammarRule $rule): JsonResponse
     {
+        $this->authorizeSharedRule($rule);
+
         return response()->json([
             'rule' => new AdminGrammarRuleResource(
                 $this->ruleCatalogQuery->detail($rule)
@@ -50,6 +52,7 @@ class AdminGrammarRuleController extends Controller
 
     public function update(AdminGrammarRuleUpdateRequest $request, GrammarRule $rule): JsonResponse
     {
+        $this->authorizeSharedRule($rule);
         $updatedRule = $this->updateGrammarRule->execute($rule, $request->validated());
 
         return response()->json([
@@ -59,8 +62,14 @@ class AdminGrammarRuleController extends Controller
 
     public function destroy(GrammarRule $rule): JsonResponse
     {
+        $this->authorizeSharedRule($rule);
         $this->deleteGrammarRule->execute($rule);
 
         return response()->json([], 204);
+    }
+
+    private function authorizeSharedRule(GrammarRule $rule): void
+    {
+        abort_unless($rule->owner_user_id === null, 404);
     }
 }

@@ -46,6 +46,7 @@ async function mountPage(from?: string): Promise<{ page: VueWrapper; router: Rou
             { path: '/grammar', name: 'grammar', component: Stub },
             { path: '/my-grammar', name: 'my-grammar', component: Stub },
             { path: '/chat', name: 'chat', component: Stub },
+            { path: '/lessons/:id', name: 'lesson.details', component: Stub },
             { path: '/grammar/:id', name: 'grammar.details', component: GrammarRuleDetailPage },
         ],
     });
@@ -82,6 +83,20 @@ describe('GrammarRuleDetailPage', () => {
         expect(sections[1].text()).toContain('Habits and facts.');
         expect(sections[1].text()).toContain('Tenses');
         expect(page.text()).not.toContain('Back to grammar');
+    });
+
+    it('shows a personal rule source lesson and hides the catalog exercise dead end', async () => {
+        api.getOne.mockResolvedValue({ rule: rule({
+            topic: undefined,
+            is_personal: true,
+            source_lesson: { id: 99, title: 'Tuesday class' },
+            in_my_list: true,
+        }) });
+        const { page } = await mountPage();
+
+        expect(page.get('[data-test="personal-rule-source"]').text()).toContain('Tuesday class');
+        expect(page.find('[data-test="personal-rule-source"] a').attributes('href')).toContain('/lessons/99');
+        expect(page.find('#rule-exercises').exists()).toBe(false);
     });
 
     it('adds the rule to my grammar, then offers Practice', async () => {

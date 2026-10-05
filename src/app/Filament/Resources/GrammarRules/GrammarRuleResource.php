@@ -16,6 +16,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 use UnitEnum;
 
@@ -60,6 +61,11 @@ class GrammarRuleResource extends Resource
     public static function canViewAny(): bool
     {
         return Gate::allows('manage-content');
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->whereNull('owner_user_id');
     }
 
     public static function canCreate(): bool

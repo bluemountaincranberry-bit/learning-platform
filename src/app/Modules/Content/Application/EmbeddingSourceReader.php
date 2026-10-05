@@ -24,7 +24,7 @@ class EmbeddingSourceReader implements EmbeddingSourceReaderInterface
     public function grammarRules(array $ids): array
     {
         // VIK-16: archived rules are merged-away duplicates; never re-embed them.
-        return GrammarRule::query()->whereIn('id', $ids)->where('status', '!=', GrammarRule::STATUS_ARCHIVED)->get(['id', 'title', 'summary'])
+        return GrammarRule::query()->whereNull('owner_user_id')->whereIn('id', $ids)->where('status', '!=', GrammarRule::STATUS_ARCHIVED)->get(['id', 'title', 'summary'])
             ->map(fn (GrammarRule $rule): array => ['id' => $rule->id, 'text' => trim($rule->title.' '.$rule->summary)])->all();
     }
 }

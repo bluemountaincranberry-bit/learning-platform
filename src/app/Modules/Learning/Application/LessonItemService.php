@@ -61,6 +61,7 @@ class LessonItemService
         $item = $lesson->grammarCandidates()->findOrFail($id);
         if (isset($attributes['title']) && $attributes['title'] !== $item->title) {
             $attributes['matched_grammar_rule_id'] = null;
+            $attributes['personal_grammar_rule_id'] = null;
             $attributes['match_score'] = null;
             $attributes['status'] = LessonGrammarCandidate::STATUS_NEW;
         }

@@ -12,6 +12,7 @@ final class GrammarRuleCatalogQuery
     public function paginate(array $filters): LengthAwarePaginator
     {
         $query = GrammarRule::query()
+            ->whereNull('owner_user_id')
             ->with('topic:id,slug,name')
             ->withCount(['examples', 'lexemes', 'contentLinks']);
 

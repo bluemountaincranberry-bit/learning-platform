@@ -216,6 +216,7 @@ class LessonController extends Controller
             'example_translation' => $c->example_translation,
             'status' => $c->status,
             'matched_grammar_rule_id' => $c->matched_grammar_rule_id,
+            'personal_grammar_rule_id' => $c->personal_grammar_rule_id,
         ];
     }
 
