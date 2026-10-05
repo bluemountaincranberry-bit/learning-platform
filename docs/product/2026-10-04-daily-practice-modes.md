@@ -13,25 +13,27 @@ the sequence below is shipped yet.
 Today runs the learner's saved challenge (default **Medium × Mixed**, 20
 activities, ~15 min) over due reviews first, then new words.
 
-**New word** (unchanged from VIK-29, now evidence-checked):
+**New word** (VIK-29 sequence retained as a product hypothesis):
 
 | # | Step | Format | Scored | Why it is here |
 |---|---|---|---|---|
 | 1 | Introduce | Source sentence + meaning, hear it, `Ready` | no | A first exposure the later retrievals can recall from |
-| 2 | Recognize | Choose the target in its sentence | yes | Low-error first retrieval right after study [B07] |
+| 2 | Recognize | Choose the target in its sentence | yes | Recognition scaffold after introduction; product sequence choice |
 | 3 | Recall | Meaning + context → **type** the word | yes | Core step: effortful, objective form recall [K08, KMR07, W09] |
 | 4 | Listen | Hear word/phrase → choose its meaning | yes | Receptive, spoken route; product goal is real video/audio |
 | 5 | Use | Type the word into a saved sentence gap | yes | Form in context; second productive retrieval [KW23] |
 
-**Review** (unchanged from VIK-29, now evidence-checked):
+**Review** (VIK-29 sequence retained as a product hypothesis):
 
 1. **Recall first**: meaning + context → type the word, no answer visible.
 2. Only if a skill is weak: one task for the weakest skill (production → typed
    sentence gap, listening → hear/choose, recognition → choose). A strong
    word ends after step 1.
 3. Failed recall → feedback (VIK-32), then assisted recognition; unassisted
-   recall returns after ≥ 3 other activities if the round has room, otherwise
-   it stays a due retry for the next session.
+   recall returns according to coordinator rule 5 if the round has room, otherwise
+   it stays due for the next session. For carded words, ADR-011 learning steps
+   own retries; assisted recognition is feedback, not an independent passing
+   scheduling outcome after failed recall.
 
 **Out of the main path** (reachable through Change → Focus/Challenge or
 Advanced → More practice): reveal & self-grade, tap letters, choose-the-word as
@@ -42,24 +44,27 @@ check. Full table in § Modes outside the daily path.
 ## Evidence
 
 The audit sources ([A2 baseline](improvement-audits/2026-09-15-a2-baseline.md),
-§ Research comparison) were rechecked and extended with primary studies. Every
-citation below was resolved by DOI on 2026-10-04.
+§ Research comparison) were rechecked and extended with primary studies. The
+original research resolved each citation by DOI on 2026-10-04; the resumed
+review checked primary abstracts/papers and narrowed their implications. DOI
+resolution alone does not validate a claim. The exact sequence, typing format,
+four-slot cap and ≥ 3-activity spacing are product hypotheses, not tested optima.
 
 | Finding | Source | Consequence for Today |
 |---|---|---|
-| Repeated **retrieval** after first success raised delayed recall of foreign-language words; repeated restudy did not. Learners' predictions were uncorrelated with their results. | Karpicke & Roediger 2008 [K08] | Every new word must reach an unassisted retrieval in the same session; the unscored introduction is not learning by itself. |
-| A pause allowing the learner to retrieve an L2 word before seeing it beat plain viewing at 2 days and 1 week. | Barcroft 2007 [B07] | Retrieval steps start immediately after the introduction. |
-| With corrective feedback, a short-answer test beat a multiple-choice test on a 3-day final test; without feedback, MC did better. | Kang, McDermott & Roediger 2007 [KMR07] | Typed answers are the core; choice is a scaffold. Typed steps require feedback (VIK-32). |
+| Repeated **retrieval** after first success raised delayed recall of foreign-language words; repeated restudy did not. Learners' predictions were uncorrelated with their results. | Karpicke & Roediger 2008 [K08] | Today requires an unassisted recall attempt after initial study as a product rule; the study supports continued retrieval, not a universal same-session requirement. |
+| A pause allowing the learner to retrieve an L2 word before seeing it beat plain viewing at 2 days and 1 week. | Barcroft 2007 [B07] | Supports opportunities for form retrieval; does not establish recognition-before-recall or the exact sequence. |
+| With corrective feedback, a short-answer test beat a multiple-choice test on a 3-day final test; without feedback, MC did better. | Kang, McDermott & Roediger 2007 [KMR07] | Generated short answers with feedback support effortful retrieval. Typing is our objective form-recall format; the experiment did not compare typing with tapping letters. Feedback is required (VIK-32). |
 | Feedback after MC raises later correct recall and reduces intrusions of wrong options. Feedback after errors is what makes wrong answers useful. | Butler & Roediger 2008 [BR08]; Pashler et al. 2005 [P05] | Recognize/Listen choices keep immediate feedback; no exercise ends on a silent wrong answer. |
 | Productive learning of word pairs (meaning → form) gave larger gains on most receptive and productive measures; receptive learning only won for receptive meaning. L1→L2 presentation was the more versatile order. | Webb 2009 [W09]; Griffin & Harley 1996 [GH96] | Recall = type the word from its meaning. The receptive direction is still covered by Recognize and Listen. |
-| Five or seven within-session retrievals beat one or three; per minute spent, one retrieval was most efficient. For concepts, three initial correct recalls followed by spaced relearning gave durable and efficient learning; relearning dominated. | Nakata 2017 [N17]; Rawson & Dunlosky 2011 [RD11] | Keep the cap of four scored exercises per new word; put further gains into later spaced reviews, not more same-day drills. |
-| Spacing within a session (one large stack instead of small massed stacks) beat massing for 90% of learners, though 72% believed the opposite. Part vs whole set size mattered little once spacing was equal. | Kornell 2009 [K09]; Nakata & Webb 2016 [NW16] | Interleave other words between steps (≥ 3 activities, as VIK-29). Do not let learners' feeling of fluency remove the interleaving. |
-| Spacing has a medium-to-large effect on L2 learning; longer gaps win at delay; equal and expanding schedules were equivalent. | Kim & Webb 2022 [KW22] | Retention comes from SRS reviews across days; Today's job is to make those reviews happen. |
-| Fill-in-the-blank and flashcards produced no significant overall difference at two weeks when both were spaced. | Kim & Webb 2023 [KW23] | The sentence gap is valuable as context and variety, not as a stronger mode; missing examples may fall back to recall without loss. |
-| Learners judge learning while the answer is visible and overestimate later recall. | Koriat & Bjork 2005 [KB05]; also [K08] | Reveal & self-grade is not a default step where an objective check exists. |
+| Five or seven within-session retrievals beat one or three; per minute spent, one retrieval was most efficient. For concepts, three initial correct recalls followed by spaced relearning gave durable and efficient learning; relearning dominated. | Nakata 2017 [N17]; Rawson & Dunlosky 2011 [RD11] | Four scored slots is a session-budget choice, not a tested optimum; reserve further practice for spaced reviews. |
+| Spacing within a session (one large stack instead of small massed stacks) beat massing for 90% of learners, though 72% believed the opposite. Part vs whole set size mattered little once spacing was equal. | Kornell 2009 [K09]; Nakata & Webb 2016 [NW16] | Separate repeated encounters with other words. ≥ 3 intervening activities is VIK-29's operational default, not an experimentally optimal threshold. |
+| Spacing has a medium-to-large effect on L2 learning; longer gaps win at delay; equal and expanding schedules showed no statistically significant difference. | Kim & Webb 2022 [KW22] | Retention comes from SRS reviews across days; Today's job is to make those reviews happen. |
+| Fill-in-the-blank and flashcards produced no significant overall difference at two weeks when both were spaced. | Kim & Webb 2023 [KW23] | The sentence gap is valuable as context and variety, not as a stronger mode; recall is a product fallback when examples are missing; comparable effectiveness of this fallback remains untested. |
+| Learners judge learning while the answer is visible and overestimate later recall. | Koriat & Bjork 2005 [KB05]; also [K08] | Prefer objective checks as a product choice; this study did not compare post-attempt self-grading with automatic grading. |
 | An unsuccessful retrieval attempt followed by the answer improves later learning. | Kornell, Hays & Bjork 2009 [KHB09] | Review starts with recall even when failure is likely; no re-introduction before the attempt. |
 | Practice testing and distributed practice are the two "high utility" techniques; interleaving is "moderate". | Dunlosky et al. 2013 [D13]; Carpenter, Pan & Butler 2022 [CPB22] | The default path is built from retrieval + spacing; other modes are optional. |
-| On delayed tests, word-focused activities kept ~39% meaning-recall but only ~25% form-recall gains; direction of learning was a moderator. | Webb, Yanagisawa & Uchihara 2020 [WYU20] | Form recall decays fastest, so it is the anchor in both new-word and review sequences. |
+| Average delayed percentage learning gains were 39.4% for meaning recall and 25.1% for form recall; direction of learning was a moderator. | Webb, Yanagisawa & Uchihara 2020 [WYU20] | Lower pooled delayed form-recall gains motivate attention to productive retention; using form recall as the anchor is a product choice. |
 
 **Limits.** The studies use word pairs, students and short lists; none tests
 this app or adult learners using video sources. The Listen step is a
@@ -81,12 +86,12 @@ chosen by the coordinator, with modes reached from Change, not from the main pat
 These fill gaps VIK-29 left for a daily session. They are design rules for
 VIK-28/VIK-30, not a new API or schema.
 
-1. **Order.** Due retries → due reviews → new words → optional grammar round
+1. **Order.** Due learning/relearning steps → due reviews → new words → optional grammar round
    (VIK-28, VIK-47). Reviews never wait behind new words.
 2. **Start a new word only if the round can still reach its Recall step**
    (Recognize + Recall, with the ≥ 3-activity spacing relaxed only for small
-   pools). Introducing a word without a retrieval is study without the retrieval
-   effect [K08]. Steps 4–5 may continue in the next session (VIK-29).
+   pools). Introduction provides initial study; our rule adds a recall attempt before
+   the round ends. [K08] motivates retrieval but does not prove this budget rule. Steps 4–5 may continue in the next session (VIK-29).
 3. **New-word count** = min(daily new-word cap, what the remaining activities
    allow at four scored steps each). Example at 20 activities: no reviews →
    about 5 new words; 10 strong reviews → about 2 new words; 20+ due reviews →
@@ -94,14 +99,21 @@ VIK-28/VIK-30, not a new API or schema.
 4. **Backlog.** When due reviews exceed the round, Today shows only reviews,
    most overdue first. More sessions are offered on Done (`Practice more`),
    never a longer compulsory round.
-5. **Failed step of a new word** → VIK-32 feedback, then the same step once more
-   after ≥ 3 other activities. A retry uses one of the four scored slots; when
-   the slots run out the word continues next session.
+5. **Failed graded step** → VIK-32 feedback and ADR-011 learning/relearning
+   rules for carded words. Re-show the failed activity after a few other cards
+   (+4 positions, or last if fewer remain), at most twice per session. Each
+   scored re-show uses a session activity and one of the new word's four slots;
+   if the budget ends first, the step stays due. Keep legacy retry history;
+   separate learning retries remain only where no repetition card exists.
 6. **Recall requires a meaning cue.** If a lexeme has no translation, meaning
    or saved context, recall becomes a labelled reveal & self-grade (the only
    place self-grade appears by default), never a visible-target typing task.
-7. **One scheduling outcome per word per session** (VIK-29). Skill steps update
-   confidence; the SRS card advances once, from the recall result.
+7. **Every graded outcome reaches Learning/SRS and is retained**, following
+   [ADR-011](https://github.com/bluemountaincranberry-bit/learning-platform/blob/3f6c3e4f69d376e6f581fc0d2525a335b488c812/docs/architecture/adr/ADR-011-repetition-scheduler-learning-steps-before-fsrs.md).
+   Repeated day-level passes do not compound intervals; learning-step outcomes
+   use step rules; any graded failure is a lapse, including Listen/Use after
+   successful Recall. This supersedes VIK-29's recall-only scheduling wording.
+   Skill confidence remains separate from interval advancement.
 8. **Challenge stays honest.** Easy and Hard change formats as in the VIK-29
    matrix; Today does not add More practice modes to Easy or remove Recall from Hard.
 
@@ -112,9 +124,9 @@ deleted; homes follow the [VIK-29 mapping](2026-10-03-start-learning-design.md#c
 
 | Mode | Where it lives | Why not in the daily default |
 |---|---|---|
-| Reveal & self-grade | Easy × Words; rule 6 fallback | Self-judgement with the answer visible overestimates recall [KB05] |
-| Tap letters | Easy × Words; hint aid | Assisted recall; less effortful than typing [KMR07] |
-| Choose the word (standalone drill) | Easy × Words | Used inside Medium as step 2 only; MC alone is the weaker format [KMR07] |
+| Reveal & self-grade | Easy × Words; rule 6 fallback | Visible-answer judgments can overestimate future recall [KB05]; post-attempt self-grading was not compared |
+| Tap letters | Easy × Words; hint aid | Assisted format; not the unassisted typed form recall chosen for Medium |
+| Choose the word (standalone drill) | Easy × Words | Used inside Medium as a scaffold; generated answers with feedback outperformed MC in [KMR07] |
 | Quick-check (word → translation) | Easy × Words | Recognition only; covered by step 2 |
 | Listening cards / listen-recognize (self-report) | Easy × Listening | Today's Listen step uses an objective choice instead of "Knew it / Didn't know" |
 | Dictation | Hard × Listening, Hard × Mixed | High effort; needs audio; better for learners who chose listening |
@@ -129,17 +141,20 @@ deleted; homes follow the [VIK-29 mapping](2026-10-03-start-learning-design.md#c
 
 ## Decisions recorded
 
-`assumed`, PO proxy, logged in [DECISIONS.md](../../.agents/skills/product-owner/DECISIONS.md):
-VIK-29's Medium sequences are confirmed for Today; rules 1–8 above are the
-daily defaults; Listen stays in the default as a product choice. No Escalate
-item: no data change, no direction change.
+The original `assumed` PO-proxy decision is logged in
+[DECISIONS.md](../../.agents/skills/product-owner/DECISIONS.md). The resumed
+review retains the Medium sequence and Listen as product choices, narrows the
+evidence claims, and follows the newer ADR-011 for scheduling. These corrections
+supersede the earlier recall-only scheduling wording. The refinement is recorded
+in DECISIONS.md. No Escalate item: no data change, no direction change.
 
 ## Next
 
 - VIK-30: the Listen step needs an objective hear → choose-meaning exercise
   (today's listen-recognize is self-report); recall needs rule 6's cue check.
-- VIK-28: apply rules 1–5 to the Today plan and Done screen.
-- Follow-up research ticket: measure next-review recall success by step and
+- VIK-28/VIK-30/VIK-33: apply rules 1–7 with ADR-011; preserve all graded
+  outcomes and fail semantics while preventing repeated interval growth.
+- [VIK-64](https://linear.app/viktoryia/issue/VIK-64/research-validate-today-practice-defaults-against-next-review-recall): measure next-review recall success by step and
   challenge from existing attempts and metric events, to check this default in
   the app instead of relying only on lab studies.
 
