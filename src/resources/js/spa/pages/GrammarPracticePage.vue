@@ -83,7 +83,7 @@ async function skipFromMenu(): Promise<void> {
 function practiceMistakes(): void {
     if (!result.value) return;
     learnedNow.value = false;
-    void round.restart(result.value.to_review.map((item) => item.exercise_id));
+    void round.restart(result.value.toReview.map((item) => item.exerciseId));
 }
 
 async function markLearned(): Promise<void> {

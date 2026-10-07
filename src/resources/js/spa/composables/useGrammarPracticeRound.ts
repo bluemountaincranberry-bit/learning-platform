@@ -72,7 +72,7 @@ export function useGrammarPracticeRound(options: GrammarRoundOptions, api: Api =
             const response = await api.startRound(options.ruleId, {
                 level: options.level,
                 count: options.count,
-                ...(options.exerciseIds ? { exercise_ids: options.exerciseIds } : {}),
+                ...(options.exerciseIds ? { exerciseIds: options.exerciseIds } : {}),
             });
 
             if (response.status === 'ready' && response.exercises.length > 0) {
@@ -111,7 +111,7 @@ export function useGrammarPracticeRound(options: GrammarRoundOptions, api: Api =
     function record(outcome: GrammarPracticeResultItem['outcome'], given: string | null): void {
         if (!current.value) return;
         items.value.push({
-            exercise_id: current.value.id,
+            exerciseId: current.value.id,
             outcome,
             attempts: outcome === 'reported' ? attempt.value - 1 : attempt.value,
             given,
@@ -125,7 +125,7 @@ export function useGrammarPracticeRound(options: GrammarRoundOptions, api: Api =
         try {
             const response = await api.check(current.value.id, {
                 given,
-                ...(showAnswer ? { show_answer: true } : {}),
+                ...(showAnswer ? { showAnswer: true } : {}),
             });
             lastGiven.value = given;
 
@@ -137,7 +137,7 @@ export function useGrammarPracticeRound(options: GrammarRoundOptions, api: Api =
             }
 
             hint.value = response.hint ?? null;
-            if (response.struck_option_index != null) struckOptions.value = [...struckOptions.value, response.struck_option_index];
+            if (response.struckOptionIndex != null) struckOptions.value = [...struckOptions.value, response.struckOptionIndex];
             attempt.value = 2;
         } catch {
             error.value = 'Could not check the answer. Try again.';
@@ -171,7 +171,7 @@ export function useGrammarPracticeRound(options: GrammarRoundOptions, api: Api =
         try {
             const { replacement } = await api.report(exercise.id, {
                 level: options.level,
-                round_exercise_ids: exercises.value.map((e) => e.id),
+                roundExerciseIds: exercises.value.map((e) => e.id),
                 reason,
             });
             record('reported', null);
@@ -208,7 +208,7 @@ export function useGrammarPracticeRound(options: GrammarRoundOptions, api: Api =
             result.value = await api.complete(options.ruleId, {
                 level: options.level,
                 items: items.value,
-                content_id: options.contentId ?? null,
+                contentId: options.contentId ?? null,
                 // "Practice mistakes" re-checks answers just shown: scored, not saved.
                 ...(options.exerciseIds ? { replay: true } : {}),
             });

@@ -8,16 +8,16 @@ import { EXERCISE_TASK } from './practice/exerciseLabels';
 const props = defineProps<{ result: GrammarPracticeResult; markingLearned: boolean; learnedNow: boolean }>();
 const emit = defineEmits<{ practiceMistakes: []; done: []; markLearned: [] }>();
 
-const confidenceAfter = computed(() => (props.result.confidence_after === null ? null : Math.round(props.result.confidence_after)));
-const confidenceBefore = computed(() => (props.result.confidence_before === null ? null : Math.round(props.result.confidence_before)));
+const confidenceAfter = computed(() => (props.result.confidenceAfter === null ? null : Math.round(props.result.confidenceAfter)));
+const confidenceBefore = computed(() => (props.result.confidenceBefore === null ? null : Math.round(props.result.confidenceBefore)));
 </script>
 
 <template>
     <div class="space-y-4">
         <div>
-            <p class="text-5xl font-bold text-fg" data-test="score">{{ Math.round(result.score_pct) }}%</p>
+            <p class="text-5xl font-bold text-fg" data-test="score">{{ Math.round(result.scorePct) }}%</p>
             <p class="mt-1 text-sm text-muted-foreground" data-test="counts">
-                {{ result.first_try }} first try · {{ result.after_hint }} after a hint · {{ result.missed }} missed
+                {{ result.firstTry }} first try · {{ result.afterHint }} after a hint · {{ result.missed }} missed
             </p>
         </div>
 
@@ -35,11 +35,11 @@ const confidenceBefore = computed(() => (props.result.confidence_before === null
             <p class="mt-2 text-sm text-muted-foreground">{{ result.learned || learnedNow ? 'Learned' : 'In My grammar' }}</p>
         </div>
 
-        <div v-if="result.to_review.length > 0">
+        <div v-if="result.toReview.length > 0">
             <p class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">To review</p>
             <div
-                v-for="item in result.to_review"
-                :key="item.exercise_id"
+                v-for="item in result.toReview"
+                :key="item.exerciseId"
                 class="border-t border-border py-3 text-sm"
                 data-test="review-item"
             >
@@ -53,12 +53,12 @@ const confidenceBefore = computed(() => (props.result.confidence_before === null
         </div>
 
         <div class="grid gap-2 pt-2">
-            <UiButton v-if="result.to_review.length > 0" variant="primary" size="lg" class="w-full" data-test="practice-mistakes" @click="emit('practiceMistakes')">
+            <UiButton v-if="result.toReview.length > 0" variant="primary" size="lg" class="w-full" data-test="practice-mistakes" @click="emit('practiceMistakes')">
                 Practice mistakes
             </UiButton>
-            <UiButton :variant="result.to_review.length > 0 ? 'secondary' : 'primary'" size="lg" class="w-full" data-test="done" @click="emit('done')">Done</UiButton>
+            <UiButton :variant="result.toReview.length > 0 ? 'secondary' : 'primary'" size="lg" class="w-full" data-test="done" @click="emit('done')">Done</UiButton>
             <UiButton
-                v-if="result.can_mark_learned && !learnedNow"
+                v-if="result.canMarkLearned && !learnedNow"
                 variant="ghost"
                 size="lg"
                 class="w-full text-primary"

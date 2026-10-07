@@ -23,12 +23,12 @@ const settingLine = computed(() =>
 );
 
 const lastLine = computed(() => {
-    const last = overview.value?.last_result;
+    const last = overview.value?.lastResult;
     if (!last) return null;
-    return `Last time ${last.correct_count}/${last.scored_count} · ${timeAgo(last.completed_at)}`;
+    return `Last time ${last.correctCount}/${last.scoredCount} · ${timeAgo(last.completedAt)}`;
 });
 
-const cannotPrepare = computed(() => overview.value !== null && overview.value.available_count === 0 && !overview.value.can_generate);
+const cannotPrepare = computed(() => overview.value !== null && overview.value.availableCount === 0 && !overview.value.canGenerate);
 
 function timeAgo(iso: string): string {
     const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
@@ -77,8 +77,8 @@ defineExpose({ practice });
             <UiButton variant="primary" size="lg" class="mt-3 w-full" :disabled="cannotPrepare" data-test="practice" @click="practice">Practice</UiButton>
             <div class="mt-1 flex items-center justify-between gap-2">
                 <button type="button" class="min-h-11 text-sm font-medium text-primary" data-test="change" @click="sheetOpen = true">Change</button>
-                <span v-if="overview?.confidence_calculated != null" class="text-sm text-muted-foreground">
-                    Practice says {{ Math.round(overview.confidence_calculated) }}%
+                <span v-if="overview?.confidenceCalculated != null" class="text-sm text-muted-foreground">
+                    Practice says {{ Math.round(overview.confidenceCalculated) }}%
                 </span>
             </div>
             <GrammarPracticeSettingSheet :open="sheetOpen" @close="sheetOpen = false" @practice="practice" />

@@ -20,11 +20,11 @@ vi.mock('../../domains/content', () => ({
 }));
 
 const round: GrammarPracticeExercise[] = [
-    { id: 1, rule_id: 7, type: 'multiple_choice', level: 'easy', instruction: null, prompt: 'I _____ it twice.', options: ['saw', 'have seen'], tiles: null, origin: 'ai' },
-    { id: 2, rule_id: 7, type: 'build', level: 'easy', instruction: 'Make a question', prompt: 'Make a question', options: null, tiles: ['you', 'Have', 'been?'], origin: 'ai' },
-    { id: 3, rule_id: 7, type: 'cloze', level: 'hard', instruction: null, prompt: 'She _____ (lose) it.', options: null, tiles: null, origin: 'admin' },
-    { id: 4, rule_id: 7, type: 'transform', level: 'hard', instruction: 'Make it a question', prompt: 'They have finished.', options: null, tiles: null, origin: 'ai' },
-    { id: 5, rule_id: 7, type: 'fix', level: 'hard', instruction: null, prompt: 'I have seen him yesterday.', options: null, tiles: null, origin: 'ai' },
+    { id: 1, ruleId: 7, type: 'multiple_choice', level: 'easy', instruction: null, prompt: 'I _____ it twice.', options: ['saw', 'have seen'], tiles: null, origin: 'ai' },
+    { id: 2, ruleId: 7, type: 'build', level: 'easy', instruction: 'Make a question', prompt: 'Make a question', options: null, tiles: ['you', 'Have', 'been?'], origin: 'ai' },
+    { id: 3, ruleId: 7, type: 'cloze', level: 'hard', instruction: null, prompt: 'She _____ (lose) it.', options: null, tiles: null, origin: 'admin' },
+    { id: 4, ruleId: 7, type: 'transform', level: 'hard', instruction: 'Make it a question', prompt: 'They have finished.', options: null, tiles: null, origin: 'ai' },
+    { id: 5, ruleId: 7, type: 'fix', level: 'hard', instruction: null, prompt: 'I have seen him yesterday.', options: null, tiles: null, origin: 'ai' },
 ];
 
 async function mountPage(query = '?level=medium&count=5&from=/grammar/7') {
@@ -45,16 +45,16 @@ async function mountPage(query = '?level=medium&count=5&from=/grammar/7') {
 beforeEach(() => {
     vi.clearAllMocks();
     document.body.innerHTML = '';
-    api.startRound.mockResolvedValue({ status: 'ready', exercises: round, available_count: 5 });
+    api.startRound.mockResolvedValue({ status: 'ready', exercises: round, availableCount: 5 });
 });
 
 describe('GrammarPracticePage', () => {
     it('renders all five types in order and ends on the result screen', async () => {
         api.check.mockResolvedValue({ correct: true, outcome: 'first_try', answer: 'ok', explanation: 'Because.' });
         api.complete.mockResolvedValue({
-            attempt_id: 1, level: 'medium', score_pct: 90, first_try: 4, after_hint: 1, missed: 0, reported: 0,
-            confidence_before: 72, confidence_after: 78, in_my_list: true, learned: false, can_mark_learned: true,
-            to_review: [{ exercise_id: 3, type: 'cloze', instruction: null, prompt: 'She _____ (lose) it.', given: 'has losed', answer: 'has lost', outcome: 'after_hint' }],
+            attemptId: 1, level: 'medium', scorePct: 90, firstTry: 4, afterHint: 1, missed: 0, reported: 0,
+            confidenceBefore: 72, confidenceAfter: 78, inMyList: true, learned: false, canMarkLearned: true,
+            toReview: [{ exerciseId: 3, type: 'cloze', instruction: null, prompt: 'She _____ (lose) it.', given: 'has losed', answer: 'has lost', outcome: 'after_hint' }],
         });
         const { wrapper } = await mountPage();
 
@@ -95,9 +95,9 @@ describe('GrammarPracticePage', () => {
     });
 
     it('shows the hint, then the answer, on a typed exercise', async () => {
-        api.startRound.mockResolvedValue({ status: 'ready', exercises: [round[2]], available_count: 5 });
+        api.startRound.mockResolvedValue({ status: 'ready', exercises: [round[2]], availableCount: 5 });
         api.check
-            .mockResolvedValueOnce({ correct: false, hint: 'Irregular verb.', struck_option_index: null })
+            .mockResolvedValueOnce({ correct: false, hint: 'Irregular verb.', struckOptionIndex: null })
             .mockResolvedValueOnce({ correct: false, outcome: 'answer_shown', answer: 'has lost', explanation: 'lose – lost – lost.' });
         const { wrapper } = await mountPage();
 
@@ -115,7 +115,7 @@ describe('GrammarPracticePage', () => {
     });
 
     it('says when exercises cannot be prepared', async () => {
-        api.startRound.mockResolvedValue({ status: 'unavailable', reason: 'unavailable', exercises: [], available_count: 0 });
+        api.startRound.mockResolvedValue({ status: 'unavailable', reason: 'unavailable', exercises: [], availableCount: 0 });
         const { wrapper } = await mountPage();
 
         expect(wrapper.get('[data-test="unavailable"]').text()).toContain("Exercises can't be prepared right now");

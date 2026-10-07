@@ -375,6 +375,7 @@ test('only the owner can practice a personal grammar rule', function () {
     Sanctum::actingAs($other);
     $this->getJson("/api/grammar-rules/{$rule->id}/practice")->assertNotFound();
     $this->postJson("/api/grammar-rules/{$rule->id}/practice/rounds", ['level' => 'medium', 'count' => 5])->assertNotFound();
+    $this->postJson('/api/grammar-exercises/'.exerciseOf($rule, 'fix')->id.'/check', ['given' => 'I saw him yesterday.'])->assertNotFound();
 });
 
 test('the server decides the outcome: a shown answer cannot be claimed as first try', function () {

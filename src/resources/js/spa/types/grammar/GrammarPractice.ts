@@ -11,7 +11,7 @@ export type GrammarPracticeOutcome = 'first_try' | 'after_hint' | 'answer_shown'
 
 export interface GrammarPracticeExercise {
     id: number;
-    rule_id: number;
+    ruleId: number;
     type: GrammarExerciseType;
     level: 'easy' | 'hard';
     /** Short task line ("Make it a question"); the UI falls back to a per-type label. */
@@ -25,24 +25,24 @@ export interface GrammarPracticeExercise {
 }
 
 export interface GrammarPracticeLastResult {
-    score_pct: number;
-    correct_count: number;
-    scored_count: number;
+    scorePct: number;
+    correctCount: number;
+    scoredCount: number;
     level: GrammarPracticeLevel | null;
-    completed_at: string;
+    completedAt: string;
 }
 
 /** GET /api/grammar-rules/:id/practice */
 export interface GrammarPracticeOverview {
     rule: { id: number; title: string };
-    available_count: number;
-    unseen_count: number;
+    availableCount: number;
+    unseenCount: number;
     preparing: boolean;
-    can_generate: boolean;
-    last_result: GrammarPracticeLastResult | null;
-    in_my_list: boolean;
+    canGenerate: boolean;
+    lastResult: GrammarPracticeLastResult | null;
+    inMyList: boolean;
     learned: boolean;
-    confidence_calculated: number | null;
+    confidenceCalculated: number | null;
 }
 
 /** POST /api/grammar-rules/:id/practice/rounds — 200 ready, 202 preparing, 503 unavailable. */
@@ -51,7 +51,7 @@ export interface GrammarPracticeRoundResponse {
     /** For unavailable: `limited` (daily batches used up) or `unavailable` (AI off / failed). */
     reason?: 'limited' | 'unavailable';
     exercises: GrammarPracticeExercise[];
-    available_count: number;
+    availableCount: number;
 }
 
 /** POST /api/grammar-exercises/:id/check */
@@ -62,7 +62,7 @@ export interface GrammarPracticeCheckResponse {
     /** First wrong answer: a nudge that never contains the answer. */
     hint?: string;
     /** Choose the form: the wrong option to strike out. */
-    struck_option_index?: number | null;
+    struckOptionIndex?: number | null;
     answer?: string;
     explanation?: string | null;
 }
@@ -72,7 +72,7 @@ export interface GrammarPracticeCheckResponse {
  * from its own record of the checks; `outcome` only matters for `reported`.
  */
 export interface GrammarPracticeResultItem {
-    exercise_id: number;
+    exerciseId: number;
     outcome: GrammarPracticeOutcome;
     attempts: number;
     given: string | null;
@@ -80,7 +80,7 @@ export interface GrammarPracticeResultItem {
 }
 
 export interface GrammarPracticeReviewItem {
-    exercise_id: number;
+    exerciseId: number;
     type: GrammarExerciseType;
     instruction: string | null;
     prompt: string;
@@ -92,17 +92,17 @@ export interface GrammarPracticeReviewItem {
 /** POST /api/grammar-rules/:id/practice/complete */
 export interface GrammarPracticeResult {
     /** null for a "Practice mistakes" replay, which is not saved. */
-    attempt_id: number | null;
+    attemptId: number | null;
     level: GrammarPracticeLevel;
-    score_pct: number;
-    first_try: number;
-    after_hint: number;
+    scorePct: number;
+    firstTry: number;
+    afterHint: number;
     missed: number;
     reported: number;
-    confidence_before: number | null;
-    confidence_after: number | null;
-    in_my_list: boolean;
+    confidenceBefore: number | null;
+    confidenceAfter: number | null;
+    inMyList: boolean;
     learned: boolean;
-    can_mark_learned: boolean;
-    to_review: GrammarPracticeReviewItem[];
+    canMarkLearned: boolean;
+    toReview: GrammarPracticeReviewItem[];
 }

@@ -16,16 +16,9 @@ final class GrammarExercisePool implements GrammarExercisePoolInterface
 
     public function practiceRule(int $ruleId, int $userId): ?GrammarPracticeRule
     {
-        $rule = GrammarRule::query()
-            ->whereKey($ruleId)
-            ->where(function (Builder $query) use ($userId): void {
-                $query->where(fn (Builder $shared) => $shared
-                    ->where('status', GrammarRule::STATUS_PUBLISHED)
-                    ->whereNull('owner_user_id'))
-                    ->orWhere(fn (Builder $personal) => $personal
-                        ->where('status', GrammarRule::STATUS_PERSONAL)
-                        ->where('owner_user_id', $userId));
-            })
+        $ruleQuery = GrammarRule::query()->whereKey($ruleId);
+        $this->scopeRulesVisibleTo($ruleQuery, $userId);
+        $rule = $ruleQuery
             ->first(['id', 'title']);
 
         return $rule === null ? null : new GrammarPracticeRule($rule->id, $rule->title);
@@ -79,20 +72,26 @@ final class GrammarExercisePool implements GrammarExercisePoolInterface
     private function visibleTo(int $userId): Builder
     {
         return GrammarRuleExercise::query()
-            ->whereHas('grammarRule', fn (Builder $q) => $q->where(function (Builder $visibility) use ($userId): void {
-                $visibility->where(fn (Builder $shared) => $shared
-                    ->where('status', GrammarRule::STATUS_PUBLISHED)
-                    ->whereNull('owner_user_id'))
-                    ->orWhere(fn (Builder $personal) => $personal
-                        ->where('status', GrammarRule::STATUS_PERSONAL)
-                        ->where('owner_user_id', $userId));
-            }))
+            ->whereHas('grammarRule', fn (Builder $query) => $this->scopeRulesVisibleTo($query, $userId))
             ->where('status', '!=', GrammarRuleExercise::STATUS_ARCHIVED)
             ->where(fn (Builder $q) => $q
                 ->where('status', GrammarRuleExercise::STATUS_PUBLISHED)
                 ->orWhere('origin', GrammarRuleExercise::ORIGIN_AI))
             ->whereDoesntHave('reports', fn (Builder $q) => $q->where('user_id', $userId))
             ->has('reports', '<', GrammarRuleExercise::HIDE_AFTER_REPORTS);
+    }
+
+    /** @param Builder<GrammarRule> $query */
+    private function scopeRulesVisibleTo(Builder $query, int $userId): void
+    {
+        $query->where(function (Builder $visibility) use ($userId): void {
+            $visibility->where(fn (Builder $shared) => $shared
+                ->where('status', GrammarRule::STATUS_PUBLISHED)
+                ->whereNull('owner_user_id'))
+                ->orWhere(fn (Builder $personal) => $personal
+                    ->where('status', GrammarRule::STATUS_PERSONAL)
+                    ->where('owner_user_id', $userId));
+        });
     }
 
     private function toData(GrammarRuleExercise $exercise): GrammarPracticeExercise

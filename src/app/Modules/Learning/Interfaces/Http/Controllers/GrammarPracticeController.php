@@ -3,13 +3,16 @@
 namespace App\Modules\Learning\Interfaces\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\GrammarPracticePayloadResource;
 use App\Modules\Content\Application\Data\GrammarPracticeRule;
 use App\Modules\Learning\Application\GrammarPractice\GrammarPracticeLevel;
-use App\Modules\Learning\Application\GrammarPractice\GrammarPracticeOutcome;
 use App\Modules\Learning\Application\GrammarPractice\GrammarPracticeService;
+use App\Modules\Learning\Interfaces\Http\Requests\CheckGrammarPracticeAnswerRequest;
+use App\Modules\Learning\Interfaces\Http\Requests\CompleteGrammarPracticeRoundRequest;
+use App\Modules\Learning\Interfaces\Http\Requests\ReportGrammarPracticeExerciseRequest;
+use App\Modules\Learning\Interfaces\Http\Requests\StartGrammarPracticeRoundRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 /**
  * Grammar practice on a rule (VIK-31): start card, round, answer check,
@@ -21,17 +24,12 @@ class GrammarPracticeController extends Controller
 
     public function show(Request $request, int $rule): JsonResponse
     {
-        return response()->json($this->practice->overview($request->user()->id, $this->rule($request, $rule)));
+        return (new GrammarPracticePayloadResource($this->practice->overview($request->user()->id, $this->rule($request, $rule))))->response();
     }
 
-    public function startRound(Request $request, int $rule): JsonResponse
+    public function startRound(StartGrammarPracticeRoundRequest $request, int $rule): JsonResponse
     {
-        $validated = $request->validate([
-            'level' => ['required', Rule::enum(GrammarPracticeLevel::class)],
-            'count' => ['required', 'integer', Rule::in(GrammarPracticeService::COUNTS)],
-            'exercise_ids' => ['sometimes', 'array', 'min:1', 'max:15'],
-            'exercise_ids.*' => ['integer'],
-        ]);
+        $validated = $request->validated();
 
         $result = $this->practice->startRound(
             $request->user()->id,
@@ -41,19 +39,16 @@ class GrammarPracticeController extends Controller
             isset($validated['exercise_ids']) ? array_map('intval', $validated['exercise_ids']) : null,
         );
 
-        return response()->json($result, match ($result['status']) {
+        return (new GrammarPracticePayloadResource($result))->response()->setStatusCode(match ($result['status']) {
             'ready' => 200,
             'preparing' => 202,
             default => 503,
         });
     }
 
-    public function check(Request $request, int $exercise): JsonResponse
+    public function check(CheckGrammarPracticeAnswerRequest $request, int $exercise): JsonResponse
     {
-        $validated = $request->validate([
-            'given' => ['nullable', 'string', 'max:500'],
-            'show_answer' => ['sometimes', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $result = $this->practice->check(
             $request->user()->id,
@@ -64,17 +59,12 @@ class GrammarPracticeController extends Controller
 
         abort_if($result === null, 404);
 
-        return response()->json($result);
+        return (new GrammarPracticePayloadResource($result))->response();
     }
 
-    public function report(Request $request, int $exercise): JsonResponse
+    public function report(ReportGrammarPracticeExerciseRequest $request, int $exercise): JsonResponse
     {
-        $validated = $request->validate([
-            'level' => ['required', Rule::enum(GrammarPracticeLevel::class)],
-            'round_exercise_ids' => ['sometimes', 'array', 'max:30'],
-            'round_exercise_ids.*' => ['integer'],
-            'reason' => ['nullable', 'string', 'max:255'],
-        ]);
+        $validated = $request->validated();
 
         $replacement = $this->practice->reportAndReplace(
             $request->user()->id,
@@ -84,20 +74,12 @@ class GrammarPracticeController extends Controller
             $validated['reason'] ?? null,
         );
 
-        return response()->json(['replacement' => $replacement]);
+        return (new GrammarPracticePayloadResource(['replacement' => $replacement]))->response();
     }
 
-    public function complete(Request $request, int $rule): JsonResponse
+    public function complete(CompleteGrammarPracticeRoundRequest $request, int $rule): JsonResponse
     {
-        $validated = $request->validate([
-            'level' => ['required', Rule::enum(GrammarPracticeLevel::class)],
-            'content_id' => ['nullable', 'integer', 'exists:contents,id'],
-            'replay' => ['sometimes', 'boolean'],
-            'items' => ['required', 'array', 'min:1', 'max:30'],
-            'items.*.exercise_id' => ['required', 'integer'],
-            'items.*.outcome' => ['nullable', Rule::enum(GrammarPracticeOutcome::class)],
-            'items.*.ms' => ['nullable', 'integer', 'min:0'],
-        ]);
+        $validated = $request->validated();
 
         $result = $this->practice->complete(
             $request->user()->id,
@@ -108,7 +90,7 @@ class GrammarPracticeController extends Controller
             (bool) ($validated['replay'] ?? false),
         );
 
-        return response()->json($result, 201);
+        return (new GrammarPracticePayloadResource($result))->response()->setStatusCode(201);
     }
 
     private function rule(Request $request, int $ruleId): GrammarPracticeRule
