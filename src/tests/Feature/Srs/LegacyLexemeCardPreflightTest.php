@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
-function legacyCardFixture(string $text = 'run', string $language = 'en', ?int $lexemeId = null): array
+function legacyCardFixture(string $text = 'run', string $language = 'en', ?int $lexemeId = null, string $type = 'word'): array
 {
     $user = User::factory()->create();
     $content = Content::query()->create([
@@ -31,7 +31,7 @@ function legacyCardFixture(string $text = 'run', string $language = 'en', ?int $
     ]) : Lexeme::query()->findOrFail($lexemeId);
     $occurrenceId = DB::table('content_lexemes')->insertGetId([
         'content_id' => $content->id,
-        'type' => 'word',
+        'type' => $type,
         'text' => $text,
         'lexeme_id' => $lexeme->id,
         'sort_order' => 1,
@@ -41,7 +41,7 @@ function legacyCardFixture(string $text = 'run', string $language = 'en', ?int $
     $card = SrsCard::query()->create([
         'user_id' => $user->id,
         'content_id' => $content->id,
-        'item_key' => 'word:'.$text,
+        'item_key' => $type.':'.$text,
         'state' => 'learning',
         'interval_days' => 3,
         'ease_factor' => 2.3,
@@ -72,6 +72,22 @@ test('preflight resolves a unique canonical occurrence and does not mutate learn
     $report = app(LegacyLexemeCardPreflight::class)->report();
     expect($report['resolved'])->toBe(1)
         ->and($report['collision_audit'][0]['same_key_occurrences'][0]['content_lexeme_id'])->toBe($occurrenceId);
+});
+
+test('preflight resolves every supported phrase-like legacy card type by exact occurrence', function () {
+    foreach (['phrasal_verb', 'idiom', 'collocation'] as $type) {
+        legacyCardFixture('fixture '.$type, 'en', null, $type);
+    }
+
+    $report = app(LegacyLexemeCardPreflight::class)->report();
+
+    expect($report['resolved'])->toBe(3)
+        ->and($report['unresolved'])->toBeEmpty()
+        ->and(collect($report['collision_audit'])->pluck('item_key')->sort()->values()->all())->toBe([
+            'collocation:fixture collocation',
+            'idiom:fixture idiom',
+            'phrasal_verb:fixture phrasal_verb',
+        ]);
 });
 
 test('user source kind cannot carry a reference of another source kind', function () {

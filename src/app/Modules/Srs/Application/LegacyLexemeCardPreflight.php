@@ -2,6 +2,7 @@
 
 namespace App\Modules\Srs\Application;
 
+use App\Modules\Content\Domain\Models\ContentLexemeCandidate;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -185,7 +186,7 @@ final class LegacyLexemeCardPreflight
         }
 
         [$type, $text] = explode(':', $itemKey, 2);
-        if (! in_array($type, ['word', 'phrase'], true) || $text === '') {
+        if (! in_array($type, ContentLexemeCandidate::TYPES, true) || $text === '') {
             return $this->unresolved('unsupported_legacy_key', $type, $text);
         }
 
@@ -319,7 +320,7 @@ final class LegacyLexemeCardPreflight
             $occurrences = collect();
             $learningReferences = ['progress' => [], 'confidence' => [], 'answers' => []];
 
-            if ($type !== null && $text !== null && in_array($type, ['word', 'phrase'], true)) {
+            if ($type !== null && $text !== null && in_array($type, ContentLexemeCandidate::TYPES, true)) {
                 $occurrences = DB::table('content_lexemes')
                     ->join('contents', 'contents.id', '=', 'content_lexemes.content_id')
                     ->leftJoin('lexemes', 'lexemes.id', '=', 'content_lexemes.lexeme_id')
