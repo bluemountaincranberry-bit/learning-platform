@@ -21,7 +21,7 @@ class GrammarPracticeController extends Controller
 
     public function show(Request $request, int $rule): JsonResponse
     {
-        return response()->json($this->practice->overview($request->user()->id, $this->rule($rule)));
+        return response()->json($this->practice->overview($request->user()->id, $this->rule($request, $rule)));
     }
 
     public function startRound(Request $request, int $rule): JsonResponse
@@ -35,7 +35,7 @@ class GrammarPracticeController extends Controller
 
         $result = $this->practice->startRound(
             $request->user()->id,
-            $this->rule($rule),
+            $this->rule($request, $rule),
             GrammarPracticeLevel::from($validated['level']),
             (int) $validated['count'],
             isset($validated['exercise_ids']) ? array_map('intval', $validated['exercise_ids']) : null,
@@ -101,7 +101,7 @@ class GrammarPracticeController extends Controller
 
         $result = $this->practice->complete(
             $request->user()->id,
-            $this->rule($rule),
+            $this->rule($request, $rule),
             GrammarPracticeLevel::from($validated['level']),
             $validated['items'],
             $validated['content_id'] ?? null,
@@ -111,9 +111,9 @@ class GrammarPracticeController extends Controller
         return response()->json($result, 201);
     }
 
-    private function rule(int $ruleId): GrammarPracticeRule
+    private function rule(Request $request, int $ruleId): GrammarPracticeRule
     {
-        $rule = $this->practice->rule($ruleId);
+        $rule = $this->practice->rule($ruleId, $request->user()->id);
         abort_if($rule === null, 404);
 
         return $rule;

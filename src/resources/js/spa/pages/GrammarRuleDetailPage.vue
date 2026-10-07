@@ -155,7 +155,7 @@ onMounted(loadRule);
             </section>
 
 
-            <div ref="practiceBlock" class="scroll-mb-24">
+            <div id="rule-exercises" ref="practiceBlock" class="scroll-mb-24">
                 <GrammarPracticeCard v-if="rule" ref="practiceCard" :rule-id="rule.id" :authenticated="authStore.isAuthenticated" />
             </div>
 

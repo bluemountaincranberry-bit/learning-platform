@@ -11,7 +11,7 @@ export default defineConfig({
         alias: { '@': fileURLToPath(new URL('./resources/js', import.meta.url)) },
     },
     test: {
-        environment: 'happy-dom',
+        environment: 'jsdom',
         include: ['resources/js/spa/**/*.spec.ts'],
     },
 });

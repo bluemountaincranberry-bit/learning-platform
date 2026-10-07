@@ -13,7 +13,7 @@ use App\Modules\Content\Application\Data\GrammarPracticeRule;
 interface GrammarExercisePoolInterface
 {
     /** The rule when a learner may practice it, otherwise null. */
-    public function practiceRule(int $ruleId): ?GrammarPracticeRule;
+    public function practiceRule(int $ruleId, int $userId): ?GrammarPracticeRule;
 
     /** @return list<GrammarPracticeExercise> */
     public function available(int $ruleId, int $userId): array;

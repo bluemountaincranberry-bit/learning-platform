@@ -122,17 +122,6 @@ class GrammarRuleController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    public function exercises(Request $request, GrammarRule $rule): JsonResponse
-    {
-        Gate::forUser($request->user('sanctum'))->authorize('view', $rule);
-
-        $exercises = $rule->exercises()->where('status', GrammarRuleExercise::STATUS_PUBLISHED)->get();
-
-        return response()->json([
-            'exercises' => GrammarRuleExerciseResource::collection($exercises),
-        ]);
-    }
-
     /**
      * Sets in_my_list/learned as dynamic (uncast) attributes on each rule, the
      * same technique ContentService::getReadyPaginatedWithProgress uses for

@@ -85,7 +85,7 @@ describe('GrammarRuleDetailPage', () => {
         expect(page.text()).not.toContain('Back to grammar');
     });
 
-    it('shows a personal rule source lesson and hides the catalog exercise dead end', async () => {
+    it('shows a personal rule source lesson and the practice entry point', async () => {
         api.getOne.mockResolvedValue({ rule: rule({
             topic: undefined,
             is_personal: true,
@@ -96,7 +96,7 @@ describe('GrammarRuleDetailPage', () => {
 
         expect(page.get('[data-test="personal-rule-source"]').text()).toContain('Tuesday class');
         expect(page.find('[data-test="personal-rule-source"] a').attributes('href')).toContain('/lessons/99');
-        expect(page.find('#rule-exercises').exists()).toBe(false);
+        expect(page.find('#rule-exercises').exists()).toBe(true);
     });
 
     it('adds the rule to my grammar, then offers Practice', async () => {
@@ -113,7 +113,7 @@ describe('GrammarRuleDetailPage', () => {
         api.getOne.mockResolvedValue({ rule: rule({ in_my_list: true }) });
         const { page } = await mountPage();
         const scroll = vi.fn();
-        document.getElementById('rule-exercises')!.scrollIntoView = scroll;
+        page.get('#rule-exercises').element.scrollIntoView = scroll;
 
         await page.get('[data-test="rule-primary"]').trigger('click');
 

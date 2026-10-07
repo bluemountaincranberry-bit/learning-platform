@@ -6,7 +6,7 @@ import MyGrammarPage from '../../../pages/MyGrammarPage.vue';
 
 const api = vi.hoisted(() => ({ words: vi.fn(), grammar: vi.fn(), addWord: vi.fn(), startLearning: vi.fn(), stopLearning: vi.fn(), startLexemeLearning: vi.fn(), markLearned: vi.fn() }));
 vi.mock('../../../domains/user', () => ({ useAuthStore: () => ({ isAuthenticated: true }) }));
-vi.mock('../../../domains/learning', () => ({ myWordsApi: { getList: api.words, addWord: api.addWord, startLearning: api.startLearning, stopLearning: api.stopLearning }, learnedGrammarRulesApi: { getList: api.grammar } }));
+vi.mock('../../../domains/learning', () => ({ myWordsApi: { getList: api.words, addWord: api.addWord, startLearning: api.startLearning, stopLearning: api.stopLearning }, learnedGrammarRulesApi: { getList: api.grammar }, useGrammarPracticeSetting: () => ({ setting: { value: { level: 'medium', count: 10 } } }) }));
 vi.mock('../../../domains/content', () => ({ contentApi: { startLexemeLearning: api.startLexemeLearning }, grammarApi: { markLearned: api.markLearned } }));
 
 async function renderPage(component: typeof MyWordsPage | typeof MyGrammarPage, path: string) {
@@ -67,11 +67,11 @@ describe('learning library page adoption', () => {
         expect(api.stopLearning).toHaveBeenCalledWith(42);
     });
     it('shows grammar status and keeps learned mutation separate from the canonical rule link', async () => {
-        api.grammar.mockResolvedValue({ data: [{ id: 91, grammar_rule_id: 7, title: 'Present simple', summary: 'Daily routines', status: 'learning', level: 'A1', started_at: '2026-10-04', topic: null }], meta: { current_page: 1, per_page: 15, total: 1 } });
+        api.grammar.mockResolvedValue({ data: [{ id: 91, grammar_rule_id: 7, title: 'Present simple', summary: 'Daily routines', status: 'learning', level: 'A1', started_at: '2026-10-04', confidence_calculated: null, topic: null }], meta: { current_page: 1, per_page: 15, total: 1 } });
         api.markLearned.mockResolvedValue(undefined);
         const wrapper = await renderPage(MyGrammarPage, '/my-grammar');
-        expect(wrapper.get('a[href="/grammar/7"]').text()).toBe('Present simple');
-        expect(wrapper.text()).toContain('Learning');
+        expect(wrapper.get('[role="link"][aria-label="Open Present simple"]').text()).toContain('Present simple');
+        expect(wrapper.text()).toContain('Started');
         await wrapper.findAll('button').find((button) => button.text() === 'Mark as learned')!.trigger('click');
         await flushPromises();
         expect(api.markLearned).toHaveBeenCalledWith(7);

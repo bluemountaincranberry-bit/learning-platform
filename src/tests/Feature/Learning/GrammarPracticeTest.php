@@ -360,6 +360,23 @@ test('unpublished rules and guests cannot practice', function () {
     $this->getJson("/api/grammar-rules/{$draft->id}/practice")->assertNotFound();
 });
 
+test('only the owner can practice a personal grammar rule', function () {
+    $owner = User::factory()->create();
+    $rule = practiceRule(GrammarRule::STATUS_PERSONAL);
+    $rule->update(['owner_user_id' => $owner->id]);
+    addExercises($rule, fiveTypeItems());
+
+    Sanctum::actingAs($owner);
+    $this->getJson("/api/grammar-rules/{$rule->id}/practice")
+        ->assertOk()
+        ->assertJsonPath('available_count', 5);
+
+    $other = User::factory()->create();
+    Sanctum::actingAs($other);
+    $this->getJson("/api/grammar-rules/{$rule->id}/practice")->assertNotFound();
+    $this->postJson("/api/grammar-rules/{$rule->id}/practice/rounds", ['level' => 'medium', 'count' => 5])->assertNotFound();
+});
+
 test('the server decides the outcome: a shown answer cannot be claimed as first try', function () {
     $rule = practiceRule();
     addExercises($rule, fiveTypeItems());

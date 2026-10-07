@@ -14,12 +14,18 @@ final class GrammarExercisePool implements GrammarExercisePoolInterface
 {
     public function __construct(private readonly GrammarAnswerChecker $checker) {}
 
-    public function practiceRule(int $ruleId): ?GrammarPracticeRule
+    public function practiceRule(int $ruleId, int $userId): ?GrammarPracticeRule
     {
-        // Personal rules (VIK-26) will widen this to "published, or owned by the learner".
         $rule = GrammarRule::query()
             ->whereKey($ruleId)
-            ->where('status', GrammarRule::STATUS_PUBLISHED)
+            ->where(function (Builder $query) use ($userId): void {
+                $query->where(fn (Builder $shared) => $shared
+                    ->where('status', GrammarRule::STATUS_PUBLISHED)
+                    ->whereNull('owner_user_id'))
+                    ->orWhere(fn (Builder $personal) => $personal
+                        ->where('status', GrammarRule::STATUS_PERSONAL)
+                        ->where('owner_user_id', $userId));
+            })
             ->first(['id', 'title']);
 
         return $rule === null ? null : new GrammarPracticeRule($rule->id, $rule->title);
@@ -73,7 +79,14 @@ final class GrammarExercisePool implements GrammarExercisePoolInterface
     private function visibleTo(int $userId): Builder
     {
         return GrammarRuleExercise::query()
-            ->whereHas('grammarRule', fn (Builder $q) => $q->where('status', GrammarRule::STATUS_PUBLISHED))
+            ->whereHas('grammarRule', fn (Builder $q) => $q->where(function (Builder $visibility) use ($userId): void {
+                $visibility->where(fn (Builder $shared) => $shared
+                    ->where('status', GrammarRule::STATUS_PUBLISHED)
+                    ->whereNull('owner_user_id'))
+                    ->orWhere(fn (Builder $personal) => $personal
+                        ->where('status', GrammarRule::STATUS_PERSONAL)
+                        ->where('owner_user_id', $userId));
+            }))
             ->where('status', '!=', GrammarRuleExercise::STATUS_ARCHIVED)
             ->where(fn (Builder $q) => $q
                 ->where('status', GrammarRuleExercise::STATUS_PUBLISHED)

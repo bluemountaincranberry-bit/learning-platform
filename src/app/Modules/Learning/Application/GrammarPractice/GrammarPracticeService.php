@@ -41,9 +41,9 @@ final class GrammarPracticeService
         private readonly GrammarPracticeLedger $ledger,
     ) {}
 
-    public function rule(int $ruleId): ?GrammarPracticeRule
+    public function rule(int $ruleId, int $userId): ?GrammarPracticeRule
     {
-        return $this->pool->practiceRule($ruleId);
+        return $this->pool->practiceRule($ruleId, $userId);
     }
 
     /** @return array<string, mixed> start card data */
