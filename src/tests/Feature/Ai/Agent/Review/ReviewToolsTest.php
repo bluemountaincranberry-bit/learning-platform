@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Content\Domain\Models\Content;
+use App\Modules\Content\Domain\Models\Lexeme;
 use App\Modules\Srs\Domain\Models\SrsCard;
 use App\Modules\Srs\Domain\Models\SrsReview;
 use App\Modules\User\Models\User;
@@ -74,6 +75,26 @@ test('get weak words only counts the acting user\'s own cards', function () {
     $result = (new GetWeakWordsTool)->execute([], new AgentToolContext(1, $user->id));
 
     expect($result['weak_words'])->toBe([]);
+});
+
+test('get weak words reads a contentless card by canonical lexeme', function () {
+    $user = User::factory()->create();
+    $lexeme = Lexeme::query()->create(['slug' => 'en-retain-'.uniqid(), 'language' => 'en', 'lemma' => 'retain', 'normalized_lemma' => 'retain', 'status' => 'published']);
+    $card = SrsCard::query()->create([
+        'user_id' => $user->id,
+        'lexeme_id' => $lexeme->id,
+        'content_id' => null,
+        'item_key' => null,
+        'state' => 'reviewing',
+        'interval_days' => 2,
+        'ease_factor' => 2.1,
+        'next_review_at' => now(),
+    ]);
+    SrsReview::query()->create(['srs_card_id' => $card->id, 'grade' => 1, 'reviewed_at' => now()]);
+
+    $weakWord = (new GetWeakWordsTool)->execute([], new AgentToolContext(1, $user->id))['weak_words'][0];
+
+    expect($weakWord['lexeme_id'])->toBe($lexeme->id)->and($weakWord['item'])->toBe('retain');
 });
 
 // --- CreateReviewPlanTool ------------------------------------------------

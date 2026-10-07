@@ -35,10 +35,10 @@ class SrsController extends Controller
         $card = $this->repository->findCardForUserOrFail((int) $data['card_id'], $request->user()->id);
         $this->authorize('update', $card);
 
-        if (isset($data['content_lexeme_id']) && ! $this->reviewReferences->lexemeBelongsToContent((int) $data['content_lexeme_id'], $card->content_id)) {
+        if (isset($data['content_lexeme_id']) && ($card->content_id === null || ! $this->reviewReferences->lexemeBelongsToContent((int) $data['content_lexeme_id'], $card->content_id, $card->lexeme_id === null ? null : (int) $card->lexeme_id))) {
             abort(422, 'The content lexeme does not belong to the reviewed card content.');
         }
-        if (isset($data['transcript_segment_id']) && ! $this->reviewReferences->transcriptSegmentBelongsToContent((int) $data['transcript_segment_id'], $card->content_id)) {
+        if (isset($data['transcript_segment_id']) && ($card->content_id === null || ! $this->reviewReferences->transcriptSegmentBelongsToContent((int) $data['transcript_segment_id'], $card->content_id, $card->lexeme_id === null ? null : (int) $card->lexeme_id))) {
             abort(422, 'The transcript segment does not belong to the reviewed card content.');
         }
 

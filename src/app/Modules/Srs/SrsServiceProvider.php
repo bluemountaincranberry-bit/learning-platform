@@ -9,10 +9,12 @@ use App\Modules\Srs\Application\Contracts\ExerciseReviewSchedulerInterface;
 use App\Modules\Srs\Application\Contracts\ReviewMistakesReaderInterface;
 use App\Modules\Srs\Application\Contracts\ReviewScheduleReaderInterface;
 use App\Modules\Srs\Application\Contracts\SrsRepositoryInterface;
+use App\Modules\Srs\Application\Contracts\PersonalLexemeCardMergerInterface;
 use App\Modules\Srs\Application\Contracts\SrsServiceInterface;
 use App\Modules\Srs\Application\ExerciseReviewScheduler;
 use App\Modules\Srs\Application\ReviewMistakesReader;
 use App\Modules\Srs\Application\ReviewScheduleReader;
+use App\Modules\Srs\Application\PersonalLexemeCardMerger;
 use App\Modules\Srs\Application\SrsService;
 use App\Modules\Srs\Infrastructure\Persistence\EloquentSrsRepository;
 use App\Modules\Srs\Interfaces\Listeners\CreateSrsCardOnLearningStartedListener;
@@ -31,6 +33,7 @@ class SrsServiceProvider extends ServiceProvider
         $this->app->bind(ReviewMistakesReaderInterface::class, ReviewMistakesReader::class);
         $this->app->bind(ExerciseReviewSchedulerInterface::class, ExerciseReviewScheduler::class);
         $this->app->bind(SrsRepositoryInterface::class, EloquentSrsRepository::class);
+        $this->app->bind(PersonalLexemeCardMergerInterface::class, PersonalLexemeCardMerger::class);
     }
 
     public function boot(): void

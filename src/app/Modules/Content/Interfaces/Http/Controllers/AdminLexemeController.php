@@ -41,6 +41,7 @@ class AdminLexemeController extends Controller
 
     public function show(Lexeme $lexeme): JsonResponse
     {
+        $this->authorize('manageCatalog', $lexeme);
         return response()->json([
             'lexeme' => new AdminLexemeResource(
                 $this->lexemeCatalogQuery->detail($lexeme)
@@ -50,6 +51,7 @@ class AdminLexemeController extends Controller
 
     public function update(AdminLexemeUpdateRequest $request, Lexeme $lexeme): JsonResponse
     {
+        $this->authorize('manageCatalog', $lexeme);
         return response()->json([
             'lexeme' => new AdminLexemeResource(
                 $this->lexemeCatalogQuery->detail($this->updateLexeme->execute($lexeme, $request->validated()))
@@ -59,6 +61,7 @@ class AdminLexemeController extends Controller
 
     public function destroy(Lexeme $lexeme): JsonResponse
     {
+        $this->authorize('manageCatalog', $lexeme);
         $this->deleteLexeme->execute($lexeme);
 
         return response()->json([], 204);

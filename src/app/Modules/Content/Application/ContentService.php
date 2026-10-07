@@ -95,8 +95,8 @@ class ContentService implements ContentServiceInterface
 
         $translationLanguage = $learner?->translationLanguage ?? config('ai.analysis.translation_language', 'ru');
 
-        $inReviewItemKeys = $learner !== null
-            ? collect($this->reviewSchedule->itemKeys($learner->userId))
+        $inReviewLexemeIds = $learner !== null
+            ? collect($this->reviewSchedule->lexemeIds($learner->userId))->flip()
             : collect();
 
         $confidenceByContentLexemeId = collect($learnerState['confidence']);
@@ -118,7 +118,7 @@ class ContentService implements ContentServiceInterface
         // occurrences and the persisted coverage report.
         $uncoveredWords = $this->latestUncoveredWords($content);
 
-        return $lexemes->map(function ($lexeme) use ($content, $learner, $learnedLexemeIds, $skippedLexemeIds, $needsContextReviewLexemeIds, $translationLanguage, $inReviewItemKeys, $uncoveredWords, $confidenceByContentLexemeId, $mistakesByContentLexemeId, $dueContentIds) {
+        return $lexemes->map(function ($lexeme) use ($content, $learner, $learnedLexemeIds, $skippedLexemeIds, $needsContextReviewLexemeIds, $translationLanguage, $inReviewLexemeIds, $uncoveredWords, $confidenceByContentLexemeId, $mistakesByContentLexemeId, $dueContentIds) {
             $canonicalLexeme = $lexeme->canonicalLexeme;
             $primaryExample = $canonicalLexeme !== null
                 ? Lexeme::pickPrimaryExample($canonicalLexeme->examples, $content->id)
@@ -174,7 +174,7 @@ class ContentService implements ContentServiceInterface
                     'is_primary' => (bool) $example->is_primary,
                 ])->values()->all(),
                 'associations' => $associations,
-                'in_review' => $inReviewItemKeys->contains("{$lexeme->type}:{$lexeme->text}"),
+                'in_review' => $canonicalLexeme !== null && $inReviewLexemeIds->has($canonicalLexeme->id),
                 'needs_context_review' => $canonicalLexeme !== null && $needsContextReviewLexemeIds->has($canonicalLexeme->id),
                 'not_analyzed' => $uncoveredWords !== null
                     && $lexeme->type === ContentLexeme::TYPE_WORD

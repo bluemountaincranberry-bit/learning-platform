@@ -10,6 +10,7 @@ final class LexemeCatalogSearch implements LexemeCatalogSearchInterface
     public function searchPublished(string $query, ?string $language, int $limit): array
     {
         return Lexeme::query()
+            ->whereNull('owner_user_id')
             ->where('status', Lexeme::STATUS_PUBLISHED)
             ->where('lemma', 'like', '%'.$query.'%')
             ->when($language !== null && $language !== '', fn ($q) => $q->where('language', $language))
@@ -27,6 +28,7 @@ final class LexemeCatalogSearch implements LexemeCatalogSearchInterface
     public function search(string $language, string $query, int $limit): array
     {
         return Lexeme::query()
+            ->whereNull('owner_user_id')
             ->when($language !== '', fn ($q) => $q->where('language', $language))
             ->when($query !== '', fn ($q) => $q->whereRaw(
                 'LOWER(lemma) LIKE ?',

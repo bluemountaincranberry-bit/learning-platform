@@ -8,14 +8,18 @@ use App\Modules\Content\Domain\Models\TranscriptSegment;
 
 final class SrsReviewReferenceReader implements SrsReviewReferenceReaderInterface
 {
-    public function lexemeBelongsToContent(int $lexemeId, int $contentId): bool
+    public function lexemeBelongsToContent(int $lexemeId, int $contentId, ?int $canonicalLexemeId = null): bool
     {
-        return ContentLexeme::query()->whereKey($lexemeId)->where('content_id', $contentId)->exists();
+        return ContentLexeme::query()->whereKey($lexemeId)->where('content_id', $contentId)
+            ->when($canonicalLexemeId !== null, fn ($query) => $query->where('lexeme_id', $canonicalLexemeId))
+            ->exists();
     }
 
-    public function transcriptSegmentBelongsToContent(int $segmentId, int $contentId): bool
+    public function transcriptSegmentBelongsToContent(int $segmentId, int $contentId, ?int $canonicalLexemeId = null): bool
     {
-        return TranscriptSegment::query()->whereKey($segmentId)->where('content_id', $contentId)->exists();
+        return TranscriptSegment::query()->whereKey($segmentId)->where('content_id', $contentId)
+            ->when($canonicalLexemeId !== null, fn ($query) => $query->whereHas('lexemes', fn ($lexemes) => $lexemes->where('content_lexemes.lexeme_id', $canonicalLexemeId)))
+            ->exists();
     }
 
     public function lexemeIdForItemKey(int $contentId, string $itemKey): ?int

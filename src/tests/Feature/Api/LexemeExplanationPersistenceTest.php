@@ -87,6 +87,20 @@ test('dictionary show includes the stored explanation', function () {
         ->assertJsonPath('lexeme.explanations.0.content.title', 'Test video');
 });
 
+test('personal dictionary words are visible only to their owner', function () {
+    $owner = explainUser();
+    $other = explainUser();
+    $word = Lexeme::query()->create([
+        'slug' => 'private-'.uniqid(), 'language' => 'en', 'lemma' => 'privateword',
+        'normalized_lemma' => 'privateword', 'owner_user_id' => $owner->id,
+    ]);
+
+    $this->getJson("/api/dictionary/{$word->id}")->assertNotFound();
+    $this->actingAs($other)->getJson("/api/dictionary/{$word->id}")->assertNotFound();
+    $this->actingAs($owner)->getJson("/api/dictionary/{$word->id}")->assertOk()
+        ->assertJsonPath('lexeme.lemma', 'privateword');
+});
+
 test('explain from another content generates a separate variant', function () {
     explainAiFake();
     Queue::fake();

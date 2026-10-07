@@ -3,11 +3,15 @@
 use App\Modules\Content\Domain\Models\Content;
 use App\Modules\Content\Domain\Models\ContentLexeme;
 use App\Modules\Content\Domain\Models\TranscriptSegment;
+use App\Modules\Content\Domain\Models\Lexeme;
+use App\Modules\Srs\Application\Contracts\ReviewScheduleReaderInterface;
+use App\Modules\Srs\Application\Contracts\ReviewMistakesReaderInterface;
 use App\Modules\Srs\Application\Contracts\ReviewOutcomeHandlerInterface;
 use App\Modules\Srs\Application\Contracts\SrsServiceInterface;
 use App\Modules\Srs\Application\Data\ReviewOutcome;
 use App\Modules\Srs\Domain\IntervalCalculator;
 use App\Modules\Srs\Domain\Models\SrsCard;
+use App\Modules\Srs\Domain\Models\SrsReview;
 use App\Modules\User\Models\User;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
@@ -39,6 +43,24 @@ test('srs due endpoint returns cards that are due', function () {
     $this->actingAs($user)->getJson('/api/srs/due')
         ->assertOk()
         ->assertJsonCount(1, 'items');
+});
+
+test('contentless personal SRS cards can be reviewed without legacy content lookup', function () {
+    Role::firstOrCreate(['name' => 'user', 'guard_name' => 'web']);
+    $user = User::factory()->create();
+    $user->assignRole('user');
+    $lexeme = Lexeme::query()->create([
+        'slug' => 'personal-'.uniqid(), 'language' => 'en', 'lemma' => 'personal',
+        'normalized_lemma' => 'personal', 'owner_user_id' => $user->id,
+    ]);
+    $card = SrsCard::query()->create([
+        'user_id' => $user->id, 'lexeme_id' => $lexeme->id, 'content_id' => null,
+        'item_key' => null, 'state' => 'new', 'next_review_at' => now(),
+    ]);
+
+    $this->actingAs($user)->postJson('/api/srs/review', ['card_id' => $card->id, 'grade' => 4])
+        ->assertOk();
+    expect(SrsReview::query()->where('srs_card_id', $card->id)->value('content_lexeme_id'))->toBeNull();
 });
 
 test('srs due endpoint returns lexeme_display for each card', function () {
@@ -106,6 +128,46 @@ test('srs due endpoint uses item_key fallback when no content_lexeme matches', f
     $this->actingAs($user)->getJson('/api/srs/due')
         ->assertOk()
         ->assertJsonPath('items.0.lexeme_display', 'orphan');
+});
+
+test('contentless canonical cards use lexeme identity in due and schedule readers', function () {
+    Role::firstOrCreate(['name' => 'user', 'guard_name' => 'web']);
+    $user = User::factory()->create();
+    $user->assignRole('user');
+    $lexeme = Lexeme::query()->create([
+        'slug' => 'en-conversation',
+        'language' => 'en',
+        'lemma' => 'conversation',
+        'normalized_lemma' => 'conversation',
+        'status' => 'published',
+    ]);
+    $card = SrsCard::query()->create([
+        'user_id' => $user->id,
+        'lexeme_id' => $lexeme->id,
+        'content_id' => null,
+        'item_key' => null,
+        'state' => 'reviewing',
+        'interval_days' => 4,
+        'ease_factor' => 2.5,
+        'next_review_at' => now()->subMinute(),
+    ]);
+
+    $this->actingAs($user)->getJson('/api/srs/due')
+        ->assertOk()
+        ->assertJsonPath('items.0.id', $card->id)
+        ->assertJsonPath('items.0.lexeme_id', $lexeme->id)
+        ->assertJsonPath('items.0.lexeme_display', 'conversation')
+        ->assertJsonPath('items.0.content_id', null);
+
+    $reader = app(ReviewScheduleReaderInterface::class);
+    expect($reader->forUser($user->id, 10)['upcoming'][0]['item'])->toBe('conversation')
+        ->and($reader->forUser($user->id, 10)['upcoming'][0]['lexeme_id'])->toBe($lexeme->id);
+    expect($reader->wordsForQuiz($user->id, 10))->toBe(['conversation']);
+
+    SrsReview::query()->create(['srs_card_id' => $card->id, 'grade' => 1, 'prev_interval' => 4, 'new_interval' => 1, 'reviewed_at' => now()]);
+    $mistake = app(ReviewMistakesReaderInterface::class)->recentForUser($user->id, 10)['mistakes'][0];
+    expect($mistake['lexeme_id'])->toBe($lexeme->id);
+    expect($mistake['item'])->toBe('conversation');
 });
 
 test('srs review updates card interval and creates review record', function () {
@@ -203,6 +265,24 @@ test('srs review rejects lexeme and transcript references from another content',
             ...$reference,
         ])->assertStatus(422);
     }
+
+    expect($card->reviews()->count())->toBe(0);
+});
+
+test('srs review rejects a same-content occurrence for a different canonical lexeme', function () {
+    $user = User::factory()->create();
+    $content = Content::factory()->create(['status' => 'ready']);
+    $cardOccurrence = ContentLexeme::query()->create(['content_id' => $content->id, 'type' => 'word', 'text' => 'first']);
+    $otherOccurrence = ContentLexeme::query()->create(['content_id' => $content->id, 'type' => 'word', 'text' => 'second']);
+    $card = SrsCard::query()->create([
+        'user_id' => $user->id, 'lexeme_id' => $cardOccurrence->lexeme_id,
+        'content_id' => $content->id, 'item_key' => 'word:first', 'state' => 'reviewing',
+        'interval_days' => 2, 'ease_factor' => 2.5, 'next_review_at' => now()->subMinute(),
+    ]);
+
+    $this->actingAs($user)->postJson('/api/srs/review', [
+        'card_id' => $card->id, 'grade' => 4, 'content_lexeme_id' => $otherOccurrence->id,
+    ])->assertStatus(422);
 
     expect($card->reviews()->count())->toBe(0);
 });

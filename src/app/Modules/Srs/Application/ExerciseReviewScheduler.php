@@ -16,15 +16,18 @@ final class ExerciseReviewScheduler implements ExerciseReviewSchedulerInterface
 
     public function scheduleReview(
         int $userId,
-        int $contentId,
-        string $itemKey,
+        ?int $lexemeId,
         int $grade,
         array $context = [],
     ): bool {
+        if ($lexemeId === null) {
+            return false;
+        }
+
         $cardId = SrsCard::query()
             ->where('user_id', $userId)
-            ->where('content_id', $contentId)
-            ->where('item_key', $itemKey)
+            ->where('lexeme_id', $lexemeId)
+            ->whereNull('deactivated_at')
             ->value('id');
 
         if ($cardId === null) {

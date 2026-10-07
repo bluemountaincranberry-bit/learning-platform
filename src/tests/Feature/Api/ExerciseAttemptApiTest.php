@@ -86,8 +86,11 @@ test('completed learning attempt recalculates the linked SRS card and records re
     $user = User::factory()->create();
     $content = Content::factory()->create(['language' => 'en']);
     $lexeme = $content->lexemes()->create(['type' => 'word', 'text' => 'hello']);
+    app(\App\Modules\Content\Application\CanonicalLexemeSyncService::class)->sync($lexeme);
+    $lexeme->refresh();
     $card = SrsCard::query()->create([
         'user_id' => $user->id,
+        'lexeme_id' => $lexeme->lexeme_id,
         'content_id' => $content->id,
         'item_key' => 'word:hello',
         'state' => 'reviewing',

@@ -11,6 +11,6 @@ class DeleteSrsCardOnLearningStoppedListener
 
     public function handle(LexemeLearningStopped $event): void
     {
-        $this->repository->deleteCardsForLearning($event->userId, $event->itemKey);
+        $this->repository->deactivateCardsForLearning($event->userId, $event->lexemeId);
     }
 }

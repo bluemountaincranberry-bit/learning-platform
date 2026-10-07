@@ -9,7 +9,7 @@ use Illuminate\Support\Collection as BaseCollection;
 
 interface SrsRepositoryInterface
 {
-    public function getInReviewItemKeys(int $userId): BaseCollection;
+    public function getInReviewLexemeIds(int $userId): BaseCollection;
 
     /** @return Collection<int, SrsCard> */
     public function getDueCards(int $userId): Collection;
@@ -25,5 +25,5 @@ interface SrsRepositoryInterface
     /** @param array<string, mixed> $attributes @param array<string, mixed> $values */
     public function firstOrCreateCard(array $attributes, array $values): SrsCard;
 
-    public function deleteCardsForLearning(int $userId, string $itemKey): int;
+    public function deactivateCardsForLearning(int $userId, int $lexemeId): int;
 }

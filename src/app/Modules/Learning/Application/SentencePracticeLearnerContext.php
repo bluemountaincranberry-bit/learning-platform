@@ -5,6 +5,7 @@ namespace App\Modules\Learning\Application;
 use App\Modules\Learning\Application\Contracts\SentencePracticeLearnerContextInterface;
 use App\Modules\Learning\Domain\Models\UserGrammarRule;
 use App\Modules\Learning\Domain\Models\UserLexemeConfidence;
+use Illuminate\Support\Facades\DB;
 use App\Modules\User\Application\Contracts\LearningFlowLearnerReaderInterface;
 
 class SentencePracticeLearnerContext implements SentencePracticeLearnerContextInterface
@@ -41,16 +42,20 @@ class SentencePracticeLearnerContext implements SentencePracticeLearnerContextIn
             return [];
         }
 
-        return UserLexemeConfidence::query()
-            ->where('user_id', $userId)
-            ->whereIn('content_lexeme_id', $contentLexemeIds)
-            ->get()
-            ->mapWithKeys(function (UserLexemeConfidence $confidence): array {
+        $lexemeByOccurrence = DB::table('content_lexemes')->whereIn('id', $contentLexemeIds)->pluck('lexeme_id', 'id');
+        $confidenceByLexeme = UserLexemeConfidence::query()->where('user_id', $userId)
+            ->whereIn('lexeme_id', $lexemeByOccurrence->filter()->unique()->values())->get()->keyBy('lexeme_id');
+
+        return collect($lexemeByOccurrence)->mapWithKeys(function ($lexemeId, $occurrenceId) use ($confidenceByLexeme): array {
+                $confidence = $confidenceByLexeme->get($lexemeId);
+                if ($confidence === null) {
+                    return [];
+                }
                 $average = (int) round(collect(['recognition', 'recall', 'production', 'listening', 'speaking'])
                     ->map(fn (string $dimension): int => (int) ($confidence->{$dimension} ?? 0))
                     ->avg());
 
-                return [$confidence->content_lexeme_id => $average];
+                return [(int) $occurrenceId => $average];
             })
             ->all();
     }

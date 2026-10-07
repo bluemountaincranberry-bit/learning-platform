@@ -29,5 +29,6 @@ class ExerciseCompleted
         public readonly int $grade,
         public readonly bool $isMistake,
         public readonly ?string $language = null,
+        public readonly ?int $lexemeId = null,
     ) {}
 }

@@ -5,6 +5,7 @@ namespace App\Modules\Learning;
 use App\Contracts\Ai\LessonAnalysisStoreInterface;
 use App\Contracts\Ai\LessonNotesWriterInterface;
 use App\Modules\Content\Application\Contracts\GrammarProgressStoreInterface;
+use App\Modules\Content\Application\Contracts\PersonalLexemeReconcilerInterface;
 use App\Modules\Content\Application\Contracts\GrammarRuleMergeParticipant;
 use App\Modules\Learning\Application\Contracts\PronunciationAssessmentProviderInterface;
 use App\Modules\Learning\Application\Contracts\SpeechToTextProviderInterface;
@@ -13,13 +14,16 @@ use App\Modules\Learning\Application\GrammarProgressStore;
 use App\Modules\Learning\Application\LearningStatsService;
 use App\Modules\Learning\Application\LessonStore;
 use App\Modules\Learning\Application\ReviewOutcomeHandler;
+use App\Modules\Learning\Application\PersonalLexemeReconciler;
 use App\Modules\Learning\Domain\Events\ExerciseCompleted;
+use App\Modules\Content\Contracts\Events\LexemeLearningStarted;
 use App\Modules\Learning\Infrastructure\AzurePronunciationAssessmentProvider;
 use App\Modules\Learning\Infrastructure\DemoPronunciationAssessmentProvider;
 use App\Modules\Learning\Infrastructure\OpenAiSpeechToTextProvider;
 use App\Modules\Learning\Infrastructure\StubPronunciationAssessmentProvider;
 use App\Modules\Learning\Infrastructure\StubSpeechToTextProvider;
 use App\Modules\Learning\Interfaces\Listeners\PublishExerciseCompletedToKafka;
+use App\Modules\Learning\Interfaces\Listeners\RecordUserLexemeSourceOnLearningStarted;
 use App\Modules\Srs\Application\Contracts\ReviewOutcomeHandlerInterface;
 use App\Modules\User\Application\Contracts\LearningStatsReaderInterface;
 use Illuminate\Support\Facades\Event;
@@ -36,6 +40,7 @@ class LearningServiceProvider extends ServiceProvider
         $this->app->tag([GrammarProgressMergeParticipant::class], GrammarRuleMergeParticipant::TAG);
         $this->app->bind(LearningStatsReaderInterface::class, LearningStatsService::class);
         $this->app->bind(ReviewOutcomeHandlerInterface::class, ReviewOutcomeHandler::class);
+        $this->app->bind(PersonalLexemeReconcilerInterface::class, PersonalLexemeReconciler::class);
         $this->app->bind(SpeechToTextProviderInterface::class, function (): SpeechToTextProviderInterface {
             $key = (string) config('ai.openai.api_key', '');
 
@@ -59,6 +64,8 @@ class LearningServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Event::listen(LexemeLearningStarted::class, RecordUserLexemeSourceOnLearningStarted::class);
+
         Route::middleware('api')->prefix('api')->group(app_path('Modules/Learning/Routes/lessons.php'));
 
         Route::middleware('api')

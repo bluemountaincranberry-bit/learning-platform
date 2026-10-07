@@ -25,7 +25,7 @@ final class TrainingSessionService
             $presentation = $card['content_lexeme_id'] === null ? [] : ($presentations[$card['content_lexeme_id']] ?? []);
 
             return [
-                'card_id' => $card['id'], 'content_id' => $card['content_id'],
+                'card_id' => $card['id'], 'lexeme_id' => $card['lexeme_id'], 'content_id' => $card['content_id'],
                 'content_lexeme_id' => $card['content_lexeme_id'], 'item_key' => $card['item_key'],
                 'lexeme_display' => $card['lexeme_display'], 'state' => $card['state'],
                 'next_review_at' => $card['next_review_at'],

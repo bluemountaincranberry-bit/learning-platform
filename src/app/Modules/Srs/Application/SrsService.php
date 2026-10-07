@@ -29,9 +29,9 @@ class SrsService implements SrsServiceInterface
      * (Srs -> Ai), since Ai already depends on Srs the other way for its
      * read-only tools.
      */
-    public function getInReviewItemKeys(int $userId): BaseCollection
+    public function getInReviewLexemeIds(int $userId): BaseCollection
     {
-        return $this->repository->getInReviewItemKeys($userId);
+        return $this->repository->getInReviewLexemeIds($userId);
     }
 
     public function getDueCards(int $userId): Collection
@@ -61,7 +61,9 @@ class SrsService implements SrsServiceInterface
                 'grade' => $grade,
                 'prev_interval' => $prevInterval,
                 'new_interval' => $newInterval,
-                'content_lexeme_id' => $context['content_lexeme_id'] ?? $this->reviewReferences->lexemeIdForItemKey($card->content_id, $card->item_key),
+                'content_lexeme_id' => $context['content_lexeme_id'] ?? ($card->content_id !== null && $card->item_key !== null
+                    ? $this->reviewReferences->lexemeIdForItemKey($card->content_id, $card->item_key)
+                    : null),
                 'transcript_segment_id' => $context['transcript_segment_id'] ?? null,
                 'exercise_type' => $context['exercise_type'] ?? 'srs_review',
                 'error_type' => $context['error_type'] ?? (ReviewGradeRules::isFailing($grade) ? 'incorrect' : null),
@@ -73,6 +75,7 @@ class SrsService implements SrsServiceInterface
             $this->reviewOutcomeHandler->handle(new ReviewOutcome(
                 reviewId: (int) $review->id,
                 userId: (int) $card->user_id,
+                lexemeId: $card->lexeme_id !== null ? (int) $card->lexeme_id : null,
                 itemKey: $card->item_key,
                 contentLexemeId: $review->content_lexeme_id !== null ? (int) $review->content_lexeme_id : null,
                 grade: (int) $review->grade,

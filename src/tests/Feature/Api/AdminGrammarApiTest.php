@@ -42,6 +42,19 @@ test('admin grammar api requires auth and manage-content permission', function (
         ->assertOk();
 });
 
+test('admin grammar lexeme endpoints hide personal lexemes', function () {
+    $editor = makeEditor();
+    $owner = makeRegularUser();
+    $personal = app(\App\Modules\Content\Application\Contracts\PersonalLexemeResolverInterface::class)
+        ->resolveOrCreate($owner->id, 'en', 'private');
+
+    $this->actingAs($editor)->getJson('/api/admin/grammar/lexemes')->assertOk()
+        ->assertJsonMissing(['lemma' => 'private']);
+    $this->actingAs($editor)->getJson("/api/admin/grammar/lexemes/{$personal['id']}")->assertNotFound();
+    $this->actingAs($editor)->patchJson("/api/admin/grammar/lexemes/{$personal['id']}", ['notes' => 'leak'])->assertNotFound();
+    $this->actingAs($editor)->deleteJson("/api/admin/grammar/lexemes/{$personal['id']}")->assertNotFound();
+});
+
 test('editor can create update and delete grammar topic', function () {
     $editor = makeEditor();
 

@@ -4,7 +4,9 @@ namespace App\Modules\Content\Domain\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class Lexeme extends Model
@@ -20,6 +22,16 @@ class Lexeme extends Model
     public const STATUS_ARCHIVED = 'archived';
 
     public const STATUSES = [self::STATUS_DRAFT, self::STATUS_REVIEW, self::STATUS_PUBLISHED, self::STATUS_ARCHIVED];
+
+    public function scopeVisibleTo(Builder $query, int $userId): Builder
+    {
+        return $query->where(fn (Builder $scope) => $scope->whereNull('owner_user_id')->orWhere('owner_user_id', $userId));
+    }
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\User\Models\User::class, 'owner_user_id');
+    }
 
     /** @var array<string, string> */
     public const PARTS_OF_SPEECH = [

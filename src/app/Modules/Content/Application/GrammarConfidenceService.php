@@ -76,23 +76,20 @@ class GrammarConfidenceService
     private function srsScore(int $userId, GrammarRule $rule): ?float
     {
         $driver = DB::connection()->getDriverName();
-
-        // Same driver-aware item_key match as GetWeakTopicsTool/SrsService —
-        // srs_cards has no direct lexeme FK, only "type:text" + content_id.
         $itemKeyMatch = $driver === 'sqlite'
             ? "(content_lexemes.type || ':' || content_lexemes.text) = srs_cards.item_key"
             : "CONCAT(content_lexemes.type, ':', content_lexemes.text) = srs_cards.item_key";
-
         $totals = DB::table('srs_reviews')
             ->join('srs_cards', 'srs_cards.id', '=', 'srs_reviews.srs_card_id')
-            ->join('content_lexemes', function ($join) use ($itemKeyMatch): void {
-                $join->on('content_lexemes.content_id', '=', 'srs_cards.content_id')
-                    ->whereRaw($itemKeyMatch);
+            ->leftJoin('content_lexemes', function ($join) use ($itemKeyMatch): void {
+                $join->on('content_lexemes.content_id', '=', 'srs_cards.content_id')->whereRaw($itemKeyMatch);
             })
-            ->join('grammar_rule_lexeme', 'grammar_rule_lexeme.lexeme_id', '=', 'content_lexemes.lexeme_id')
+            ->join('grammar_rule_lexeme', function ($join): void {
+                $join->whereRaw('grammar_rule_lexeme.lexeme_id = COALESCE(srs_cards.lexeme_id, content_lexemes.lexeme_id)');
+            })
             ->where('srs_cards.user_id', $userId)
             ->where('grammar_rule_lexeme.grammar_rule_id', $rule->id)
-            ->selectRaw('count(*) as total, sum(case when srs_reviews.grade > ? then 1 else 0 end) as passed', [self::FAILING_GRADE_THRESHOLD])
+            ->selectRaw('count(distinct srs_reviews.id) as total, count(distinct case when srs_reviews.grade > ? then srs_reviews.id end) as passed', [self::FAILING_GRADE_THRESHOLD])
             ->first();
 
         $total = (int) ($totals->total ?? 0);

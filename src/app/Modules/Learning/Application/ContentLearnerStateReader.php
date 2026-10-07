@@ -7,25 +7,27 @@ use App\Modules\Learning\Domain\Models\UserLexemeConfidence;
 use App\Modules\Learning\Domain\Models\UserLexemeContextCheck;
 use App\Modules\Learning\Domain\Models\UserLexemeProgress;
 use App\Modules\Learning\Domain\Models\UserLexemeSkip;
+use Illuminate\Support\Facades\DB;
 
 class ContentLearnerStateReader implements ContentLearnerStateReaderInterface
 {
     public function lexemeState(int $userId, array $contentLexemeIds): array
     {
-        $confidence = UserLexemeConfidence::query()
-            ->where('user_id', $userId)
-            ->whereIn('content_lexeme_id', $contentLexemeIds)
-            ->get()
-            ->mapWithKeys(fn (UserLexemeConfidence $row): array => [
-                $row->content_lexeme_id => [
+        $lexemeByOccurrence = DB::table('content_lexemes')->whereIn('id', $contentLexemeIds)->pluck('lexeme_id', 'id');
+        $confidenceByLexeme = UserLexemeConfidence::query()
+            ->where('user_id', $userId)->whereIn('lexeme_id', $lexemeByOccurrence->filter()->unique()->values())
+            ->get()->keyBy('lexeme_id');
+        $confidence = collect($lexemeByOccurrence)->mapWithKeys(function ($lexemeId, $occurrenceId) use ($confidenceByLexeme): array {
+            $row = $confidenceByLexeme->get($lexemeId);
+
+            return $row === null ? [] : [(int) $occurrenceId => [
                     'recognition' => (int) $row->recognition,
                     'recall' => (int) $row->recall,
                     'production' => (int) $row->production,
                     'listening' => (int) $row->listening,
                     'speaking' => (int) $row->speaking,
-                ],
-            ])
-            ->all();
+                ]];
+        })->all();
 
         return [
             'learned' => UserLexemeProgress::query()->where('user_id', $userId)->pluck('lexeme_id')->all(),

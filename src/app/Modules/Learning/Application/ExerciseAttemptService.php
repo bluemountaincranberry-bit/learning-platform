@@ -122,8 +122,7 @@ class ExerciseAttemptService
         $this->confidence->recordOutcome($contentLexemeId, $userId, $dimension, $score >= 90, (bool) $attempt->hint_used);
         $reviewScheduled = $this->reviewScheduler->scheduleReview(
             $userId,
-            $contentContext->contentId,
-            "{$contentContext->lexemeType}:{$contentContext->lexemeText}",
+            $contentContext->canonicalLexemeId,
             $score >= 90 ? 3 : 1,
             [
                 'content_lexeme_id' => $contentLexemeId,

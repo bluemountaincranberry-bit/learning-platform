@@ -11,8 +11,11 @@ class LexemeLearningStarted
 
     public function __construct(
         public int $userId,
+        public int $lexemeId,
         public int $contentLexemeId,
         public string $itemKey,
-        public int $contentId,
+        public ?int $contentId,
+        public string $sourceText,
+        public string $displayLabelSnapshot,
     ) {}
 }

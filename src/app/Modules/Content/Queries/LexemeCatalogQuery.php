@@ -11,7 +11,7 @@ final class LexemeCatalogQuery
 {
     public function paginate(array $filters): LengthAwarePaginator
     {
-        $query = Lexeme::query()->withCount(['examples', 'rules', 'contentLinks', 'associations']);
+        $query = Lexeme::query()->whereNull('owner_user_id')->withCount(['examples', 'rules', 'contentLinks', 'associations']);
 
         foreach (['language', 'status', 'level', 'part_of_speech'] as $field) {
             if (($filters[$field] ?? null) !== null) {

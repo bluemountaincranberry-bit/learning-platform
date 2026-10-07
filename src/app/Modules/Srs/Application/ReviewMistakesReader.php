@@ -18,7 +18,8 @@ final class ReviewMistakesReader implements ReviewMistakesReaderInterface
             ->where('srs_reviews.grade', '<=', $this->grades->failingThreshold())
             ->orderByDesc('srs_reviews.reviewed_at')
             ->limit($limit)
-            ->select('srs_reviews.grade', 'srs_reviews.reviewed_at', 'srs_cards.item_key')
+            ->leftJoin('lexemes as canonical_lexemes', 'canonical_lexemes.id', '=', 'srs_cards.lexeme_id')
+            ->select('srs_reviews.grade', 'srs_reviews.reviewed_at', 'srs_cards.lexeme_id', 'srs_cards.item_key', 'canonical_lexemes.lemma')
             ->get();
 
         if ($mistakes->isEmpty()) {
@@ -28,7 +29,8 @@ final class ReviewMistakesReader implements ReviewMistakesReaderInterface
         return [
             'mistake_count' => $mistakes->count(),
             'mistakes' => $mistakes->map(fn (SrsReview $mistake): array => [
-                'item' => (string) preg_replace('/^(word|phrase):/', '', $mistake->item_key),
+                'lexeme_id' => $mistake->lexeme_id !== null ? (int) $mistake->lexeme_id : null,
+                'item' => $mistake->lemma ?: (string) preg_replace('/^(word|phrase):/', '', $mistake->item_key ?? ''),
                 'grade' => (int) $mistake->grade,
                 'reviewed_at' => $mistake->reviewed_at?->toIso8601String(),
             ])->all(),

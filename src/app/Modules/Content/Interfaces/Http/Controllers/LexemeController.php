@@ -40,6 +40,7 @@ class LexemeController extends Controller
      */
     public function show(Request $request, Lexeme $word): JsonResponse
     {
+        $this->authorize('view', $word);
         $word->load(['translations', 'examples', 'associations.relatedLexeme', 'senses.translations', 'senses.examples', 'contentLinks', 'explanations.content']);
 
         $translationLanguage = $request->user()?->translation_language ?? config('ai.analysis.translation_language', 'ru');
@@ -121,6 +122,7 @@ class LexemeController extends Controller
      */
     public function moreExamples(Request $request, Lexeme $word): JsonResponse
     {
+        $this->authorize('view', $word);
         if (! AiConfig::isEnabled()) {
             return response()->json(['message' => 'AI feature is disabled.'], 503);
         }
@@ -309,6 +311,7 @@ class LexemeController extends Controller
      */
     public function explainWord(Request $request, Lexeme $word): JsonResponse
     {
+        $this->authorize('view', $word);
         if (! AiConfig::isEnabled()) {
             return response()->json(['message' => 'AI feature is disabled.'], 503);
         }
@@ -351,6 +354,7 @@ class LexemeController extends Controller
      */
     public function destroyExplanation(Request $request, Lexeme $word, LexemeExplanation $explanation): JsonResponse
     {
+        $this->authorize('view', $word);
         if ($explanation->lexeme_id !== $word->id) {
             abort(404);
         }

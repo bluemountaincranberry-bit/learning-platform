@@ -11,13 +11,22 @@ final class LearnedLexemeCatalog implements LearnedLexemeCatalogInterface
 {
     public function __construct(private LexemePresentationReader $presentations) {}
 
-    public function filterPublicLexemeIds(array $lexemeIds, array $filters): array
+    public function filterVisibleLexemeIds(int $userId, array $lexemeIds, array $filters): array
     {
         return Lexeme::query()->whereIn('id', $lexemeIds)
             ->when(! empty($filters['language']), fn ($query) => $query->where('language', $filters['language']))
-            ->whereHas('contentLinks.content', function ($query) use ($filters): void {
-                $query->whereIn('status', Content::PUBLIC_STATUSES)
-                    ->when(! empty($filters['content_id']), fn ($contentQuery) => $contentQuery->whereKey((int) $filters['content_id']));
+            ->where(function ($visibility) use ($userId, $filters): void {
+                if (empty($filters['content_id'])) {
+                    $visibility->where('owner_user_id', $userId)->orWhere(function ($shared) use ($filters): void {
+                        $shared->whereNull('owner_user_id')->whereHas('contentLinks.content', function ($query) use ($filters): void {
+                            $query->whereIn('status', Content::PUBLIC_STATUSES)
+                                ->when(! empty($filters['content_id']), fn ($contentQuery) => $contentQuery->whereKey((int) $filters['content_id']));
+                        });
+                    });
+                } else {
+                    $visibility->whereNull('owner_user_id')->whereHas('contentLinks.content', fn ($query) => $query
+                        ->whereIn('status', Content::PUBLIC_STATUSES)->whereKey((int) $filters['content_id']));
+                }
             })->pluck('id')->map(fn ($id): int => (int) $id)->all();
     }
 
@@ -33,7 +42,7 @@ final class LearnedLexemeCatalog implements LearnedLexemeCatalogInterface
             $result[$entry['progress_id']] = [
                 'lexeme_id' => $lexeme?->id,
                 'content_lexeme_id' => $occurrence?->id,
-                'lexeme' => $occurrence?->text,
+                'lexeme' => $occurrence?->text ?? $lexeme?->lemma,
                 'item_key' => $occurrence === null ? null : "{$occurrence->type}:{$occurrence->text}",
                 ...$this->presentations->fromLoadedLexeme($lexeme, $occurrence?->content_id, $translationLanguage),
             ];

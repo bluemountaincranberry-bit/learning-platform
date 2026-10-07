@@ -52,10 +52,12 @@ class CanonicalLexemeSyncService
 
         $lexeme = Lexeme::query()->firstOrCreate(
             [
+                'owner_user_id' => null,
                 'language' => $language,
                 'normalized_lemma' => $normalized,
             ],
             [
+                'owner_user_id' => null,
                 'slug' => $this->resolveSlug($language, $normalized),
                 'lemma' => $lemma,
                 'part_of_speech' => $partOfSpeech,

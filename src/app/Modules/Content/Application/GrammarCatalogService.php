@@ -247,7 +247,7 @@ class GrammarCatalogService implements GrammarCatalogServiceInterface
 
     public function paginateLexemes(array $filters): LengthAwarePaginator
     {
-        $query = Lexeme::query()->withCount([
+        $query = Lexeme::query()->whereNull('owner_user_id')->withCount([
             'examples',
             'rules',
             'contentLinks',
@@ -322,6 +322,7 @@ class GrammarCatalogService implements GrammarCatalogServiceInterface
         /** @var Lexeme $lexeme */
         $lexeme = DB::transaction(function () use ($data): Lexeme {
             $lexeme = Lexeme::query()->create([
+                'owner_user_id' => null,
                 'slug' => $this->resolveUniqueSlug(Lexeme::class, $data['slug'] ?? null, $data['lemma']),
                 'language' => $data['language'] ?? 'en',
                 'lemma' => $data['lemma'],

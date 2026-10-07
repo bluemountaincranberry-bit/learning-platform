@@ -43,7 +43,8 @@ class SelfCheckService
         $items = $items->sortBy(fn (array $item): int => $retryPositions->get($item['content_lexeme_id'], PHP_INT_MAX))->values();
 
         $ids = $items->pluck('content_lexeme_id');
-        $confidences = UserLexemeConfidence::query()->where('user_id', $userId)->whereIn('content_lexeme_id', $ids)->get()->keyBy('content_lexeme_id');
+        $lexemeIds = $items->pluck('canonical_lexeme_id')->filter()->unique()->values();
+        $confidences = UserLexemeConfidence::query()->where('user_id', $userId)->whereIn('lexeme_id', $lexemeIds)->get()->keyBy('lexeme_id');
         $recentAttempts = ExerciseAttempt::query()->where('user_id', $userId)->whereIn('content_lexeme_id', $ids)
             ->where('created_at', '>=', now()->subDays(30))->latest('created_at')
             ->get(['content_lexeme_id', 'error_type'])->groupBy('content_lexeme_id');
@@ -51,7 +52,7 @@ class SelfCheckService
 
         return $items->shuffle()->take($limit)->map(function (array $item) use ($confidences, $recentAttempts, $flow, $userId, $retryRecords): array {
             $contentLexemeId = (int) $item['content_lexeme_id'];
-            $confidence = $confidences->get($contentLexemeId);
+            $confidence = $confidences->get($item['canonical_lexeme_id'] ?? null);
             $attempts = $recentAttempts->get($contentLexemeId, collect());
             $recommendation = config('learning.adaptive.enabled', true)
                 ? $this->activitySelector->choose($item['level'], $flow['config'], [
@@ -149,7 +150,7 @@ class SelfCheckService
     /** @param array<string, mixed> $lexeme @param array<string, mixed> $answer */
     private function applyToSrsCard(array $lexeme, int $userId, bool $known, array $answer): void
     {
-        $this->reviewScheduler->scheduleReview($userId, (int) $lexeme['content_id'], (string) $lexeme['item_key'], $known ? self::GRADE_CORRECT : self::GRADE_INCORRECT, [
+        $this->reviewScheduler->scheduleReview($userId, isset($lexeme['canonical_lexeme_id']) ? (int) $lexeme['canonical_lexeme_id'] : null, $known ? self::GRADE_CORRECT : self::GRADE_INCORRECT, [
             'content_lexeme_id' => (int) $lexeme['content_lexeme_id'],
             'transcript_segment_id' => $answer['transcript_segment_id'] ?? null,
             'exercise_type' => $answer['exercise_type'] ?? 'self_check',
