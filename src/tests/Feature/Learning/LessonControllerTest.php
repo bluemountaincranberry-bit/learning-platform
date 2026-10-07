@@ -173,9 +173,13 @@ test('uploading the real word-list fixture folds its extracted text into lesson 
         ->toContain('to encourage smn to do smth')
         ->toContain('to discourage smn from doing smth');
 
+    $analysisPrompts = [];
     $analysisClient = Mockery::mock(\App\Contracts\Ai\AiJsonClient::class);
-    $analysisClient->shouldReceive('completeJson')->atLeast()->once()
-        ->andReturn(['lexemes' => [['text' => 'to encourage smn to do smth', 'type' => 'phrase', 'translation' => 'побуждать кого-либо что-либо сделать']], 'grammar' => []]);
+    $analysisClient->shouldReceive('completeJson')->atLeast()->once()->andReturnUsing(function (string $system, string $prompt) use (&$analysisPrompts): array {
+        $analysisPrompts[] = $prompt;
+
+        return ['lexemes' => [['text' => 'to encourage smn to do smth', 'type' => 'phrase', 'translation' => 'побуждать кого-либо что-либо сделать']], 'grammar' => []];
+    });
     app()->instance(\App\Contracts\Ai\AiJsonClient::class, $analysisClient);
 
     $analysis = test()->postJson("/api/lessons/{$lesson->id}/analyze")->assertAccepted();
@@ -183,6 +187,7 @@ test('uploading the real word-list fixture folds its extracted text into lesson 
     test()->getJson("/api/lessons/{$lesson->id}")->assertOk()
         ->assertJsonPath('analysis_status', 'completed')
         ->assertJsonPath('lexemes.0.text', 'to encourage smn to do smth');
+    expect(collect($analysisPrompts)->contains(fn (string $prompt) => str_contains($prompt, 'to encourage smn to do smth')))->toBeTrue();
 });
 
 test('storeMessage rejects a non-PDF attachment', function () {
