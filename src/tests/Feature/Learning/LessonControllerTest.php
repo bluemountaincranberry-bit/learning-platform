@@ -144,6 +144,47 @@ test('storeMessage stores an attached PDF on the local disk and records it on th
         ->assertJsonPath('messages.1.content', 'Your notes were read.');
 });
 
+test('uploading the real word-list fixture folds its extracted text into lesson notes', function () {
+    Storage::fake('local');
+    Queue::fake();
+    $user = actingLessonStudent();
+    $lesson = Lesson::query()->create(['user_id' => $user->id, 'status' => Lesson::STATUS_ACTIVE]);
+    $conversation = AgentConversation::query()->create([
+        'created_by' => $user->id, 'lesson_id' => $lesson->id, 'status' => 'active', 'agent_type' => LessonAgentService::AGENT_TYPE,
+    ]);
+    $fixture = base_path('tests/Fixtures/pdf/wordlist-unit-1d.pdf');
+    $file = new UploadedFile($fixture, 'Wordlist_Unit_1D.pdf', 'application/pdf', null, true);
+
+    test()->postJson("/api/lessons/{$lesson->id}/messages", ['attachment' => $file])->assertStatus(202);
+
+    $message = $conversation->messages()->latest('id')->firstOrFail();
+    $client = Mockery::mock(\App\Contracts\Ai\AiToolCallingClient::class);
+    $client->shouldReceive('chat')->twice()->andReturn(
+        new \App\Modules\Ai\Application\Agent\Data\AgentChatResponse(null, [
+            new \App\Modules\Ai\Application\Agent\Data\AgentToolCall('read-pdf', 'extract_pdf_text', ['attachment_message_id' => $message->id]),
+        ]),
+        new \App\Modules\Ai\Application\Agent\Data\AgentChatResponse('I read the word list.'),
+    );
+    app()->instance(\App\Contracts\Ai\AiToolCallingClient::class, $client);
+
+    (new RunAgentTurnJob($conversation->id))->handle();
+
+    expect($lesson->fresh()->source_text)
+        ->toContain('to encourage smn to do smth')
+        ->toContain('to discourage smn from doing smth');
+
+    $analysisClient = Mockery::mock(\App\Contracts\Ai\AiJsonClient::class);
+    $analysisClient->shouldReceive('completeJson')->atLeast()->once()
+        ->andReturn(['lexemes' => [['text' => 'to encourage smn to do smth', 'type' => 'phrase', 'translation' => 'побуждать кого-либо что-либо сделать']], 'grammar' => []]);
+    app()->instance(\App\Contracts\Ai\AiJsonClient::class, $analysisClient);
+
+    $analysis = test()->postJson("/api/lessons/{$lesson->id}/analyze")->assertAccepted();
+    app()->call([new RunLessonAnalysisJob($analysis->json('run_id')), 'handle']);
+    test()->getJson("/api/lessons/{$lesson->id}")->assertOk()
+        ->assertJsonPath('analysis_status', 'completed')
+        ->assertJsonPath('lexemes.0.text', 'to encourage smn to do smth');
+});
+
 test('storeMessage rejects a non-PDF attachment', function () {
     Queue::fake();
     $user = actingLessonStudent();
