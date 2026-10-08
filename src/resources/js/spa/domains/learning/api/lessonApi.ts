@@ -42,6 +42,8 @@ export interface LessonLexemeCandidate {
     example_translation: string | null;
     status: 'pending' | 'matched' | 'new';
     matched_lexeme_id: number | null;
+    in_my_words: boolean;
+    in_review: boolean;
     source: 'ai' | 'manual';
 }
 
@@ -54,6 +56,7 @@ export interface LessonGrammarCandidate {
     status: 'pending' | 'linked' | 'new';
     matched_grammar_rule_id: number | null;
     personal_grammar_rule_id: number | null;
+    in_my_grammar: boolean;
     body?: string | null;
     source: 'ai' | 'manual';
 }
@@ -153,6 +156,19 @@ export const lessonApi = {
 
     restoreLexeme(lessonId: number, itemId: number): Promise<LessonLexemeCandidate> {
         return axios.post(`${lessonItemPath(lessonId, 'lexemes', itemId)}/restore`).then((r) => r.data);
+    },
+
+    addLexemeToMyWords(lessonId: number, itemId: number): Promise<{
+        lexeme_id: number;
+        lemma: string;
+        language: string;
+        is_personal: boolean;
+        in_my_words: true;
+        in_review: true;
+        matched_lexeme_id: number;
+        status: 'matched';
+    }> {
+        return axios.post(`${lessonItemPath(lessonId, 'lexemes', itemId)}/add-to-my-words`).then((r) => r.data);
     },
 
     createGrammar(lessonId: number, data: LessonGrammarInput): Promise<LessonGrammarCandidate> {

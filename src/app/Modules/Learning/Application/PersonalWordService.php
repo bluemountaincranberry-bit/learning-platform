@@ -3,8 +3,10 @@
 namespace App\Modules\Learning\Application;
 
 use App\Modules\Content\Application\Contracts\PersonalLexemeResolverInterface;
-use App\Modules\Learning\Domain\Models\UserLexemeSource;
+use App\Modules\Learning\Domain\Models\Lesson;
+use App\Modules\Learning\Domain\Models\LessonLexemeCandidate;
 use App\Modules\Learning\Domain\Models\UserLexemeProgress;
+use App\Modules\Learning\Domain\Models\UserLexemeSource;
 use App\Modules\Srs\Application\Contracts\ExerciseReviewSchedulerInterface;
 use App\Modules\Srs\Application\Contracts\SrsRepositoryInterface;
 use Illuminate\Support\Facades\DB;
@@ -49,6 +51,36 @@ final class PersonalWordService
             );
 
             return $lexeme;
+        });
+    }
+
+    /** @return array{id:int,lemma:string,language:string,is_personal:bool,in_review:bool} */
+    public function addLessonCandidate(int $userId, Lesson $lesson, int $candidateId): array
+    {
+        return DB::transaction(function () use ($userId, $lesson, $candidateId): array {
+            /** @var LessonLexemeCandidate $candidate */
+            $candidate = $lesson->lexemeCandidates()->lockForUpdate()->findOrFail($candidateId);
+            $lexeme = $this->lexemes->resolveOrCreate($userId, (string) $lesson->language, (string) $candidate->text);
+            $this->startLearning($userId, $lexeme['id']);
+
+            UserLexemeSource::query()->updateOrCreate(
+                ['user_id' => $userId, 'lesson_lexeme_candidate_id' => $candidate->id],
+                [
+                    'lexeme_id' => $lexeme['id'],
+                    'source_kind' => 'lesson',
+                    'content_lexeme_id' => null,
+                    'source_text' => $candidate->text,
+                    'source_example' => $candidate->example,
+                    'display_label_snapshot' => (string) ($lesson->title ?: 'Lesson'),
+                ],
+            );
+
+            $candidate->forceFill([
+                'matched_lexeme_id' => $lexeme['id'],
+                'status' => LessonLexemeCandidate::STATUS_MATCHED,
+            ])->save();
+
+            return [...$lexeme, 'in_review' => true];
         });
     }
 

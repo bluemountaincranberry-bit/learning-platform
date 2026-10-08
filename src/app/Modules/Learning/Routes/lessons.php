@@ -16,6 +16,8 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function (): void {
     Route::post('/lessons/{lesson}/analyze', [LessonController::class, 'analyze'])->name('api.lessons.analyze');
 
     Route::post('/lessons/{lesson}/lexemes', [LessonItemController::class, 'storeLexeme'])->name('api.lessons.lexemes.store');
+    Route::post('/lessons/{lesson}/lexemes/{item}/add-to-my-words', [LessonItemController::class, 'addLexemeToMyWords'])
+        ->whereNumber('item')->name('api.lessons.lexemes.add-to-my-words');
     Route::put('/lessons/{lesson}/lexemes/{item}', [LessonItemController::class, 'updateLexeme'])->name('api.lessons.lexemes.update');
     Route::delete('/lessons/{lesson}/lexemes/{item}', [LessonItemController::class, 'deleteLexeme'])->name('api.lessons.lexemes.destroy');
     Route::post('/lessons/{lesson}/lexemes/{item}/restore', [LessonItemController::class, 'restoreLexeme'])->name('api.lessons.lexemes.restore');

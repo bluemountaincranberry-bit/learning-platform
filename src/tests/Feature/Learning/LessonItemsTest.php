@@ -6,6 +6,7 @@ use App\Modules\Learning\Domain\Models\LessonGrammarCandidate;
 use App\Modules\Learning\Domain\Models\LessonLexemeCandidate;
 use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -38,6 +39,39 @@ test('lesson owner can add edit and recoverably delete a word without AI', funct
     test()->getJson("/api/lessons/{$lesson->id}")->assertOk()->assertJsonCount(0, 'lexemes');
     test()->postJson("/api/lessons/{$lesson->id}/lexemes/{$id}/restore")->assertOk();
     test()->getJson("/api/lessons/{$lesson->id}")->assertOk()->assertJsonPath('lexemes.0.text', 'look after');
+});
+
+test('lesson words can be added idempotently to My words with a practice link and lesson source', function () {
+    $user = lessonItemsStudent();
+    $lesson = lessonItemsLesson($user->id);
+    $lesson->update(['title' => 'Travel class', 'language' => 'en']);
+    $candidate = LessonLexemeCandidate::query()->create([
+        'lesson_id' => $lesson->id,
+        'text' => 'look after',
+        'normalized_text' => 'look after',
+        'type' => 'phrasal_verb',
+        'example' => 'I look after my sister.',
+        'status' => 'new',
+        'source' => 'manual',
+    ]);
+
+    $first = test()->postJson("/api/lessons/{$lesson->id}/lexemes/{$candidate->id}/add-to-my-words")
+        ->assertOk()
+        ->assertJsonPath('in_my_words', true)
+        ->assertJsonPath('in_review', true)
+        ->assertJsonPath('lemma', 'look after');
+    $lexemeId = $first->json('lexeme_id');
+
+    test()->postJson("/api/lessons/{$lesson->id}/lexemes/{$candidate->id}/add-to-my-words")
+        ->assertOk()->assertJsonPath('lexeme_id', $lexemeId);
+
+    expect($candidate->fresh()->matched_lexeme_id)->toBe($lexemeId)
+        ->and(DB::table('user_lexeme_sources')->where('user_id', $user->id)->where('lesson_lexeme_candidate_id', $candidate->id)->count())->toBe(1)
+        ->and(DB::table('srs_cards')->where('user_id', $user->id)->where('lexeme_id', $lexemeId)->whereNull('deactivated_at')->count())->toBe(1);
+
+    test()->getJson("/api/lessons/{$lesson->id}")->assertOk()
+        ->assertJsonPath('lexemes.0.in_my_words', true)
+        ->assertJsonPath('lexemes.0.matched_lexeme_id', $lexemeId);
 });
 
 test('lesson owner can add edit and recoverably delete grammar points', function () {

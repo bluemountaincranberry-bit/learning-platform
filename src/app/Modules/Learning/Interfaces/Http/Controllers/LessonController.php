@@ -6,6 +6,7 @@ use App\Contracts\Ai\LessonAssistant;
 use App\Contracts\Ai\LessonNotesWriterInterface;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\SendLessonMessageRequest;
+use App\Modules\Learning\Application\LessonPersonalItemStateReader;
 use App\Modules\Learning\Domain\Models\Lesson;
 use App\Modules\Learning\Domain\Models\LessonAnalysisRun;
 use App\Modules\Learning\Interfaces\Http\Requests\LessonFieldsRequest;
@@ -81,9 +82,14 @@ class LessonController extends Controller
         return response()->json($lessons);
     }
 
-    public function show(Lesson $lesson): JsonResponse
+    public function show(Lesson $lesson, LessonPersonalItemStateReader $itemStates): JsonResponse
     {
         $this->authorize('view', $lesson);
+
+        $userId = (int) request()->user()->id;
+        $lexemeCandidates = $lesson->distinctLexemeCandidates();
+        $grammarCandidates = $lesson->distinctGrammarCandidates();
+        $itemState = $itemStates->forItems($lexemeCandidates, $grammarCandidates, $userId);
 
         return response()->json([
             'id' => $lesson->id,
@@ -98,8 +104,12 @@ class LessonController extends Controller
             'status' => $lesson->status,
             'conversation_id' => $this->assistant->conversationId($lesson->id),
             'analysis_status' => $lesson->latestAnalysisRun?->status,
-            'lexemes' => $lesson->distinctLexemeCandidates()->map(fn ($c) => $this->lexemePayload($c))->values(),
-            'grammar' => $lesson->distinctGrammarCandidates()->map(fn ($c) => $this->grammarPayload($c))->values(),
+            'lexemes' => $lexemeCandidates->map(fn ($c) => $this->lexemePayload($c) + [
+                ...$itemState['lexemes'][$c->id],
+            ])->values(),
+            'grammar' => $grammarCandidates->map(fn ($c) => $this->grammarPayload($c) + [
+                'in_my_grammar' => $itemState['grammar'][$c->id],
+            ])->values(),
             'corrections' => $lesson->corrections()->orderBy('id')->get()->map(fn ($item) => [
                 'id' => $item->id, 'original_text' => $item->original_text, 'corrected_text' => $item->corrected_text,
                 'explanation' => $item->explanation, 'source' => $item->source,
@@ -212,6 +222,7 @@ class LessonController extends Controller
             'id' => $c->id,
             'title' => $c->title,
             'summary' => $c->summary,
+            'body' => $c->body,
             'example' => $c->example,
             'example_translation' => $c->example_translation,
             'status' => $c->status,

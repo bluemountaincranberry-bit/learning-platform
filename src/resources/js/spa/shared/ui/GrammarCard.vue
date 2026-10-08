@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
 import UiBadge from './UiBadge.vue';
+import MarkdownContent from './MarkdownContent.vue';
 
-defineProps<{ title: string; ruleId?: number | null; level?: string | null; summary?: string | null; status?: string | null; statusTone?: 'neutral' | 'primary' | 'success' }>();
+defineProps<{ title: string; ruleId?: number | null; level?: string | null; summary?: string | null; body?: string | null; example?: string | null; exampleTranslation?: string | null; status?: string | null; statusTone?: 'neutral' | 'primary' | 'success' }>();
 </script>
 
 <template>
@@ -13,6 +14,14 @@ defineProps<{ title: string; ruleId?: number | null; level?: string | null; summ
             <UiBadge v-if="level" tone="primary" class="shrink-0">{{ level }}</UiBadge>
         </div>
         <p v-if="summary" class="truncate text-sm text-muted-foreground" :title="summary">{{ summary }}</p>
+        <div v-if="example" class="space-y-1 rounded-md bg-black/5 px-3 py-2">
+            <p class="break-words text-sm font-medium text-fg">{{ example }}</p>
+            <p v-if="exampleTranslation" class="break-words text-sm text-fg-secondary">{{ exampleTranslation }}</p>
+        </div>
+        <details v-if="body" class="group">
+            <summary class="flex min-h-11 cursor-pointer items-center text-sm font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Rule details</summary>
+            <MarkdownContent :content="body" />
+        </details>
         <div class="flex flex-wrap items-center gap-2">
             <UiBadge v-if="status" :tone="statusTone ?? 'neutral'" class="max-w-full break-words">{{ status }}</UiBadge>
             <slot />

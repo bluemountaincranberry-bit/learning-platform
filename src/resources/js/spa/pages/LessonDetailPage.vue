@@ -2,6 +2,7 @@
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Paperclip, Sparkles, Save, Plus, Undo2 } from 'lucide-vue-next';
+import { RouterLink } from 'vue-router';
 import PageState from '../components/ui/PageState.vue';
 import { useAuthStore } from '../domains/user';
 import {
@@ -10,10 +11,8 @@ import {
     type LessonCorrectionInput,
     type LessonDetail,
     type LessonGrammarCandidate,
-    type LessonGrammarInput,
     type LessonItemCollection,
     type LessonLexemeCandidate,
-    type LessonLexemeInput,
     type LessonMessage,
 } from '../domains/learning';
 import ChatMessage from '../shared/ui/ChatMessage.vue';
@@ -55,8 +54,10 @@ const editingCorrectionId = ref<number | null>(null);
 const showLexemeForm = ref(false);
 const showGrammarForm = ref(false);
 const showCorrectionForm = ref(false);
-const lexemeDraft = ref<LessonLexemeInput>({ text: '', type: 'word', translation: '', level: '', example: '', example_translation: '' });
-const grammarDraft = ref<LessonGrammarInput>({ title: '', summary: '', body: '', example: '', example_translation: '' });
+type LessonLexemeDraft = { text: string; type: string; translation: string; level: string; example: string; example_translation: string };
+type LessonGrammarDraft = { title: string; summary: string; body: string; example: string; example_translation: string };
+const lexemeDraft = ref<LessonLexemeDraft>({ text: '', type: 'word', translation: '', level: '', example: '', example_translation: '' });
+const grammarDraft = ref<LessonGrammarDraft>({ title: '', summary: '', body: '', example: '', example_translation: '' });
 const correctionDraft = ref<LessonCorrectionInput>({ original_text: '', corrected_text: '', explanation: '' });
 
 const inputText = ref('');
@@ -73,7 +74,7 @@ const tabs = [
     { key: 'grammar', label: 'Grammar' },
     { key: 'corrections', label: 'Corrections' },
     { key: 'chat', label: 'Chat' },
-] as const;
+];
 
 const canSend = computed(() => (inputText.value.trim() !== '' || attachment.value !== null) && !sending.value);
 
@@ -174,15 +175,37 @@ async function addGrammarToMyGrammar(item: LessonGrammarCandidate) {
         const result = await lessonApi.addGrammarToMyGrammar(lessonId.value, item.id);
         const index = lesson.value.grammar.findIndex((candidate) => candidate.id === item.id);
         if (index !== -1) {
-            lesson.value.grammar[index] = {
-                ...lesson.value.grammar[index],
-                matched_grammar_rule_id: result.matched_grammar_rule_id,
-                personal_grammar_rule_id: result.personal_grammar_rule_id,
-                status: result.status,
+                lesson.value.grammar[index] = {
+                    ...lesson.value.grammar[index],
+                    matched_grammar_rule_id: result.matched_grammar_rule_id,
+                    personal_grammar_rule_id: result.personal_grammar_rule_id,
+                    in_my_grammar: true,
+                    status: result.status,
             };
         }
     } catch {
         itemError.value = 'Failed to add this rule to My grammar. Try again.';
+    } finally {
+        itemSaving.value = false;
+    }
+}
+
+async function addLexemeToMyWords(item: LessonLexemeCandidate) {
+    if (!lesson.value) return;
+    itemSaving.value = true;
+    itemError.value = '';
+    try {
+        const result = await lessonApi.addLexemeToMyWords(lessonId.value, item.id);
+        const index = lesson.value.lexemes.findIndex((candidate) => candidate.id === item.id);
+        if (index !== -1) lesson.value.lexemes[index] = {
+            ...lesson.value.lexemes[index],
+            matched_lexeme_id: result.lexeme_id,
+            in_my_words: result.in_my_words,
+            in_review: result.in_review,
+            status: result.status,
+        };
+    } catch {
+        itemError.value = 'Failed to add this word to My words. Try again.';
     } finally {
         itemSaving.value = false;
     }
@@ -381,7 +404,7 @@ async function scrollToBottom() {
     messagesEnd.value?.scrollIntoView({ behavior: 'smooth' });
 }
 
-function autoResizeTextarea(el: HTMLTextAreaElement | null) {
+function autoResizeTextarea(el: { style: { height: string }; scrollHeight: number } | null) {
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 400)}px`;
@@ -552,7 +575,7 @@ onUnmounted(() => {
                                     v-model="lesson.homework"
                                     class="w-full min-h-[80px] max-h-[300px] resize-none rounded-spa border border-border bg-surface p-4 text-base font-mono text-fg placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1"
                                     placeholder="Homework for next lesson…"
-                                    @input="autoResizeTextarea($event.target)"
+                                    @input="autoResizeTextarea($event.target as HTMLTextAreaElement)"
                                 ></textarea>
                             </label>
                         </div>
@@ -611,9 +634,12 @@ onUnmounted(() => {
                                 :example="w.example"
                                 :examples="w.example ? [{ example: w.example, translation: w.example_translation, is_primary: true }] : []"
                             >
-                                <span class="text-xs text-muted-foreground">{{ w.status === 'matched' ? 'Already in your dictionary' : 'New' }}</span>
+                                <span class="text-xs text-muted-foreground">{{ w.in_my_words ? (w.in_review ? 'In My words · learning' : 'In My words') : (w.status === 'matched' ? 'Dictionary match' : 'New') }}</span>
                                 <template #actions>
                                     <div class="flex flex-wrap gap-2">
+                                        <UiButton v-if="!w.in_my_words" variant="primary" size="touch" :disabled="itemSaving" @click="addLexemeToMyWords(w)">Add to My words</UiButton>
+                                        <RouterLink v-else-if="w.in_review && w.matched_lexeme_id" :to="{ name: 'repetitions', query: { lexeme_ids: String(w.matched_lexeme_id), return_to: 'lessons' } }" class="inline-flex min-h-11 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">Practice word</RouterLink>
+                                        <UiButton v-else-if="w.matched_lexeme_id" variant="primary" size="touch" :disabled="itemSaving" @click="addLexemeToMyWords(w)">Start learning</UiButton>
                                         <UiButton variant="secondary" size="touch" :disabled="itemSaving" @click="editLexeme(w)">Edit</UiButton>
                                         <UiButton variant="danger" size="touch" :disabled="itemSaving" @click="deleteLessonItem('lexemes', w.id)">Remove</UiButton>
                                     </div>
@@ -660,10 +686,14 @@ onUnmounted(() => {
                                 :title="g.title"
                                 :rule-id="g.personal_grammar_rule_id ?? g.matched_grammar_rule_id"
                                 :summary="g.summary"
-                                :status="g.personal_grammar_rule_id || g.matched_grammar_rule_id ? 'In My grammar' : 'Not added'"
+                                :body="g.body"
+                                :example="g.example"
+                                :example-translation="g.example_translation"
+                                :status="g.in_my_grammar ? 'In My grammar' : (g.personal_grammar_rule_id || g.matched_grammar_rule_id ? 'Catalog match' : 'Not added')"
                             >
                                 <template #actions>
-                                    <UiButton v-if="!g.personal_grammar_rule_id && !g.matched_grammar_rule_id" variant="primary" size="touch" :disabled="itemSaving" @click="addGrammarToMyGrammar(g)">Add to My grammar</UiButton>
+                                    <UiButton v-if="!g.in_my_grammar" variant="primary" size="touch" :disabled="itemSaving" @click="addGrammarToMyGrammar(g)">Add to My grammar</UiButton>
+                                    <RouterLink v-if="g.in_my_grammar" :to="{ name: 'grammar.practice', params: { id: g.personal_grammar_rule_id ?? g.matched_grammar_rule_id }, query: { from: `/lessons/${lesson.id}` } }" class="inline-flex min-h-11 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">Practice grammar</RouterLink>
                                     <UiButton variant="secondary" size="touch" :disabled="itemSaving" @click="editGrammar(g)">Edit</UiButton>
                                     <UiButton variant="danger" size="touch" :disabled="itemSaving" @click="deleteLessonItem('grammar', g.id)">Remove</UiButton>
                                 </template>

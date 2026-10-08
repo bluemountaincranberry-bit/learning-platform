@@ -356,6 +356,7 @@ function backFromPractice() {
         dashboard: { name: 'dashboard' },
         'my-progress': { name: 'my-progress' },
         'my-words': { name: 'my-words' },
+        lessons: { name: 'lessons' },
         study: { name: 'catalog.study', params: { id: routeContentId.value } },
     } as const;
 

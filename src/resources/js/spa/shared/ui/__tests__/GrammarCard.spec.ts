@@ -15,4 +15,16 @@ describe('GrammarCard', () => {
         const wrapper = mount(GrammarCard, { props: { title: 'Unmatched rule', status: 'New' }, global: { plugins: [router] } });
         expect(wrapper.find('a').exists()).toBe(false);
     });
+    it('shows a lesson rule example and keeps longer rule details readable on demand', () => {
+        const wrapper = mount(GrammarCard, { props: {
+            title: 'Past habits',
+            summary: 'Use used to for repeated past actions.',
+            body: 'Use the infinitive after used to.',
+            example: 'I used to walk to school.',
+            exampleTranslation: 'Раньше я ходила в школу пешком.',
+        }, global: { plugins: [router] } });
+        expect(wrapper.text()).toContain('I used to walk to school.');
+        expect(wrapper.text()).toContain('Раньше я ходила в школу пешком.');
+        expect(wrapper.get('details').text()).toContain('Use the infinitive after used to.');
+    });
 });

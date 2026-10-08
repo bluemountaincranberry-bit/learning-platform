@@ -1,7 +1,6 @@
 <?php
 
 use App\Modules\Content\Domain\Models\GrammarRule;
-use App\Modules\Content\Domain\Models\GrammarRuleExample;
 use App\Modules\Content\Domain\Models\GrammarTopic;
 use App\Modules\Learning\Domain\Models\Lesson;
 use App\Modules\Learning\Domain\Models\LessonGrammarCandidate;
@@ -59,6 +58,10 @@ test('a lesson grammar point can be saved as a private personal rule with its so
         ->assertOk()
         ->assertJsonPath('data.0.grammar_rule_id', $ruleId);
 
+    test()->getJson("/api/lessons/{$lesson->id}")->assertOk()
+        ->assertJsonPath('grammar.0.in_my_grammar', true)
+        ->assertJsonPath('grammar.0.body', 'Use the infinitive after used to.');
+
     test()->postJson("/api/lessons/{$lesson->id}/grammar/{$candidate->id}/add-to-my-grammar")
         ->assertOk()
         ->assertJsonPath('grammar_rule_id', $ruleId);
@@ -86,10 +89,16 @@ test('a lesson grammar point with an exact published catalog match reuses that r
         'status' => LessonGrammarCandidate::STATUS_NEW,
     ]);
 
+    test()->getJson("/api/lessons/{$lesson->id}")->assertOk()
+        ->assertJsonPath('grammar.0.in_my_grammar', false);
+
     test()->postJson("/api/lessons/{$lesson->id}/grammar/{$candidate->id}/add-to-my-grammar")
         ->assertOk()
         ->assertJsonPath('grammar_rule_id', $catalogRule->id)
         ->assertJsonPath('is_personal', false);
+
+    test()->getJson("/api/lessons/{$lesson->id}")->assertOk()
+        ->assertJsonPath('grammar.0.in_my_grammar', true);
 
     expect(GrammarRule::query()->where('owner_user_id', $owner->id)->exists())->toBeFalse()
         ->and(UserGrammarRule::query()->where('user_id', $owner->id)->where('grammar_rule_id', $catalogRule->id)->exists())->toBeTrue();
