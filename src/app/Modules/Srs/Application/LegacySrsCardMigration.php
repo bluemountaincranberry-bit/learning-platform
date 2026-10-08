@@ -23,10 +23,13 @@ final class LegacySrsCardMigration
         ];
     }
 
-    public function apply(string $verifiedBackupReference): int
+    public function apply(string $verifiedBackupReference, bool $allowLocalActiveDatabase = false): int
     {
-        if (! app()->environment(['testing', 'staging'])) {
-            throw new RuntimeException('Apply is restricted to a test database or an isolated staging copy. The active application database must not be used.');
+        $environment = (string) config('app.env');
+        $localCutoverAllowed = $environment === 'local' && $allowLocalActiveDatabase;
+
+        if (! in_array($environment, ['testing', 'staging'], true) && ! $localCutoverAllowed) {
+            throw new RuntimeException('Apply is restricted to testing or an isolated staging copy. For an explicitly approved local cutover, use --allow-local-active with APP_ENV=local.');
         }
 
         if (trim($verifiedBackupReference) === '') {

@@ -12,7 +12,8 @@ final class MigrateLegacySrsCardsCommand extends Command
         {--apply : Apply the migration; otherwise show a read-only plan}
         {--json : Print the full read-only plan, including identity and collision details}
         {--verified-backup= : Reference for an isolated backup that has been restored and reconciled}
-        {--writes-paused : Confirm learner writes and SRS workers are paused}';
+        {--writes-paused : Confirm learner writes and SRS workers are paused}
+        {--allow-local-active : Explicitly allow cutover only when APP_ENV=local}';
 
     protected $description = 'Preview or transactionally migrate legacy SRS cards to canonical lexeme identities';
 
@@ -47,7 +48,10 @@ final class MigrateLegacySrsCardsCommand extends Command
                 throw new RuntimeException('Apply requires --writes-paused after learning writes and SRS workers have been paused.');
             }
 
-            $auditId = $migration->apply((string) $this->option('verified-backup'));
+            $auditId = $migration->apply(
+                (string) $this->option('verified-backup'),
+                (bool) $this->option('allow-local-active'),
+            );
             $this->info("Legacy SRS migration applied transactionally. Audit ID: {$auditId}");
 
             return self::SUCCESS;

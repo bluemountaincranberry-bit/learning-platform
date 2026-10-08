@@ -419,3 +419,38 @@ test('migration command defaults to a read-only preview and requires an explicit
     expect((array) DB::table('srs_cards')->where('id', $card->id)->first())->toEqual($before)
         ->and(DB::table('srs_legacy_migration_audits')->count())->toBe(0);
 });
+
+test('local cutover requires an explicit local opt-in in addition to paused writes and a verified backup', function () {
+    [, , , , $card] = legacyCardFixture();
+    config(['app.env' => 'local']);
+
+    $this->artisan('srs:migrate-legacy-cards --apply --writes-paused --verified-backup=test-copy')
+        ->expectsOutputToContain('--allow-local-active')
+        ->assertExitCode(1);
+
+    expect(DB::table('srs_cards')->where('id', $card->id)->value('lexeme_id'))->toBeNull()
+        ->and(DB::table('srs_legacy_migration_audits')->count())->toBe(0);
+});
+
+test('an explicitly approved local cutover migrates learner cards and creates an audit', function () {
+    [, , , , $card] = legacyCardFixture();
+    config(['app.env' => 'local']);
+
+    $this->artisan('srs:migrate-legacy-cards --apply --writes-paused --allow-local-active --verified-backup=test-copy')
+        ->assertExitCode(0);
+
+    expect(DB::table('srs_cards')->where('id', $card->id)->value('lexeme_id'))->not->toBeNull()
+        ->and(DB::table('srs_legacy_migration_audits')->where('status', 'applied')->count())->toBe(1);
+});
+
+test('local cutover opt-in does not bypass the environment guard outside local development', function () {
+    [, , , , $card] = legacyCardFixture();
+    config(['app.env' => 'production']);
+
+    $this->artisan('srs:migrate-legacy-cards --apply --writes-paused --allow-local-active --verified-backup=test-copy')
+        ->expectsOutputToContain('restricted')
+        ->assertExitCode(1);
+
+    expect(DB::table('srs_cards')->where('id', $card->id)->value('lexeme_id'))->toBeNull()
+        ->and(DB::table('srs_legacy_migration_audits')->count())->toBe(0);
+});
