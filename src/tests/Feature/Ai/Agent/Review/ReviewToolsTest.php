@@ -27,11 +27,17 @@ test('sideEffects: get_weak_words is read_only, the other two are draft_only', f
 function reviewToolsFixtureCard(int $userId, string $itemKey, float $easeFactor): SrsCard
 {
     $content = Content::factory()->create();
+    [, $lemma] = explode(':', $itemKey, 2);
+    $lexeme = Lexeme::query()->firstOrCreate(
+        ['language' => 'en', 'normalized_lemma' => mb_strtolower($lemma)],
+        ['slug' => 'review-tool-'.str_replace(' ', '-', $lemma).'-'.uniqid(), 'lemma' => $lemma, 'status' => 'published'],
+    );
 
     return SrsCard::query()->create([
         'user_id' => $userId,
+        'lexeme_id' => $lexeme->id,
         'content_id' => $content->id,
-        'item_key' => $itemKey,
+        'item_key' => null,
         'state' => 'reviewing',
         'interval_days' => 1,
         'ease_factor' => $easeFactor,

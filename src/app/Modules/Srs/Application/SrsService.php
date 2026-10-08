@@ -61,8 +61,8 @@ class SrsService implements SrsServiceInterface
                 'grade' => $grade,
                 'prev_interval' => $prevInterval,
                 'new_interval' => $newInterval,
-                'content_lexeme_id' => $context['content_lexeme_id'] ?? ($card->content_id !== null && $card->item_key !== null
-                    ? $this->reviewReferences->lexemeIdForItemKey($card->content_id, $card->item_key)
+                'content_lexeme_id' => $context['content_lexeme_id'] ?? ($card->lexeme_id !== null
+                    ? $this->reviewReferences->contentLexemeIdForCard($userId, (int) $card->lexeme_id, null)
                     : null),
                 'transcript_segment_id' => $context['transcript_segment_id'] ?? null,
                 'exercise_type' => $context['exercise_type'] ?? 'srs_review',

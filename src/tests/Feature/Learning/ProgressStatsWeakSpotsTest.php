@@ -16,10 +16,24 @@ uses(RefreshDatabase::class);
 
 function makeFailedReview(User $user, Content $content, string $itemKey, int $grade = 1): SrsCard
 {
+    [$type, $text] = explode(':', $itemKey, 2);
+    $lexeme = Lexeme::query()->firstOrCreate(
+        ['language' => $content->language, 'normalized_lemma' => mb_strtolower($text)],
+        ['slug' => 'stats-'.str_replace(' ', '-', $text).'-'.uniqid(), 'lemma' => $text, 'status' => Lexeme::STATUS_PUBLISHED],
+    );
+    $occurrence = ContentLexeme::query()->firstOrCreate(
+        ['content_id' => $content->id, 'type' => $type, 'text' => $text],
+        ['lexeme_id' => $lexeme->id, 'sort_order' => 1],
+    );
+    if ($occurrence->lexeme_id === null) {
+        $occurrence->update(['lexeme_id' => $lexeme->id]);
+    }
+
     $card = SrsCard::query()->create([
         'user_id' => $user->id,
+        'lexeme_id' => $lexeme->id,
         'content_id' => $content->id,
-        'item_key' => $itemKey,
+        'item_key' => null,
     ]);
 
     SrsReview::query()->create([

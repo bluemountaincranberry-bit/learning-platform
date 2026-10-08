@@ -34,12 +34,13 @@ class SrsController extends Controller
         $data = $request->validated();
         $card = $this->repository->findCardForUserOrFail((int) $data['card_id'], $request->user()->id);
         $this->authorize('update', $card);
+        abort_if($card->lexeme_id === null, 422, 'The reviewed card has no canonical lexeme identity.');
 
-        if (isset($data['content_lexeme_id']) && ($card->content_id === null || ! $this->reviewReferences->lexemeBelongsToContent((int) $data['content_lexeme_id'], $card->content_id, $card->lexeme_id === null ? null : (int) $card->lexeme_id))) {
-            abort(422, 'The content lexeme does not belong to the reviewed card content.');
+        if (isset($data['content_lexeme_id']) && ! $this->reviewReferences->contentOccurrenceBelongsToUser($request->user()->id, (int) $data['content_lexeme_id'], (int) $card->lexeme_id)) {
+            abort(422, 'The content lexeme is not a source for the reviewed card.');
         }
-        if (isset($data['transcript_segment_id']) && ($card->content_id === null || ! $this->reviewReferences->transcriptSegmentBelongsToContent((int) $data['transcript_segment_id'], $card->content_id, $card->lexeme_id === null ? null : (int) $card->lexeme_id))) {
-            abort(422, 'The transcript segment does not belong to the reviewed card content.');
+        if (isset($data['transcript_segment_id']) && ! $this->reviewReferences->transcriptSegmentBelongsToUser($request->user()->id, (int) $data['transcript_segment_id'], (int) $card->lexeme_id)) {
+            abort(422, 'The transcript segment is not a source for the reviewed card.');
         }
 
         $card = $this->srsService->reviewCard(

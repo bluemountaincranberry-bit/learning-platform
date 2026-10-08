@@ -334,16 +334,15 @@ class ContentService implements ContentServiceInterface
         if ($learner !== null) {
             $learned = $this->learnerState->learnedCountsByContent($learner->userId, $contentIds);
 
-            $itemKey = DB::connection()->getDriverName() === 'sqlite'
-                ? "(content_lexemes.type || ':' || content_lexemes.text)"
-                : "CONCAT(content_lexemes.type, ':', content_lexemes.text)";
-
-            $inLearning = DB::table('srs_cards')
-                ->join('content_lexemes', function ($join) use ($itemKey): void {
-                    $join->on('content_lexemes.content_id', '=', 'srs_cards.content_id')
-                        ->whereRaw("{$itemKey} = srs_cards.item_key");
+            $inLearning = DB::table('user_lexeme_sources')
+                ->join('srs_cards', function ($join): void {
+                    $join->on('srs_cards.user_id', '=', 'user_lexeme_sources.user_id')
+                        ->on('srs_cards.lexeme_id', '=', 'user_lexeme_sources.lexeme_id');
                 })
-                ->where('srs_cards.user_id', $learner->userId)
+                ->join('content_lexemes', 'content_lexemes.id', '=', 'user_lexeme_sources.content_lexeme_id')
+                ->where('user_lexeme_sources.user_id', $learner->userId)
+                ->where('user_lexeme_sources.source_kind', 'content')
+                ->whereNull('srs_cards.deactivated_at')
                 ->whereIn('content_lexemes.content_id', $contentIds)
                 ->groupBy('content_lexemes.content_id')
                 ->selectRaw('content_lexemes.content_id as content_id, count(distinct content_lexemes.id) as in_learning')

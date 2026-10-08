@@ -5,26 +5,23 @@ namespace App\Modules\Content\Application;
 use App\Modules\Content\Application\Contracts\SentencePracticeCatalogInterface;
 use App\Modules\Content\Domain\Models\Content;
 use App\Modules\Content\Domain\Models\ContentLexeme;
-use Illuminate\Support\Facades\DB;
 
 final class SentencePracticeCatalog implements SentencePracticeCatalogInterface
 {
     public function learningLexemes(int $userId, ?int $contentId = null): array
     {
-        $itemKeyMatch = DB::connection()->getDriverName() === 'sqlite'
-            ? "(content_lexemes.type || ':' || content_lexemes.text) = srs_cards.item_key"
-            : "CONCAT(content_lexemes.type, ':', content_lexemes.text) = srs_cards.item_key";
-
         return ContentLexeme::query()->with(['canonicalLexeme', 'content'])
             ->whereHas('content', fn ($query) => $query->whereIn('status', Content::PUBLIC_STATUSES))
             ->when($contentId !== null, fn ($query) => $query->where('content_lexemes.content_id', $contentId))
-            ->join('srs_cards', function ($join) use ($userId, $itemKeyMatch): void {
-                $join->where('srs_cards.user_id', $userId)->whereNull('srs_cards.deactivated_at')->where(function ($identity) use ($itemKeyMatch): void {
-                    $identity->whereColumn('srs_cards.lexeme_id', 'content_lexemes.lexeme_id')
-                        ->orWhere(fn ($legacy) => $legacy->whereNull('srs_cards.lexeme_id')
-                            ->whereColumn('srs_cards.content_id', 'content_lexemes.content_id')
-                            ->whereRaw($itemKeyMatch));
-                });
+            ->join('user_lexeme_sources', function ($join) use ($userId): void {
+                $join->on('user_lexeme_sources.content_lexeme_id', '=', 'content_lexemes.id')
+                    ->where('user_lexeme_sources.user_id', $userId)
+                    ->where('user_lexeme_sources.source_kind', 'content');
+            })
+            ->join('srs_cards', function ($join) use ($userId): void {
+                $join->on('srs_cards.user_id', '=', 'user_lexeme_sources.user_id')
+                    ->on('srs_cards.lexeme_id', '=', 'user_lexeme_sources.lexeme_id')
+                    ->whereNull('srs_cards.deactivated_at');
             })
             ->orderBy('content_lexemes.id')
             ->get(['content_lexemes.*', 'srs_cards.state as review_state'])

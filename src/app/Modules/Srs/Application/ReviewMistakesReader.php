@@ -14,12 +14,13 @@ final class ReviewMistakesReader implements ReviewMistakesReaderInterface
     {
         $mistakes = SrsReview::query()
             ->join('srs_cards', 'srs_cards.id', '=', 'srs_reviews.srs_card_id')
+            ->whereNotNull('srs_cards.lexeme_id')
             ->where('srs_cards.user_id', $userId)
             ->where('srs_reviews.grade', '<=', $this->grades->failingThreshold())
             ->orderByDesc('srs_reviews.reviewed_at')
             ->limit($limit)
-            ->leftJoin('lexemes as canonical_lexemes', 'canonical_lexemes.id', '=', 'srs_cards.lexeme_id')
-            ->select('srs_reviews.grade', 'srs_reviews.reviewed_at', 'srs_cards.lexeme_id', 'srs_cards.item_key', 'canonical_lexemes.lemma')
+            ->join('lexemes as canonical_lexemes', 'canonical_lexemes.id', '=', 'srs_cards.lexeme_id')
+            ->select('srs_reviews.grade', 'srs_reviews.reviewed_at', 'srs_cards.lexeme_id', 'canonical_lexemes.lemma')
             ->get();
 
         if ($mistakes->isEmpty()) {
@@ -30,7 +31,7 @@ final class ReviewMistakesReader implements ReviewMistakesReaderInterface
             'mistake_count' => $mistakes->count(),
             'mistakes' => $mistakes->map(fn (SrsReview $mistake): array => [
                 'lexeme_id' => $mistake->lexeme_id !== null ? (int) $mistake->lexeme_id : null,
-                'item' => $mistake->lemma ?: (string) preg_replace('/^(word|phrase):/', '', $mistake->item_key ?? ''),
+                'item' => (string) $mistake->lemma,
                 'grade' => (int) $mistake->grade,
                 'reviewed_at' => $mistake->reviewed_at?->toIso8601String(),
             ])->all(),

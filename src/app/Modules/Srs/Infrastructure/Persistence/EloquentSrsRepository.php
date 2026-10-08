@@ -17,35 +17,17 @@ class EloquentSrsRepository implements SrsRepositoryInterface
 
     public function getDueCards(int $userId): Collection
     {
-        $driver = SrsCard::query()->getConnection()->getDriverName();
-        $itemKeyMatch = $driver === 'sqlite'
-            ? "(content_lexemes.type || ':' || content_lexemes.text) = srs_cards.item_key"
-            : "CONCAT(content_lexemes.type, ':', content_lexemes.text) = srs_cards.item_key";
-
         return SrsCard::query()
             ->from('srs_cards')
             ->leftJoin('lexemes as canonical_lexemes', 'canonical_lexemes.id', '=', 'srs_cards.lexeme_id')
-            ->leftJoin('content_lexemes', function ($join) use ($itemKeyMatch): void {
-                $join->on('content_lexemes.content_id', '=', 'srs_cards.content_id')
-                    ->whereRaw($itemKeyMatch);
-            })
             ->where('srs_cards.user_id', $userId)
+            ->whereNotNull('srs_cards.lexeme_id')
             ->whereNull('srs_cards.deactivated_at')
             ->whereNotNull('srs_cards.next_review_at')
             ->where('srs_cards.next_review_at', '<=', now())
             ->orderBy('srs_cards.next_review_at')
-            ->select('srs_cards.*', 'canonical_lexemes.lemma as canonical_lemma', 'content_lexemes.text as source_lemma', 'content_lexemes.id as content_lexeme_id')
-            ->get()
-            ->map(function (SrsCard $card): SrsCard {
-                $card->lexeme_display = $card->canonical_lemma ?: $card->source_lemma;
-                if (! $card->lexeme_display) {
-                    $itemKey = $card->item_key ?? '';
-                    $card->lexeme_display = str_contains($itemKey, ':') ? explode(':', $itemKey, 2)[1] : $itemKey;
-                    $card->content_lexeme_id = null;
-                }
-
-                return $card;
-            });
+            ->select('srs_cards.*', 'canonical_lexemes.lemma as lexeme_display')
+            ->get();
     }
 
     public function findCardForUserOrFail(int $cardId, int $userId): SrsCard

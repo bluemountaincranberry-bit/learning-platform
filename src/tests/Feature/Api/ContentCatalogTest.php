@@ -3,7 +3,6 @@
 use App\Modules\Content\Domain\Models\Content;
 use App\Modules\Content\Domain\Models\ContentLexeme;
 use App\Modules\Content\Interfaces\Jobs\FetchTranscriptJob;
-use App\Modules\Srs\Domain\Models\SrsCard;
 use App\Modules\User\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -312,11 +311,7 @@ test('catalog as auth user includes progress and reflects learned lexemes', func
     expect($item['total_lexemes'])->toBe(3);
     expect($item['progress_pct'])->toBe(33.3);
 
-    SrsCard::query()->create([
-        'user_id' => $user->id,
-        'content_id' => $content->id,
-        'item_key' => 'word:one',
-    ]);
+    $this->actingAs($user)->postJson("/api/content/lexemes/{$lex1->id}/start-learning")->assertOk();
 
     $response = $this->actingAs($user)->getJson('/api/content')->assertOk();
     $item = collect($response->json('data'))->firstWhere('id', $content->id);

@@ -2,6 +2,7 @@
 
 use App\Modules\Content\Domain\Models\Content;
 use App\Modules\Content\Domain\Models\Lexeme;
+use App\Modules\Learning\Domain\Models\UserLexemeSource;
 use App\Modules\Srs\Domain\Models\SrsCard;
 use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,6 +25,18 @@ function makeContentWithSyncedLexeme(string $text = 'run'): array
     return [$content, $contentLexeme->fresh(), $lexeme];
 }
 
+function attachContentLexemeSource(User $user, $contentLexeme, Lexeme $lexeme): void
+{
+    UserLexemeSource::query()->create([
+        'user_id' => $user->id,
+        'lexeme_id' => $lexeme->id,
+        'source_kind' => 'content',
+        'content_lexeme_id' => $contentLexeme->id,
+        'source_text' => $contentLexeme->text,
+        'display_label_snapshot' => $contentLexeme->text,
+    ]);
+}
+
 test('review queue endpoint requires auth', function () {
     $this->getJson('/api/training/review-queue')->assertUnauthorized();
 });
@@ -37,9 +50,11 @@ test('review queue endpoint enriches due cards with translation, examples and as
 
     $user = User::factory()->create(['translation_language' => 'ru']);
     $user->assignRole('user');
+    attachContentLexemeSource($user, $contentLexeme, $lexeme);
 
     SrsCard::query()->create([
         'user_id' => $user->id,
+        'lexeme_id' => $lexeme->id,
         'content_id' => $content->id,
         'item_key' => 'word:run',
         'state' => 'reviewing',
@@ -67,8 +82,13 @@ test('review queue endpoint returns null translation and example for an orphan c
     $user = User::factory()->create();
     $user->assignRole('user');
 
+    $lexeme = Lexeme::query()->create([
+        'slug' => 'orphan-queue-'.uniqid(), 'language' => 'en', 'lemma' => 'orphan',
+        'normalized_lemma' => 'orphan', 'owner_user_id' => $user->id,
+    ]);
     SrsCard::query()->create([
         'user_id' => $user->id,
+        'lexeme_id' => $lexeme->id,
         'content_id' => $content->id,
         'item_key' => 'word:orphan',
         'state' => 'reviewing',
@@ -111,18 +131,20 @@ test('review queue returns a contentless canonical card without a source occurre
 });
 
 test('review queue endpoint filters by content_id', function () {
-    [$contentA, , ] = makeContentWithSyncedLexeme('alpha');
-    [$contentB, , ] = makeContentWithSyncedLexeme('beta');
+    [$contentA, $occurrenceA, $lexemeA] = makeContentWithSyncedLexeme('alpha');
+    [$contentB, $occurrenceB, $lexemeB] = makeContentWithSyncedLexeme('beta');
 
     $user = User::factory()->create();
     $user->assignRole('user');
+    attachContentLexemeSource($user, $occurrenceA, $lexemeA);
+    attachContentLexemeSource($user, $occurrenceB, $lexemeB);
 
     SrsCard::query()->create([
-        'user_id' => $user->id, 'content_id' => $contentA->id, 'item_key' => 'word:alpha',
+        'user_id' => $user->id, 'lexeme_id' => $lexemeA->id, 'content_id' => $contentA->id, 'item_key' => 'word:alpha',
         'state' => 'reviewing', 'interval_days' => 2, 'ease_factor' => 2.5, 'next_review_at' => now()->subMinute(),
     ]);
     SrsCard::query()->create([
-        'user_id' => $user->id, 'content_id' => $contentB->id, 'item_key' => 'word:beta',
+        'user_id' => $user->id, 'lexeme_id' => $lexemeB->id, 'content_id' => $contentB->id, 'item_key' => 'word:beta',
         'state' => 'reviewing', 'interval_days' => 2, 'ease_factor' => 2.5, 'next_review_at' => now()->subMinute(),
     ]);
 

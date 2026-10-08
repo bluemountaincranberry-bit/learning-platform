@@ -46,19 +46,19 @@ class GetWeakWordsTool implements AgentTool
 
         $cards = DB::table('srs_cards')
             ->leftJoin('srs_reviews', 'srs_reviews.srs_card_id', '=', 'srs_cards.id')
-            ->leftJoin('lexemes as canonical_lexemes', 'canonical_lexemes.id', '=', 'srs_cards.lexeme_id')
+            ->join('lexemes as canonical_lexemes', 'canonical_lexemes.id', '=', 'srs_cards.lexeme_id')
             ->where('srs_cards.user_id', $context->actingUserId)
+            ->whereNotNull('srs_cards.lexeme_id')
             ->select(
                 'srs_cards.id',
                 'srs_cards.lexeme_id',
                 'canonical_lexemes.lemma',
-                'srs_cards.item_key',
                 'srs_cards.ease_factor',
                 'srs_cards.next_review_at',
                 DB::raw('count(srs_reviews.id) as total_reviews'),
                 DB::raw('sum(case when srs_reviews.grade <= '.GetUserMistakesTool::FAILING_GRADE_THRESHOLD.' then 1 else 0 end) as fail_count')
             )
-            ->groupBy('srs_cards.id', 'srs_cards.lexeme_id', 'canonical_lexemes.lemma', 'srs_cards.item_key', 'srs_cards.ease_factor', 'srs_cards.next_review_at')
+            ->groupBy('srs_cards.id', 'srs_cards.lexeme_id', 'canonical_lexemes.lemma', 'srs_cards.ease_factor', 'srs_cards.next_review_at')
             ->havingRaw('count(srs_reviews.id) > 0')
             ->get();
 
@@ -77,7 +77,7 @@ class GetWeakWordsTool implements AgentTool
                 return [
                     'card_id' => (int) $card->id,
                     'lexeme_id' => $card->lexeme_id !== null ? (int) $card->lexeme_id : null,
-                    'item' => $card->lemma ?: (string) preg_replace('/^(word|phrase):/', '', $card->item_key ?? ''),
+                    'item' => (string) $card->lemma,
                     'fail_rate' => $total > 0 ? round($fails / $total, 2) : 0.0,
                     'ease_factor' => (float) $card->ease_factor,
                     'total_reviews' => $total,

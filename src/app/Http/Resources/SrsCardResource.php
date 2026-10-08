@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Modules\Content\Domain\Models\Lexeme;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -30,7 +31,7 @@ class SrsCardResource extends JsonResource
 
     /**
      * Human-readable lexeme text for display (e.g. on repetition cards).
-     * Uses joined content_lexemes.text when available; otherwise strips "word:" / "phrase:" from item_key.
+     * Uses the canonical lexeme identity; legacy item keys are not read for display.
      */
     private function lexemeDisplay(): string
     {
@@ -38,6 +39,8 @@ class SrsCardResource extends JsonResource
             return (string) $this->lexeme_display;
         }
 
-        return (string) preg_replace('/^(word|phrase):/', '', $this->item_key ?? '');
+        return $this->lexeme_id === null
+            ? ''
+            : (string) (Lexeme::query()->whereKey($this->lexeme_id)->value('lemma') ?? '');
     }
 }

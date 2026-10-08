@@ -145,18 +145,19 @@ class ProgressStatsService
     {
         $rows = DB::table('srs_reviews')
             ->join('srs_cards', 'srs_cards.id', '=', 'srs_reviews.srs_card_id')
-            ->leftJoin('lexemes as canonical_lexemes', 'canonical_lexemes.id', '=', 'srs_cards.lexeme_id')
+            ->join('lexemes as canonical_lexemes', 'canonical_lexemes.id', '=', 'srs_cards.lexeme_id')
             ->where('srs_cards.user_id', $learner->userId)
+            ->whereNotNull('srs_cards.lexeme_id')
             ->where('srs_reviews.grade', '<=', $this->reviewGradePolicy->failingThreshold())
-            ->select('srs_cards.lexeme_id', 'canonical_lexemes.lemma', 'srs_cards.item_key', DB::raw('min(srs_cards.content_id) as content_id'), DB::raw('count(*) as mistake_count'))
-            ->groupBy('srs_cards.lexeme_id', 'canonical_lexemes.lemma', 'srs_cards.item_key')
+            ->select('srs_cards.lexeme_id', 'canonical_lexemes.lemma', DB::raw('min(srs_cards.content_id) as content_id'), DB::raw('count(*) as mistake_count'))
+            ->groupBy('srs_cards.lexeme_id', 'canonical_lexemes.lemma')
             ->orderByDesc('mistake_count')
             ->limit(self::WEAK_WORDS_LIMIT)
             ->get();
 
         return $rows->map(fn ($r) => [
             'lexeme_id' => $r->lexeme_id !== null ? (int) $r->lexeme_id : null,
-            'lexeme' => $r->lemma ?: (string) preg_replace('/^(word|phrase):/', '', (string) $r->item_key),
+            'lexeme' => (string) $r->lemma,
             'content_id' => $r->content_id !== null ? (int) $r->content_id : null,
             'hint' => (int) $r->mistake_count === 1 ? '1 missed review' : $r->mistake_count.' missed reviews',
         ])->all();
@@ -174,15 +175,8 @@ class ProgressStatsService
     {
         $rows = DB::table('srs_reviews')
             ->join('srs_cards', 'srs_cards.id', '=', 'srs_reviews.srs_card_id')
-            ->leftJoin('content_lexemes', function ($join): void {
-                $driver = DB::connection()->getDriverName();
-                $itemKeyMatch = $driver === 'sqlite'
-                    ? "(content_lexemes.type || ':' || content_lexemes.text) = srs_cards.item_key"
-                    : "CONCAT(content_lexemes.type, ':', content_lexemes.text) = srs_cards.item_key";
-                $join->on('content_lexemes.content_id', '=', 'srs_cards.content_id')->whereRaw($itemKeyMatch);
-            })
             ->join('grammar_rule_lexeme', function ($join): void {
-                $join->whereRaw('grammar_rule_lexeme.lexeme_id = COALESCE(srs_cards.lexeme_id, content_lexemes.lexeme_id)');
+                $join->on('grammar_rule_lexeme.lexeme_id', '=', 'srs_cards.lexeme_id');
             })
             ->join('grammar_rules', 'grammar_rules.id', '=', 'grammar_rule_lexeme.grammar_rule_id')
             ->where('srs_cards.user_id', $learner->userId)

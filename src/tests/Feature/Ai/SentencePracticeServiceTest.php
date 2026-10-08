@@ -8,6 +8,7 @@ use App\Modules\Content\Domain\Models\GrammarTopic;
 use App\Modules\Content\Domain\Models\Lexeme;
 use App\Modules\User\Models\User;
 use App\Modules\Learning\Domain\Models\UserGrammarRule;
+use App\Modules\Learning\Domain\Models\UserLexemeSource;
 use App\Modules\Srs\Domain\Models\SrsCard;
 use App\Modules\Ai\Application\SentencePracticeService;
 use App\Contracts\Ai\AiJsonClient;
@@ -31,8 +32,17 @@ function makeRecentlyLearnedWord(User $user, string $language = 'en', string $te
         'text' => $text,
         'lexeme_id' => $lexeme->id,
     ]);
+    UserLexemeSource::query()->create([
+        'user_id' => $user->id,
+        'lexeme_id' => $lexeme->id,
+        'source_kind' => 'content',
+        'content_lexeme_id' => $contentLexeme->id,
+        'source_text' => $text,
+        'display_label_snapshot' => $text,
+    ]);
     SrsCard::query()->create([
         'user_id' => $user->id,
+        'lexeme_id' => $lexeme->id,
         'content_id' => $content->id,
         'item_key' => "word:{$text}",
         'state' => 'new',
@@ -168,8 +178,17 @@ test('contentContext pulls only words from this content in the learning queue', 
     $user = User::factory()->create(['translation_language' => 'ru']);
     $content = makeContentForExamPractice();
     $contentLexeme = $content->lexemes()->firstOrFail();
+    UserLexemeSource::query()->create([
+        'user_id' => $user->id,
+        'lexeme_id' => $contentLexeme->lexeme_id,
+        'source_kind' => 'content',
+        'content_lexeme_id' => $contentLexeme->id,
+        'source_text' => $contentLexeme->text,
+        'display_label_snapshot' => $contentLexeme->text,
+    ]);
     SrsCard::query()->create([
         'user_id' => $user->id,
+        'lexeme_id' => $contentLexeme->lexeme_id,
         'content_id' => $content->id,
         'item_key' => "word:{$contentLexeme->text}",
         'state' => 'new',
@@ -204,8 +223,17 @@ test('generateExam splits the requested count across both directions and shuffle
     $user = User::factory()->create();
     $content = makeContentForExamPractice();
     $contentLexeme = $content->lexemes()->firstOrFail();
+    UserLexemeSource::query()->create([
+        'user_id' => $user->id,
+        'lexeme_id' => $contentLexeme->lexeme_id,
+        'source_kind' => 'content',
+        'content_lexeme_id' => $contentLexeme->id,
+        'source_text' => $contentLexeme->text,
+        'display_label_snapshot' => $contentLexeme->text,
+    ]);
     SrsCard::query()->create([
         'user_id' => $user->id,
+        'lexeme_id' => $contentLexeme->lexeme_id,
         'content_id' => $content->id,
         'item_key' => "word:{$contentLexeme->text}",
         'state' => 'new',

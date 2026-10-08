@@ -26,10 +26,11 @@ final class ReviewScheduleReader implements ContentReviewScheduleReaderInterface
     {
         $cards = SrsCard::query()
             ->where('user_id', $userId)
+            ->whereNotNull('lexeme_id')
             ->whereNull('deactivated_at')
             ->orderByRaw('next_review_at IS NULL, next_review_at')
             ->limit($limit)
-            ->get(['lexeme_id', 'item_key'])
+            ->get(['lexeme_id'])
             ->all();
         $ids = array_values(array_unique(array_filter(array_map(
             static fn (SrsCard $card): ?int => $card->lexeme_id === null ? null : (int) $card->lexeme_id,
@@ -38,7 +39,7 @@ final class ReviewScheduleReader implements ContentReviewScheduleReaderInterface
         $lemmas = $this->lexemes->lemmasByIds($ids);
 
         return array_map(
-            fn (SrsCard $card): string => $lemmas[(int) $card->lexeme_id] ?? (string) preg_replace('/^(word|phrase):/', '', $card->item_key ?? ''),
+            fn (SrsCard $card): string => $lemmas[(int) $card->lexeme_id] ?? '',
             $cards,
         );
     }
@@ -48,6 +49,7 @@ final class ReviewScheduleReader implements ContentReviewScheduleReaderInterface
         $now = now();
         $baseQuery = SrsCard::query()
             ->where('user_id', $userId)
+            ->whereNotNull('lexeme_id')
             ->whereNull('deactivated_at')
             ->whereNotNull('next_review_at');
 
@@ -55,14 +57,14 @@ final class ReviewScheduleReader implements ContentReviewScheduleReaderInterface
         $upcoming = (clone $baseQuery)
             ->orderBy('next_review_at')
             ->limit($limit)
-            ->get(['lexeme_id', 'item_key', 'next_review_at', 'state']);
+            ->get(['lexeme_id', 'next_review_at', 'state']);
         $lemmas = $this->lexemes->lemmasByIds($upcoming->pluck('lexeme_id')->filter()->map(static fn ($id): int => (int) $id)->unique()->values()->all());
 
         return [
             'due_now_count' => $dueNowCount,
             'upcoming' => $upcoming->map(fn (SrsCard $card): array => [
                 'lexeme_id' => $card->lexeme_id === null ? null : (int) $card->lexeme_id,
-                'item' => $lemmas[(int) $card->lexeme_id] ?? (string) preg_replace('/^(word|phrase):/', '', $card->item_key ?? ''),
+                'item' => $lemmas[(int) $card->lexeme_id] ?? '',
                 'state' => $card->state,
                 'next_review_at' => $card->next_review_at?->toIso8601String(),
                 'is_due' => $card->next_review_at !== null && $card->next_review_at->lessThanOrEqualTo($now),
@@ -78,19 +80,17 @@ final class ReviewScheduleReader implements ContentReviewScheduleReaderInterface
             ->whereNotNull('srs_cards.next_review_at')
             ->where('srs_cards.next_review_at', '<=', now());
 
-        $legacyContentIds = (clone $dueCards)
-            ->whereNotNull('srs_cards.content_id')
-            ->pluck('srs_cards.content_id');
         $sourceContentIds = (clone $dueCards)
             ->whereNotNull('srs_cards.lexeme_id')
             ->join('user_lexeme_sources', function ($join): void {
                 $join->on('user_lexeme_sources.user_id', '=', 'srs_cards.user_id')
-                    ->on('user_lexeme_sources.lexeme_id', '=', 'srs_cards.lexeme_id');
+                    ->on('user_lexeme_sources.lexeme_id', '=', 'srs_cards.lexeme_id')
+                    ->where('user_lexeme_sources.source_kind', 'content');
             })
             ->join('content_lexemes', 'content_lexemes.id', '=', 'user_lexeme_sources.content_lexeme_id')
             ->pluck('content_lexemes.content_id');
 
-        return $legacyContentIds->merge($sourceContentIds)
+        return $sourceContentIds
             ->unique()
             ->map(static fn ($contentId): int => (int) $contentId)
             ->values()
@@ -99,32 +99,38 @@ final class ReviewScheduleReader implements ContentReviewScheduleReaderInterface
 
     public function dueCards(int $userId, ?int $contentId = null): array
     {
-        $driver = SrsCard::query()->getConnection()->getDriverName();
-        $itemKeyMatch = $driver === 'sqlite'
-            ? "(content_lexemes.type || ':' || content_lexemes.text) = srs_cards.item_key"
-            : "CONCAT(content_lexemes.type, ':', content_lexemes.text) = srs_cards.item_key";
+        $sourceOccurrences = DB::table('user_lexeme_sources')
+            ->join('content_lexemes', 'content_lexemes.id', '=', 'user_lexeme_sources.content_lexeme_id')
+            ->where('user_lexeme_sources.source_kind', 'content')
+            ->when($contentId !== null, fn ($query) => $query->where('content_lexemes.content_id', $contentId))
+            ->select('user_lexeme_sources.user_id', 'user_lexeme_sources.lexeme_id')
+            ->selectRaw('MIN(user_lexeme_sources.content_lexeme_id) as content_lexeme_id')
+            ->groupBy('user_lexeme_sources.user_id', 'user_lexeme_sources.lexeme_id');
 
         return SrsCard::query()
             ->from('srs_cards')
             ->leftJoin('lexemes as canonical_lexemes', 'canonical_lexemes.id', '=', 'srs_cards.lexeme_id')
-            ->leftJoin('content_lexemes', function ($join) use ($itemKeyMatch): void {
-                $join->on('content_lexemes.content_id', '=', 'srs_cards.content_id')->whereRaw($itemKeyMatch);
+            ->leftJoinSub($sourceOccurrences, 'card_source', function ($join): void {
+                $join->on('card_source.user_id', '=', 'srs_cards.user_id')
+                    ->on('card_source.lexeme_id', '=', 'srs_cards.lexeme_id');
             })
+            ->leftJoin('content_lexemes as source_occurrence', 'source_occurrence.id', '=', 'card_source.content_lexeme_id')
             ->where('srs_cards.user_id', $userId)
+            ->whereNotNull('srs_cards.lexeme_id')
             ->whereNull('srs_cards.deactivated_at')
             ->whereNotNull('srs_cards.next_review_at')
             ->where('srs_cards.next_review_at', '<=', now())
-            ->when($contentId !== null, fn ($query) => $query->where('srs_cards.content_id', $contentId))
+            ->when($contentId !== null, fn ($query) => $query->where('source_occurrence.content_id', $contentId))
             ->orderBy('srs_cards.next_review_at')
-            ->select('srs_cards.*', 'canonical_lexemes.lemma as canonical_lemma', 'content_lexemes.text as source_lemma', 'content_lexemes.id as resolved_content_lexeme_id')
+            ->select('srs_cards.*', 'canonical_lexemes.lemma as canonical_lemma', 'source_occurrence.content_id as source_content_id', 'source_occurrence.id as resolved_content_lexeme_id')
             ->get()
             ->map(fn (SrsCard $card): array => [
                 'id' => (int) $card->id,
-                'lexeme_id' => $card->lexeme_id === null ? null : (int) $card->lexeme_id,
-                'content_id' => $card->content_id === null ? null : (int) $card->content_id,
+                'lexeme_id' => (int) $card->lexeme_id,
+                'content_id' => $card->source_content_id === null ? null : (int) $card->source_content_id,
                 'content_lexeme_id' => $card->resolved_content_lexeme_id === null ? null : (int) $card->resolved_content_lexeme_id,
                 'item_key' => $card->item_key,
-                'lexeme_display' => $card->canonical_lemma ?: ($card->source_lemma ?: (str_contains((string) $card->item_key, ':') ? explode(':', (string) $card->item_key, 2)[1] : (string) $card->item_key)),
+                'lexeme_display' => (string) ($card->canonical_lemma ?? ''),
                 'state' => $card->state,
                 'next_review_at' => $card->next_review_at?->toIso8601String(),
             ])->all();

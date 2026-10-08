@@ -43,18 +43,12 @@ class GetWeakTopicsTool implements AgentTool
         $limit = min(20, max(1, (int) ($arguments['limit'] ?? 5)));
         $topics = DB::table('srs_reviews')
             ->join('srs_cards', 'srs_cards.id', '=', 'srs_reviews.srs_card_id')
-            ->leftJoin('content_lexemes', function ($join): void {
-                $driver = DB::connection()->getDriverName();
-                $itemKeyMatch = $driver === 'sqlite'
-                    ? "(content_lexemes.type || ':' || content_lexemes.text) = srs_cards.item_key"
-                    : "CONCAT(content_lexemes.type, ':', content_lexemes.text) = srs_cards.item_key";
-                $join->on('content_lexemes.content_id', '=', 'srs_cards.content_id')->whereRaw($itemKeyMatch);
-            })
             ->join('grammar_rule_lexeme', function ($join): void {
-                $join->whereRaw('grammar_rule_lexeme.lexeme_id = COALESCE(srs_cards.lexeme_id, content_lexemes.lexeme_id)');
+                $join->on('grammar_rule_lexeme.lexeme_id', '=', 'srs_cards.lexeme_id');
             })
             ->join('grammar_rules', 'grammar_rules.id', '=', 'grammar_rule_lexeme.grammar_rule_id')
             ->where('srs_cards.user_id', $context->actingUserId)
+            ->whereNotNull('srs_cards.lexeme_id')
             ->where('srs_reviews.grade', '<=', GetUserMistakesTool::FAILING_GRADE_THRESHOLD)
             ->select('grammar_rules.id', 'grammar_rules.title', DB::raw('count(DISTINCT srs_reviews.id) as mistake_count'))
             ->groupBy('grammar_rules.id', 'grammar_rules.title')

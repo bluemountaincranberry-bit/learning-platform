@@ -130,28 +130,16 @@ final class MyWordsCatalog implements MyWordsCatalogInterface
         $canonical = DB::table('user_lexeme_sources')
             ->join('content_lexemes', 'content_lexemes.id', '=', 'user_lexeme_sources.content_lexeme_id')
             ->where('user_lexeme_sources.user_id', $userId)
+            ->where('user_lexeme_sources.source_kind', 'content')
             ->whereIn('user_lexeme_sources.lexeme_id', $lexemeIds)
             ->select('user_lexeme_sources.lexeme_id', 'user_lexeme_sources.content_lexeme_id');
 
-        $itemKey = $this->contentLexemeItemKeySql();
-        $legacy = DB::table('content_lexemes')
-            ->join('srs_cards', function ($join) use ($itemKey): void {
-                $join->on('srs_cards.content_id', '=', 'content_lexemes.content_id')
-                    ->whereRaw("{$itemKey} = srs_cards.item_key");
-            })
-            ->where('srs_cards.user_id', $userId)
-            ->whereIn('content_lexemes.lexeme_id', $lexemeIds)
-            ->select('content_lexemes.lexeme_id', 'content_lexemes.id as content_lexeme_id')
-            ->get();
-
-        return $canonical->get()->concat($legacy)->unique('lexeme_id')->values();
+        return $canonical->get()->unique('lexeme_id')->values();
     }
 
     private function reviewExistsSql(int $userId): string
     {
-        $itemKey = $this->contentLexemeItemKeySql();
-
-        return "select 1 from srs_cards where srs_cards.lexeme_id = lexemes.id and srs_cards.user_id = {$userId} and srs_cards.deactivated_at is null union all select 1 from content_lexemes join srs_cards on srs_cards.content_id = content_lexemes.content_id and {$itemKey} = srs_cards.item_key where content_lexemes.lexeme_id = lexemes.id and srs_cards.user_id = {$userId} and srs_cards.deactivated_at is null";
+        return "select 1 from srs_cards where srs_cards.lexeme_id = lexemes.id and srs_cards.user_id = {$userId} and srs_cards.deactivated_at is null";
     }
 
     private function knownExistsSql(int $userId): string
@@ -164,10 +152,4 @@ final class MyWordsCatalog implements MyWordsCatalogInterface
         return "select 1 from user_lexeme_skips where user_lexeme_skips.lexeme_id = lexemes.id and user_lexeme_skips.user_id = {$userId}";
     }
 
-    private function contentLexemeItemKeySql(): string
-    {
-        return DB::connection()->getDriverName() === 'sqlite'
-            ? "(content_lexemes.type || ':' || content_lexemes.text)"
-            : "CONCAT(content_lexemes.type, ':', content_lexemes.text)";
-    }
 }

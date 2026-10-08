@@ -4,35 +4,50 @@ namespace App\Modules\Content\Application;
 
 use App\Modules\Content\Application\Contracts\SrsReviewReferenceReaderInterface;
 use App\Modules\Content\Domain\Models\ContentLexeme;
-use App\Modules\Content\Domain\Models\TranscriptSegment;
+use Illuminate\Support\Facades\DB;
 
 final class SrsReviewReferenceReader implements SrsReviewReferenceReaderInterface
 {
-    public function lexemeBelongsToContent(int $lexemeId, int $contentId, ?int $canonicalLexemeId = null): bool
+    public function contentOccurrenceBelongsToUser(int $userId, int $contentLexemeId, int $lexemeId): bool
     {
-        return ContentLexeme::query()->whereKey($lexemeId)->where('content_id', $contentId)
-            ->when($canonicalLexemeId !== null, fn ($query) => $query->where('lexeme_id', $canonicalLexemeId))
+        return DB::table('user_lexeme_sources')
+            ->join('content_lexemes', 'content_lexemes.id', '=', 'user_lexeme_sources.content_lexeme_id')
+            ->where('user_lexeme_sources.user_id', $userId)
+            ->where('user_lexeme_sources.lexeme_id', $lexemeId)
+            ->where('user_lexeme_sources.source_kind', 'content')
+            ->where('content_lexemes.id', $contentLexemeId)
+            ->where('content_lexemes.lexeme_id', $lexemeId)
             ->exists();
     }
 
-    public function transcriptSegmentBelongsToContent(int $segmentId, int $contentId, ?int $canonicalLexemeId = null): bool
+    public function transcriptSegmentBelongsToUser(int $userId, int $segmentId, int $lexemeId): bool
     {
-        return TranscriptSegment::query()->whereKey($segmentId)->where('content_id', $contentId)
-            ->when($canonicalLexemeId !== null, fn ($query) => $query->whereHas('lexemes', fn ($lexemes) => $lexemes->where('content_lexemes.lexeme_id', $canonicalLexemeId)))
+        return DB::table('transcript_segment_lexemes')
+            ->join('transcript_segments', 'transcript_segments.id', '=', 'transcript_segment_lexemes.transcript_segment_id')
+            ->join('content_lexemes', 'content_lexemes.id', '=', 'transcript_segment_lexemes.content_lexeme_id')
+            ->join('user_lexeme_sources', 'user_lexeme_sources.content_lexeme_id', '=', 'content_lexemes.id')
+            ->where('transcript_segment_lexemes.transcript_segment_id', $segmentId)
+            ->whereColumn('transcript_segments.content_id', 'content_lexemes.content_id')
+            ->where('user_lexeme_sources.user_id', $userId)
+            ->where('user_lexeme_sources.lexeme_id', $lexemeId)
+            ->where('user_lexeme_sources.source_kind', 'content')
+            ->where('content_lexemes.lexeme_id', $lexemeId)
             ->exists();
     }
 
-    public function lexemeIdForItemKey(int $contentId, string $itemKey): ?int
+    public function contentLexemeIdForCard(int $userId, int $lexemeId, ?int $contentId): ?int
     {
-        [$type, $text] = str_contains($itemKey, ':')
-            ? explode(':', $itemKey, 2)
-            : ['word', $itemKey];
+        $query = DB::table('user_lexeme_sources')
+            ->join('content_lexemes', 'content_lexemes.id', '=', 'user_lexeme_sources.content_lexeme_id')
+            ->where('user_lexeme_sources.user_id', $userId)
+            ->where('user_lexeme_sources.lexeme_id', $lexemeId)
+            ->where('user_lexeme_sources.source_kind', 'content')
+            ->when($contentId !== null, fn ($query) => $query->where('content_lexemes.content_id', $contentId))
+            ->orderBy('user_lexeme_sources.id');
 
-        return ContentLexeme::query()
-            ->where('content_id', $contentId)
-            ->where('type', $type)
-            ->where('text', $text)
-            ->value('id');
+        $contentLexemeIds = $query->limit(2)->pluck('user_lexeme_sources.content_lexeme_id');
+
+        return $contentLexemeIds->count() === 1 ? (int) $contentLexemeIds->first() : null;
     }
 
     public function occurrenceContext(int $contentLexemeId): ?array

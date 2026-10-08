@@ -20,10 +20,17 @@ uses(RefreshDatabase::class);
 
 function makeSrsCardFor(User $user, Content $content, string $itemKey, ?\Illuminate\Support\Carbon $nextReviewAt = null): SrsCard
 {
+    [, $lemma] = explode(':', $itemKey, 2);
+    $lexeme = Lexeme::query()->firstOrCreate(
+        ['language' => (string) $content->language, 'normalized_lemma' => mb_strtolower($lemma)],
+        ['slug' => 'memory-tool-'.str_replace(' ', '-', $lemma).'-'.uniqid(), 'lemma' => $lemma, 'status' => Lexeme::STATUS_PUBLISHED],
+    );
+
     return SrsCard::query()->create([
         'user_id' => $user->id,
+        'lexeme_id' => $lexeme->id,
         'content_id' => $content->id,
-        'item_key' => $itemKey,
+        'item_key' => null,
         'state' => 'reviewing',
         'interval_days' => 2,
         'ease_factor' => 2.5,

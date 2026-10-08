@@ -2,6 +2,7 @@
 
 namespace App\Modules\Learning\Application;
 
+use App\Modules\Content\Application\Contracts\LexemeIdentityReaderInterface;
 use App\Modules\Content\Application\Contracts\SrsReviewReferenceReaderInterface;
 use App\Modules\Learning\Domain\Events\ExerciseCompleted;
 use App\Modules\Srs\Application\Contracts\ReviewOutcomeHandlerInterface;
@@ -14,6 +15,7 @@ final class ReviewOutcomeHandler implements ReviewOutcomeHandlerInterface
         private readonly LearningRetryService $retries,
         private readonly LearningFlowMetricsService $metrics,
         private readonly SrsReviewReferenceReaderInterface $reviewReferences,
+        private readonly LexemeIdentityReaderInterface $lexemes,
     ) {}
 
     public function handle(ReviewOutcome $outcome): void
@@ -34,6 +36,9 @@ final class ReviewOutcomeHandler implements ReviewOutcomeHandlerInterface
 
         $flow = app(LearningFlowResolver::class)->resolveForUserId($outcome->userId, $occurrence['language'] ?? null);
         $exerciseType = (string) ($outcome->exerciseType ?? 'review');
+        $item = $outcome->lexemeId === null
+            ? ''
+            : ($this->lexemes->lemmasByIds([$outcome->lexemeId])[$outcome->lexemeId] ?? '');
         $dimension = match ($exerciseType) {
             'listening', 'dictation' => 'listening',
             'cloze', 'production' => 'production',
@@ -55,7 +60,7 @@ final class ReviewOutcomeHandler implements ReviewOutcomeHandlerInterface
 
         event(new ExerciseCompleted(
             userId: $outcome->userId,
-            item: (string) preg_replace('/^(word|phrase):/', '', $outcome->itemKey ?? ''),
+            item: $item,
             grade: $outcome->grade,
             isMistake: $outcome->isFailing,
             lexemeId: $outcome->lexemeId,
