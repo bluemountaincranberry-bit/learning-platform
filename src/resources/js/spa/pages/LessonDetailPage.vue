@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Paperclip, Sparkles, Save, Plus, Undo2 } from 'lucide-vue-next';
+import { Paperclip, Sparkles, Save, Plus, Undo2, BookPlus, Pencil, Dumbbell } from 'lucide-vue-next';
 import { RouterLink } from 'vue-router';
 import PageState from '../components/ui/PageState.vue';
 import { useAuthStore } from '../domains/user';
@@ -25,6 +25,7 @@ import UiInput from '../shared/ui/UiInput.vue';
 import UiSectionHeader from '../shared/ui/UiSectionHeader.vue';
 import UiEmptyState from '../shared/ui/UiEmptyState.vue';
 import UiTabs from '../shared/ui/UiTabs.vue';
+import UiSegmentedControl from '../shared/ui/UiSegmentedControl.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -66,7 +67,31 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const messagesEnd = ref<HTMLElement | null>(null);
 const notesTextarea = ref<HTMLTextAreaElement | null>(null);
 
-const activeTab = ref<'notes' | 'words' | 'grammar' | 'corrections' | 'chat'>('notes');
+const activeTab = ref<'notes' | 'words' | 'grammar' | 'corrections' | 'chat'>('words');
+const lessonWordFilter = ref<'all' | 'not-in-practice' | 'in-practice'>('all');
+
+const lessonWordStatusSegments = computed(() => {
+    const words = lesson.value?.lexemes ?? [];
+    return [
+        { value: 'all', label: 'All', count: words.length },
+        { value: 'not-in-practice', label: 'Not in practice', count: words.filter((word) => !word.in_review).length },
+        { value: 'in-practice', label: 'In practice', count: words.filter((word) => word.in_review).length },
+    ];
+});
+
+const visibleLessonWords = computed(() => {
+    const words = lesson.value?.lexemes ?? [];
+    if (lessonWordFilter.value === 'not-in-practice') return words.filter((word) => !word.in_review);
+    if (lessonWordFilter.value === 'in-practice') return words.filter((word) => word.in_review);
+    return words;
+});
+
+const practiceWordIds = computed(() => {
+    const ids = (lesson.value?.lexemes ?? []).flatMap((word) =>
+        word.in_review && word.matched_lexeme_id !== null ? [word.matched_lexeme_id] : [],
+    );
+    return [...new Set(ids)];
+});
 
 const tabs = [
     { key: 'notes', label: 'Notes' },
@@ -77,6 +102,10 @@ const tabs = [
 ];
 
 const canSend = computed(() => (inputText.value.trim() !== '' || attachment.value !== null) && !sending.value);
+
+function setLessonWordFilter(value: string) {
+    if (value === 'all' || value === 'not-in-practice' || value === 'in-practice') lessonWordFilter.value = value;
+}
 
 async function loadLesson() {
     lesson.value = await lessonApi.get(lessonId.value);
@@ -621,33 +650,38 @@ onUnmounted(() => {
                                 <UiButton type="button" variant="secondary" size="touch" @click="cancelLexemeEdit">Cancel</UiButton>
                             </div>
                         </form>
-                        <UiEmptyState v-if="lesson.lexemes.length === 0" title="Nothing yet" description="Add a word here, or analyze this lesson to find words." />
-                        <div v-else class="space-y-2">
-                            <WordRow
-                                v-for="w in lesson.lexemes"
-                                :key="w.id"
-                                :text="w.text"
-                                :language="w.language"
-                                :translation="w.translation"
-                                :level="w.level"
-                                :lexeme-id="w.matched_lexeme_id"
-                                :example="w.example"
-                                :examples="w.example ? [{ example: w.example, translation: w.example_translation, is_primary: true }] : []"
-                            >
-                                <span class="text-xs text-muted-foreground">{{ w.in_my_words ? (w.in_review ? 'In My words · learning' : 'In My words') : (w.status === 'matched' ? 'Dictionary match' : 'New') }}</span>
-                                <template #actions>
-                                    <div class="flex flex-wrap gap-2">
-                                        <UiButton v-if="!w.in_my_words" variant="primary" size="touch" :disabled="itemSaving" @click="addLexemeToMyWords(w)">Add to My words</UiButton>
-                                        <RouterLink v-else-if="w.in_review && w.matched_lexeme_id" :to="{ name: 'repetitions', query: { lexeme_ids: String(w.matched_lexeme_id), return_to: 'lessons' } }" class="inline-flex min-h-11 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">Practice word</RouterLink>
-                                        <UiButton v-else-if="w.matched_lexeme_id" variant="primary" size="touch" :disabled="itemSaving" @click="addLexemeToMyWords(w)">Start learning</UiButton>
-                                        <UiButton variant="secondary" size="touch" :disabled="itemSaving" @click="editLexeme(w)">Edit</UiButton>
-                                        <UiButton variant="danger" size="touch" :disabled="itemSaving" @click="deleteLessonItem('lexemes', w.id)">Remove</UiButton>
-                                    </div>
-                                </template>
-                            </WordRow>
-                        </div>
-                    </UiCard>
-                </div>
+                    </div>
+                    <UiEmptyState v-if="lesson.lexemes.length === 0" class="mx-4 mt-3 sm:mx-0" title="Nothing yet" description="Add a word here, or analyze this lesson to find words." />
+                    <UiEmptyState v-else-if="visibleLessonWords.length === 0" class="mx-4 mt-3 sm:mx-0" title="No words in this view" description="Try another status or add a word to this lesson." />
+                    <div v-else class="mt-3 divide-y divide-border border-y border-border sm:overflow-hidden sm:rounded-lg sm:border">
+                        <WordRow
+                            v-for="w in visibleLessonWords"
+                            :key="w.id"
+                            :text="w.text"
+                            :language="w.language"
+                            :translation="w.translation"
+                            :level="w.level"
+                            level-in-details
+                            :lexeme-id="w.matched_lexeme_id"
+                            :example="w.example"
+                            :examples="w.example ? [{ example: w.example, translation: w.example_translation, is_primary: true }] : []"
+                            :status-label="w.in_review ? 'In practice' : w.in_my_words ? 'Saved to My words' : (w.status === 'matched' ? 'Dictionary match' : 'New from lesson')"
+                            :status-tone="w.in_review ? 'success' : 'neutral'"
+                        >
+                            <span class="text-xs text-muted-foreground">{{ w.type.replaceAll('_', ' ') }}</span>
+                            <template #row-actions>
+                                <RouterLink v-if="w.in_review && w.matched_lexeme_id" :to="{ name: 'repetitions', query: { lexeme_ids: String(w.matched_lexeme_id), return_to: 'lessons' } }" class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" :aria-label="`Practice ${w.text}`" title="Practice word"><Dumbbell :size="18" /></RouterLink>
+                                <UiButton v-else variant="secondary" size="icon-touch" class="shrink-0" :disabled="itemSaving" :aria-label="w.in_my_words ? `Add ${w.text} to practice` : `Add ${w.text} to My words and practice`" :title="w.in_my_words ? 'Add to practice' : 'Add to My words and practice'" @click="addLexemeToMyWords(w)"><BookPlus :size="18" /></UiButton>
+                            </template>
+                            <template #actions>
+                                <div class="flex flex-wrap gap-2">
+                                    <UiButton variant="secondary" size="touch" :disabled="itemSaving" @click="editLexeme(w)">Edit</UiButton>
+                                    <UiButton variant="danger" size="touch" :disabled="itemSaving" @click="deleteLessonItem('lexemes', w.id)">Remove</UiButton>
+                                </div>
+                            </template>
+                        </WordRow>
+                    </div>
+                </section>
 
                 <!-- Grammar Tab -->
                 <div v-if="activeTab === 'grammar'" class="space-y-4">

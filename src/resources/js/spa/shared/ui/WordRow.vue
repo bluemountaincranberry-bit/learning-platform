@@ -5,7 +5,7 @@ import UiBadge from './UiBadge.vue';
 import WordCard from './WordCard.vue';
 import type { LexemeExampleItem } from '../../types/lexeme';
 
-const props = defineProps<{ text: string; translation?: string | null; level?: string | null; lexemeId?: number | null; language?: string | null; examples?: LexemeExampleItem[]; example?: string | null; selectable?: boolean; selected?: boolean; defaultExpanded?: boolean }>();
+const props = withDefaults(defineProps<{ text: string; translation?: string | null; level?: string | null; levelInDetails?: boolean; lexemeId?: number | null; language?: string | null; examples?: LexemeExampleItem[]; example?: string | null; selectable?: boolean; selected?: boolean; defaultExpanded?: boolean; statusLabel?: string | null; statusTone?: 'neutral' | 'primary' | 'success' | 'warning' }>(), { statusTone: 'neutral', levelInDetails: false });
 const emit = defineEmits<{ toggleSelect: [] }>();
 const expanded = ref(Boolean(props.defaultExpanded));
 </script>
@@ -18,12 +18,15 @@ const expanded = ref(Boolean(props.defaultExpanded));
             </label>
             <button type="button" class="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" :class="selectable ? '' : 'pl-3'" :aria-expanded="expanded" :aria-label="`${text}${translation ? ` — ${translation}` : ''}. ${expanded ? 'Hide' : 'Show'} details`" @click="expanded = !expanded">
                 <span class="min-w-0 flex-1"><span class="block truncate font-medium text-fg">{{ text }}</span><span v-if="translation" class="block truncate text-sm text-fg-secondary">{{ translation }}</span></span>
-                <UiBadge v-if="level" tone="primary" class="shrink-0" title="CEFR level">{{ level }}</UiBadge>
+                <UiBadge v-if="level && !levelInDetails" tone="primary" class="shrink-0" title="CEFR level">{{ level }}</UiBadge>
+                <UiBadge v-if="statusLabel" :tone="statusTone" class="hidden shrink-0 sm:inline-flex">{{ statusLabel }}</UiBadge>
                 <ChevronDown :size="16" class="shrink-0 text-muted-foreground transition-transform" :class="{ 'rotate-180': expanded }" aria-hidden="true" />
             </button>
             <slot name="row-actions" />
         </div>
         <WordCard v-if="expanded" :text="text" :lexeme-id="lexemeId" :language="language" :examples="examples" :example="example">
+            <UiBadge v-if="level && levelInDetails" tone="primary" title="CEFR level">{{ level }}</UiBadge>
+            <UiBadge v-if="statusLabel" :tone="statusTone">{{ statusLabel }}</UiBadge>
             <slot />
             <template #actions><slot name="actions" /></template>
             <template #source><slot name="source" /></template>
