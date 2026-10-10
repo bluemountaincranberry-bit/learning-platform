@@ -195,3 +195,37 @@ test('Interview vocabulary suggestion is separate and enters My words only after
         ->assertJsonPath('data.result.lemma', 'resilient');
     test()->getJson('/api/me/words?search=resilient')->assertOk()->assertJsonPath('data.0.lexeme', 'resilient');
 });
+
+test('Interview Agent gives dimension-specific Russian feedback grounded in the learner answer', function () {
+    $learner = User::factory()->create();
+    $session = test()->actingAs($learner)->postJson('/api/interview/sessions', ['mode' => 'coached'])->assertCreated()->json('data');
+    $conversation = AgentConversation::query()->findOrFail($session['conversation_id']);
+    $conversation->messages()->create(['role' => 'user', 'content' => 'I built a small API and wrote tests for timeout handling.']);
+
+    $toolClient = Mockery::mock(AiToolCallingClient::class);
+    $callCount = 0;
+    $toolClient->shouldReceive('chat')->twice()->andReturnUsing(function (array $messages) use (&$callCount) {
+        if ($callCount++ === 0) {
+            $system = $messages[0]['content'];
+            expect(str_contains($system, 'relevance'))->toBeTrue()
+                ->and(str_contains($system, 'technical accuracy'))->toBeTrue()
+                ->and(str_contains($system, 'structure'))->toBeTrue()
+                ->and(str_contains($system, 'clarity'))->toBeTrue()
+                ->and(str_contains($system, 'English'))->toBeTrue()
+                ->and(str_contains($system, 'Russian'))->toBeTrue()
+                ->and(str_contains($system, 'Quote or point to the exact phrase'))->toBeTrue()
+                ->and(str_contains($system, 'claim pronunciation'))->toBeTrue()
+                ->and(str_contains(strtolower($system), 'numeric interview-readiness'))->toBeTrue();
+
+            return new AgentChatResponse(null, [new AgentToolCall('context_1', 'get_interview_practice_context', [])]);
+        }
+
+        return new AgentChatResponse("**Содержание:** Вы назвали API и тесты для таймаутов; расскажите, какую задачу решал API.\n\n**English improvement:** ‘I built a small API and added tests for timeout handling.’");
+    });
+    app()->instance(AiToolCallingClient::class, $toolClient);
+
+    (new RunAgentTurnJob($conversation->id))->handle();
+
+    test()->getJson('/api/interview/sessions/'.$session['id'])->assertOk()
+        ->assertJsonPath('data.messages.1.content', "**Содержание:** Вы назвали API и тесты для таймаутов; расскажите, какую задачу решал API.\n\n**English improvement:** ‘I built a small API and added tests for timeout handling.’");
+});

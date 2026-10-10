@@ -66,7 +66,8 @@ describe('InterviewPage', () => {
     });
 
     it('reopens a saved session from recent practice history', async () => {
-        const session = { id: 9, conversationId: 11, mode: 'mock', status: 'completed', questionCount: 1, focus: null, questions: [structuredClone(question)], messages: [{ id: 21, role: 'assistant', content: 'Your examples were clear.' }] } as const;
+        const feedback = '**Содержание:** Вы назвали API и тесты для таймаутов.\n\n**English improvement:** “I added timeout tests.”';
+        const session = { id: 9, conversationId: 11, mode: 'mock', status: 'completed', questionCount: 1, focus: null, questions: [structuredClone(question)], messages: [{ id: 21, role: 'assistant', content: feedback }] } as const;
         api.sessions.mockResolvedValue([{ id: 9, mode: 'mock', status: 'completed', updatedAt: '2026-10-10' }]);
         api.getSession.mockResolvedValue(session);
         const wrapper = mount(InterviewPage);
@@ -75,7 +76,9 @@ describe('InterviewPage', () => {
         await flushPromises();
 
         expect(api.getSession).toHaveBeenCalledWith(9);
-        expect(wrapper.text()).toContain('Your examples were clear.');
+        expect(wrapper.text()).toContain('Содержание');
+        expect(wrapper.text()).toContain('Вы назвали API и тесты для таймаутов.');
+        expect(wrapper.text()).toContain('I added timeout tests.');
     });
 
     it('requires explicit learner confirmation before adding an AI question proposal', async () => {
