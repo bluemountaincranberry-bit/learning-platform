@@ -396,14 +396,14 @@ watch([activeStatus, filterLevel, search], () => {
                                 </template>
                                 <span v-if="row.contexts.length > 3" class="text-xs text-muted-foreground">+{{ row.contexts.length - 3 }} more</span>
                                 <RouterLink
-                                    v-for="source in row.lesson_sources ?? []"
-                                    :key="source.candidate_id"
-                                    :to="{ name: 'lesson.details', params: { id: source.lesson_id } }"
+                                    v-for="source in row.lessonSources ?? []"
+                                    :key="source.candidateId"
+                                    :to="{ name: 'lesson.details', params: { id: source.lessonId } }"
                                     class="inline-flex min-h-11 items-center text-xs text-primary underline"
                                 >
-                                    {{ source.lesson_title }}
+                                    {{ source.lessonTitle }}
                                 </RouterLink>
-                                <span v-if="!primaryContext(row) && !(row.lesson_sources?.length)" class="text-xs text-muted-foreground">No content context</span>
+                                <span v-if="!primaryContext(row) && !(row.lessonSources?.length)" class="text-xs text-muted-foreground">No content context</span>
                             </div>
                         </template>
                         <template #actions>

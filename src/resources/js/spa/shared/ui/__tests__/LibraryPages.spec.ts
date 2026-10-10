@@ -13,6 +13,8 @@ async function renderPage(component: typeof MyWordsPage | typeof MyGrammarPage, 
     const router = createRouter({ history: createMemoryHistory(), routes: [
         { path: '/my-words', component: MyWordsPage }, { path: '/my-grammar', component: MyGrammarPage },
         { path: '/word/:id', name: 'word.details', component: { template: '<div />' } },
+        { path: '/lessons/:id', name: 'lesson.details', component: { template: '<div />' } },
+        { path: '/catalog/:id', name: 'catalog.details', component: { template: '<div />' } },
         { path: '/grammar/:id', name: 'grammar.details', component: { template: '<div />' } },
     ] });
     await router.push(path);
@@ -48,6 +50,23 @@ describe('learning library page adoption', () => {
         expect(api.addWord).toHaveBeenCalledWith({ lemma: 'retain', language: 'en' });
         expect(wrapper.text()).toContain('Added “retain” to learning.');
     });
+    it('shows both video and lesson sources on one word row', async () => {
+        api.words.mockResolvedValue({ data: [{
+            id: 42, lexeme_id: 42, content_lexeme_id: 7, lexeme: 'run', translation: 'бежать', language: 'en',
+            status: 'new', in_review: false, learned_at: null,
+            contexts: [{ content_lexeme_id: 7, content_id: 8, content_title: 'Video lesson', language: 'en', level: 'A2' }],
+            lessonSources: [{ lessonId: 9, lessonTitle: 'Tuesday class', candidateId: 10 }],
+        }], meta: { current_page: 1, per_page: 15, total: 1 } });
+
+        const wrapper = await renderPage(MyWordsPage, '/my-words');
+        await wrapper.get('button[aria-label="run — бежать. Show details"]').trigger('click');
+        await flushPromises();
+
+        expect(wrapper.findAll('a').map((link) => link.text())).toContain('Video lesson');
+        expect(wrapper.get('a[href="/lessons/9"]').text()).toBe('Tuesday class');
+        expect(wrapper.text()).not.toContain('No content context');
+        expect(wrapper.findAll('input[aria-label="Select run"]')).toHaveLength(1);
+    });
     it('starts and stops contentless rows by canonical ID', async () => {
         const stopped = { data: [{ id: 42, lexeme_id: 42, content_lexeme_id: null, lexeme: 'retain', language: 'en', status: 'new', in_review: false, learned_at: null, contexts: [] }], meta: { current_page: 1, per_page: 15, total: 1 } };
         const learning = { data: [{ id: 42, lexeme_id: 42, content_lexeme_id: null, lexeme: 'retain', language: 'en', status: 'in_learning', in_review: true, learned_at: null, contexts: [] }], meta: { current_page: 1, per_page: 15, total: 1 } };
@@ -57,12 +76,12 @@ describe('learning library page adoption', () => {
         const wrapper = await renderPage(MyWordsPage, '/my-words');
         await wrapper.get('button[aria-label="retain. Show details"]').trigger('click');
         await flushPromises();
-        await wrapper.findAll('button').find((button) => button.text().trim() === 'Add')!.trigger('click');
+        await wrapper.get('button[aria-label="Add retain to practice"]').trigger('click');
         await flushPromises();
         expect(api.startLearning).toHaveBeenCalledWith(42);
         await wrapper.get('button[aria-label="retain. Show details"]').trigger('click');
         await flushPromises();
-        await wrapper.findAll('button').find((button) => button.text().trim() === 'Stop')!.trigger('click');
+        await wrapper.get('button[aria-label="Remove retain from practice"]').trigger('click');
         await flushPromises();
         expect(api.stopLearning).toHaveBeenCalledWith(42);
     });

@@ -1,10 +1,10 @@
 <?php
 
+use App\Modules\Content\Domain\Models\Lexeme;
 use App\Modules\Learning\Domain\Models\Lesson;
 use App\Modules\Learning\Domain\Models\LessonAnalysisRun;
 use App\Modules\Learning\Domain\Models\LessonGrammarCandidate;
 use App\Modules\Learning\Domain\Models\LessonLexemeCandidate;
-use App\Modules\Content\Domain\Models\Lexeme;
 use App\Modules\Srs\Domain\Models\SrsCard;
 use App\Modules\Srs\Domain\Models\SrsReview;
 use App\Modules\User\Models\User;

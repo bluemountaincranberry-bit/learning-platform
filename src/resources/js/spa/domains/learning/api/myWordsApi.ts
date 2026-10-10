@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { MyWordsParams, MyWordsResponse } from '../../../types/api/MyWordsResponse';
+import type { MyWordItemResponse, MyWordsParams, MyWordsResponse } from '../../../types/api/MyWordsResponse';
 
 export const myWordsApi = {
     getList(params: MyWordsParams = {}): Promise<MyWordsResponse> {
@@ -11,7 +11,21 @@ export const myWordsApi = {
         if (params.search != null && params.search.trim() !== '') query.search = params.search.trim();
         if (params.per_page != null) query.per_page = params.per_page;
         if (params.page != null) query.page = params.page;
-        return axios.get('/api/me/words', { params: query }).then((r) => r.data);
+        return axios.get('/api/me/words', { params: query }).then((r) => {
+            const response = r.data as Omit<MyWordsResponse, 'data'> & { data: MyWordItemResponse[] };
+
+            return {
+                ...response,
+                data: response.data.map(({ lesson_sources, ...word }) => ({
+                    ...word,
+                    lessonSources: (lesson_sources ?? []).map((source) => ({
+                        lessonId: source.lesson_id,
+                        lessonTitle: source.lesson_title,
+                        candidateId: source.candidate_id,
+                    })),
+                })),
+            };
+        });
     },
     addWord(input: { lemma: string; language: string }): Promise<{ lexeme: { id: number; lemma: string; language: string; is_personal: boolean } }> {
         return axios.post('/api/me/words', input).then((r) => r.data);

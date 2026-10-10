@@ -10,10 +10,20 @@ export interface MyWordContext {
     level: string | null;
 }
 
-export interface MyWordLessonSource {
+export interface MyWordLessonSourceResponse {
     lesson_id: number;
     lesson_title: string;
     candidate_id: number;
+}
+
+export interface MyWordLessonSource {
+    lessonId: number;
+    lessonTitle: string;
+    candidateId: number;
+}
+
+export interface MyWordItemResponse extends Omit<MyWordItem, 'lessonSources'> {
+    lesson_sources?: MyWordLessonSourceResponse[];
 }
 
 export interface MyWordItem {
@@ -31,7 +41,7 @@ export interface MyWordItem {
     examples?: LexemeExampleItem[];
     associations?: LexemeAssociationItem[];
     contexts: MyWordContext[];
-    lesson_sources?: MyWordLessonSource[];
+    lessonSources?: MyWordLessonSource[];
 }
 
 export interface MyWordsParams {
