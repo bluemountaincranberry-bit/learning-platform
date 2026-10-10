@@ -1,0 +1,288 @@
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue';
+import { interviewApi } from '../domains/interview/api';
+import type { InterviewProfile, InterviewQuestion, InterviewTopic } from '../domains/interview/types';
+
+const questions = ref<InterviewQuestion[]>([]);
+const topics = ref<InterviewTopic[]>([]);
+const availableTags = ref<string[]>([]);
+const profile = ref<InterviewProfile | null>(null);
+const search = ref('');
+const topicId = ref('');
+const state = ref('');
+const tag = ref('');
+const busy = ref(true);
+const error = ref('');
+const selected = ref<InterviewQuestion | null>(null);
+const russian = ref(false);
+const goalDraft = ref('');
+const levelDraft = ref('');
+const skillsDraft = ref('');
+const projectsDraft = ref('');
+const storiesDraft = ref('');
+const milestoneDraft = ref('');
+const milestoneDateDraft = ref('');
+const saving = ref(false);
+const hasMore = ref(false);
+const loadingMore = ref(false);
+const addQuestionOpen = ref(false);
+const editingQuestion = ref(false);
+const newPromptEn = ref('');
+const newPromptRu = ref('');
+const newTags = ref('');
+const draftPromptEn = ref('');
+const draftPromptRu = ref('');
+const draftTags = ref('');
+const newTopicName = ref('');
+const newTopicParent = ref('');
+
+const topicOptions = computed(() => {
+    const byId = new Map(topics.value.map((topic) => [topic.id, topic]));
+    const label = (topic: InterviewTopic) => {
+        const parts = [topic.name];
+        let parent = topic.parentId ? byId.get(topic.parentId) : undefined;
+        while (parent) { parts.unshift(parent.name); parent = parent.parentId ? byId.get(parent.parentId) : undefined; }
+        return parts.join(' / ');
+    };
+    return topics.value.map((topic) => ({ ...topic, label: label(topic) }));
+});
+
+async function load(append = false) {
+    busy.value = !append;
+    error.value = '';
+    try {
+        const page = append ? Number(currentPage.value) + 1 : 1;
+        const [topicData, questionPage, profileData, tagData] = await Promise.all([
+            interviewApi.topics(), interviewApi.questions({
+                ...(search.value.trim() ? { search: search.value.trim() } : {}),
+                ...(topicId.value ? { topic_id: topicId.value } : {}),
+                ...(state.value ? { state: state.value } : {}),
+                ...(tag.value ? { tag: tag.value } : {}),
+                page: String(page),
+            }), interviewApi.profile(), interviewApi.tags(),
+        ]);
+        topics.value = topicData;
+        questions.value = append ? [...questions.value, ...questionPage.items] : questionPage.items;
+        hasMore.value = questionPage.hasMore;
+        currentPage.value = page;
+        availableTags.value = tagData;
+        profile.value = profileData;
+        goalDraft.value = profileData.careerGoal ?? '';
+        levelDraft.value = profileData.experienceLevel ?? '';
+        skillsDraft.value = (profileData.skills ?? []).join('\n');
+        projectsDraft.value = (profileData.projects ?? []).join('\n');
+        storiesDraft.value = (profileData.experienceStories ?? []).join('\n');
+        if (!selected.value || !questionPage.items.some((question) => question.id === selected.value?.id)) selected.value = questionPage.items[0] ?? null;
+    } catch {
+        error.value = 'Interview preparation could not load. Check your connection and try again.';
+    } finally { busy.value = false; }
+}
+
+const currentPage = ref(1);
+
+let timer: ReturnType<typeof setTimeout> | undefined;
+watch([search, topicId, state, tag], () => { clearTimeout(timer); timer = setTimeout(load, 250); });
+onMounted(load);
+
+async function loadMore() {
+    if (!hasMore.value || loadingMore.value) return;
+    loadingMore.value = true;
+    try { await load(true); } finally { loadingMore.value = false; }
+}
+
+async function saveAnswer(kind: 'short' | 'full') {
+    if (!selected.value) return;
+    saving.value = true;
+    error.value = '';
+    try {
+        const answer = selected.value.answers[kind];
+        selected.value = await interviewApi.updateQuestion(selected.value.id, {
+            answers: { [kind]: { en: answer?.en ?? '', ru: answer?.ru ?? '' } },
+        });
+        questions.value = questions.value.map((question) => question.id === selected.value?.id ? selected.value! : question);
+    } catch { error.value = 'The answer could not be saved. Your draft remains on screen.'; }
+    finally { saving.value = false; }
+}
+
+async function saveProfile() {
+    if (!profile.value) return;
+    saving.value = true;
+    try {
+        profile.value = await interviewApi.saveProfile({ ...profile.value, careerGoal: goalDraft.value,
+            experienceLevel: levelDraft.value,
+            skills: skillsDraft.value.split('\n').map((value) => value.trim()).filter(Boolean),
+            projects: projectsDraft.value.split('\n').map((value) => value.trim()).filter(Boolean),
+            experienceStories: storiesDraft.value.split('\n').map((value) => value.trim()).filter(Boolean),
+            milestones: milestoneDraft.value.trim() ? [...profile.value.milestones, { title: milestoneDraft.value.trim(), targetDate: milestoneDateDraft.value || null }] : profile.value.milestones });
+        milestoneDraft.value = ''; milestoneDateDraft.value = '';
+    } catch { error.value = 'The preparation profile could not be saved.'; }
+    finally { saving.value = false; }
+}
+
+function startQuestionEdit() {
+    if (!selected.value) return;
+    draftPromptEn.value = selected.value.promptEn;
+    draftPromptRu.value = selected.value.promptRu ?? '';
+    draftTags.value = selected.value.tags.join(', ');
+    editingQuestion.value = true;
+}
+
+async function saveQuestion() {
+    if (!selected.value) return;
+    saving.value = true;
+    try {
+        const saved = await interviewApi.updateQuestion(selected.value.id, {
+            promptEn: draftPromptEn.value, promptRu: draftPromptRu.value, topicId: selected.value.topic?.id ?? null,
+            tags: draftTags.value.split(',').map((value) => value.trim()).filter(Boolean),
+        });
+        selected.value = saved;
+        questions.value = questions.value.map((question) => question.id === saved.id ? saved : question);
+        editingQuestion.value = false;
+    } catch { error.value = 'The question could not be saved.'; }
+    finally { saving.value = false; }
+}
+
+async function savePreparationState() {
+    if (!selected.value) return;
+    const questionId = selected.value.id;
+    try {
+        selected.value = await interviewApi.updateQuestion(questionId, { preparationState: selected.value.preparationState });
+        questions.value = questions.value.map((question) => question.id === questionId ? selected.value! : question);
+    } catch { error.value = 'The preparation state could not be saved.'; }
+}
+
+async function createQuestion() {
+    if (!newPromptEn.value.trim()) return;
+    saving.value = true;
+    try {
+        const question = await interviewApi.createQuestion({
+            promptEn: newPromptEn.value.trim(), promptRu: newPromptRu.value.trim() || null,
+            topicId: topicId.value ? Number(topicId.value) : null,
+            tags: newTags.value.split(',').map((value) => value.trim()).filter(Boolean),
+        });
+        questions.value.unshift(question);
+        selected.value = question;
+        newPromptEn.value = ''; newPromptRu.value = ''; newTags.value = ''; addQuestionOpen.value = false;
+    } catch { error.value = 'The question could not be created.'; }
+    finally { saving.value = false; }
+}
+
+async function createTopic() {
+    if (!newTopicName.value.trim()) return;
+    saving.value = true;
+    try {
+        const topic = await interviewApi.createTopic(newTopicName.value.trim(), newTopicParent.value ? Number(newTopicParent.value) : null);
+        topics.value.push(topic);
+        topicId.value = String(topic.id);
+        newTopicName.value = ''; newTopicParent.value = '';
+    } catch { error.value = 'The topic could not be created.'; }
+    finally { saving.value = false; }
+}
+</script>
+
+<template>
+    <main class="mx-auto w-full max-w-6xl space-y-5 px-4 py-5 sm:px-6">
+        <header class="space-y-1">
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Interview preparation</p>
+            <h1 class="text-2xl font-semibold text-fg">Build confidence one answer at a time</h1>
+            <p class="text-sm text-muted-foreground">Your questions and preparation profile are private to your account.</p>
+        </header>
+
+        <section class="rounded-spa-lg border border-border bg-surface p-4 sm:p-5" aria-labelledby="goal-heading">
+            <div class="flex flex-wrap items-end gap-3">
+                <label class="min-w-0 flex-1 text-sm font-medium text-fg" for="career-goal">
+                    <span id="goal-heading" class="mb-2 block">Career goal</span>
+                    <input id="career-goal" v-model="goalDraft" class="w-full rounded-spa border border-border bg-surface-alt px-3 py-2 text-fg" placeholder="For example, Junior Copilot Studio Developer" />
+                </label>
+                <button class="rounded-spa bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" :disabled="saving" @click="saveProfile">Save goal</button>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2">
+                <span v-for="milestone in profile?.milestones ?? []" :key="milestone.id ?? milestone.title" class="rounded-full bg-surface-alt px-3 py-1 text-xs text-muted-foreground">{{ milestone.title }}<template v-if="milestone.targetDate"> · {{ milestone.targetDate }}</template></span>
+                <label class="sr-only" for="milestone">Add milestone</label>
+                <input id="milestone" v-model="milestoneDraft" class="min-w-0 flex-1 rounded-spa border border-border bg-surface-alt px-3 py-2 text-sm text-fg" placeholder="Add a milestone" @keydown.enter.prevent="saveProfile" />
+                <label class="sr-only" for="milestone-date">Optional target date</label>
+                <input id="milestone-date" v-model="milestoneDateDraft" type="date" class="rounded-spa border border-border bg-surface-alt px-3 py-2 text-sm text-fg" />
+                <button v-if="milestoneDraft.trim()" class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" :disabled="saving" @click="saveProfile">Add milestone</button>
+            </div>
+            <details class="mt-4">
+                <summary class="min-h-11 cursor-pointer py-2 text-sm font-medium text-primary">Skills and experience details</summary>
+                <div class="grid gap-3 pt-3 sm:grid-cols-2">
+                    <label class="block text-xs text-muted-foreground">Experience level<input v-model="levelDraft" class="mt-1 w-full rounded-spa border border-border bg-surface-alt px-3 py-2 text-sm text-fg" placeholder="Junior / changing careers" /></label>
+                    <label class="block text-xs text-muted-foreground">Skills, one per line<textarea v-model="skillsDraft" rows="3" class="mt-1 w-full rounded-spa border border-border bg-surface-alt p-2 text-sm text-fg" /></label>
+                    <label class="block text-xs text-muted-foreground">Projects, one per line<textarea v-model="projectsDraft" rows="3" class="mt-1 w-full rounded-spa border border-border bg-surface-alt p-2 text-sm text-fg" /></label>
+                    <label class="block text-xs text-muted-foreground">Experience stories, one per line<textarea v-model="storiesDraft" rows="3" class="mt-1 w-full rounded-spa border border-border bg-surface-alt p-2 text-sm text-fg" /></label>
+                </div>
+            </details>
+        </section>
+
+        <div class="grid min-w-0 gap-5 lg:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.4fr)]">
+            <section class="min-w-0 space-y-3" aria-label="Question bank">
+                <details class="rounded-spa-lg border border-border bg-surface p-3">
+                    <summary class="min-h-11 cursor-pointer py-2 text-sm font-semibold text-fg">Organize topics</summary>
+                    <form class="grid gap-2 pt-2" @submit.prevent="createTopic">
+                        <label class="text-xs text-muted-foreground">Parent topic<select v-model="newTopicParent" class="mt-1 w-full rounded-spa border border-border bg-surface-alt px-3 py-2 text-sm text-fg"><option value="">Top level</option><option v-for="topic in topicOptions" :key="topic.id" :value="String(topic.id)">{{ topic.label }}</option></select></label>
+                        <label class="text-xs text-muted-foreground">New topic name<input v-model="newTopicName" class="mt-1 w-full rounded-spa border border-border bg-surface-alt px-3 py-2 text-sm text-fg" /></label>
+                        <button class="min-h-11 rounded-spa border border-border text-sm text-fg" :disabled="saving">Add topic</button>
+                    </form>
+                </details>
+                <button class="w-full rounded-spa border border-primary/50 bg-primary/10 px-4 py-3 text-left text-sm font-semibold text-primary" :aria-expanded="addQuestionOpen" @click="addQuestionOpen = !addQuestionOpen">{{ addQuestionOpen ? 'Close new question' : '+ Add a question' }}</button>
+                <form v-if="addQuestionOpen" class="space-y-2 rounded-spa-lg border border-border bg-surface p-3" @submit.prevent="createQuestion">
+                    <label class="block text-xs text-muted-foreground">Question in English<input v-model="newPromptEn" required maxlength="5000" class="mt-1 w-full rounded-spa border border-border bg-surface-alt px-3 py-2 text-sm text-fg" /></label>
+                    <label class="block text-xs text-muted-foreground">Russian translation<input v-model="newPromptRu" maxlength="5000" class="mt-1 w-full rounded-spa border border-border bg-surface-alt px-3 py-2 text-sm text-fg" /></label>
+                    <label class="block text-xs text-muted-foreground">Tags, separated by commas<input v-model="newTags" class="mt-1 w-full rounded-spa border border-border bg-surface-alt px-3 py-2 text-sm text-fg" /></label>
+                    <button class="min-h-11 w-full rounded-spa bg-primary px-4 text-sm font-semibold text-white disabled:opacity-50" :disabled="saving">Add to my bank</button>
+                </form>
+                <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                    <label class="sr-only" for="question-search">Search English and Russian questions</label>
+                    <input id="question-search" v-model="search" class="min-w-0 rounded-spa border border-border bg-surface px-3 py-2 text-sm text-fg" placeholder="Search in English or Russian" />
+                    <select v-model="topicId" class="min-w-0 rounded-spa border border-border bg-surface px-3 py-2 text-sm text-fg" aria-label="Filter by topic">
+                        <option value="">All topics</option><option v-for="topic in topicOptions" :key="topic.id" :value="String(topic.id)">{{ topic.label }}</option>
+                    </select>
+                    <select v-model="state" class="min-w-0 rounded-spa border border-border bg-surface px-3 py-2 text-sm text-fg" aria-label="Filter by preparation state">
+                        <option value="">All preparation states</option><option value="unpracticed">Unpracticed</option><option value="needs_practice">Needs practice</option><option value="confident">Confident</option>
+                    </select>
+                    <select v-model="tag" class="min-w-0 rounded-spa border border-border bg-surface px-3 py-2 text-sm text-fg" aria-label="Filter by tag">
+                        <option value="">All tags</option><option v-for="name in availableTags" :key="name" :value="name">{{ name }}</option>
+                    </select>
+                </div>
+                <div class="overflow-hidden rounded-spa-lg border border-border bg-surface">
+                    <p v-if="busy" class="p-4 text-sm text-muted-foreground" role="status">Loading your questions…</p>
+                    <p v-else-if="!questions.length" class="p-4 text-sm text-muted-foreground">No questions match these filters. Run <code>php artisan interview:seed-starter</code> to add the starter bank.</p>
+                    <button v-for="question in questions" v-else :key="question.id" class="block w-full min-w-0 border-b border-border px-4 py-3 text-left last:border-0 hover:bg-surface-alt" :class="selected?.id === question.id ? 'bg-primary/10' : ''" @click="selected = question">
+                        <span class="block break-words font-medium text-fg">{{ question.promptEn }}</span>
+                        <span class="mt-1 block text-xs text-muted-foreground">{{ question.topic?.name ?? 'Unsorted' }} · {{ question.preparationState.replace('_', ' ') }}</span>
+                    </button>
+                    <button v-if="hasMore" class="min-h-11 w-full text-sm font-medium text-primary disabled:opacity-50" :disabled="loadingMore" @click="loadMore">{{ loadingMore ? 'Loading…' : 'Load more questions' }}</button>
+                </div>
+            </section>
+
+            <section class="min-w-0 rounded-spa-lg border border-border bg-surface p-4 sm:p-5" aria-label="Question details">
+                <div v-if="selected" class="space-y-5">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="min-w-0 flex-1">
+                            <template v-if="editingQuestion">
+                                <label class="block text-xs text-muted-foreground">Question in English<textarea v-model="draftPromptEn" rows="2" class="mt-1 w-full rounded-spa border border-border bg-surface-alt p-2 text-base text-fg" /></label>
+                                <label class="mt-2 block text-xs text-muted-foreground">Russian translation<textarea v-model="draftPromptRu" rows="2" class="mt-1 w-full rounded-spa border border-border bg-surface-alt p-2 text-sm text-fg" /></label>
+                                <label class="mt-2 block text-xs text-muted-foreground">Tags<input v-model="draftTags" class="mt-1 w-full rounded-spa border border-border bg-surface-alt px-3 py-2 text-sm text-fg" /></label>
+                                <button class="mt-2 min-h-11 rounded-spa bg-primary px-3 text-sm font-semibold text-white" :disabled="saving" @click="saveQuestion">Save question</button>
+                            </template>
+                            <template v-else><h2 class="break-words text-xl font-semibold text-fg">{{ selected.promptEn }}</h2><p v-if="russian && selected.promptRu" class="mt-2 break-words text-muted-foreground">{{ selected.promptRu }}</p></template>
+                        </div>
+                        <div class="flex shrink-0 gap-2"><button v-if="!editingQuestion" class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" @click="startQuestionEdit">Edit question</button><button class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" @click="russian = !russian">{{ russian ? 'Hide Russian' : 'Show Russian' }}</button></div>
+                    </div>
+                    <div class="flex flex-wrap gap-2"><span v-for="tag in selected.tags" :key="tag" class="rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">{{ tag }}</span></div>
+                    <label class="block max-w-xs text-xs text-muted-foreground">Preparation state<select v-model="selected.preparationState" class="mt-1 w-full rounded-spa border border-border bg-surface-alt px-3 py-2 text-sm text-fg" @change="savePreparationState"><option value="unpracticed">Unpracticed</option><option value="needs_practice">Needs practice</option><option value="confident">Confident</option></select></label>
+                    <article v-for="kind in (['short', 'full'] as const)" :key="kind" class="space-y-2 rounded-spa border border-border p-3">
+                        <div class="flex items-center justify-between gap-2"><h3 class="font-semibold capitalize text-fg">{{ kind }} answer</h3><button v-if="selected.answers[kind]?.revisions.length" class="text-xs text-primary underline" @click="interviewApi.restoreRevision(selected.id, selected.answers[kind]!.id, selected.answers[kind]!.revisions[0].id).then((q) => selected = q)">Restore previous version</button></div>
+                        <label class="block text-xs text-muted-foreground">English<textarea v-model="selected.answers[kind]!.en" rows="3" class="mt-1 w-full resize-y rounded-spa border border-border bg-surface-alt p-2 text-sm text-fg" placeholder="Write your answer in English" /></label>
+                        <label class="block text-xs text-muted-foreground">Russian<textarea v-model="selected.answers[kind]!.ru" rows="2" class="mt-1 w-full resize-y rounded-spa border border-border bg-surface-alt p-2 text-sm text-fg" placeholder="Write your answer in Russian" /></label>
+                        <button class="rounded-spa bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" :disabled="saving" @click="saveAnswer(kind)">Save {{ kind }} answer</button>
+                    </article>
+                    <p class="text-xs text-muted-foreground">Answer changes keep the previous version so you can restore it.</p>
+                </div>
+                <p v-else class="py-8 text-center text-sm text-muted-foreground">Choose a question to review its answers.</p>
+            </section>
+        </div>
+        <p v-if="error" class="rounded-spa border border-warning/40 bg-warning/10 p-3 text-sm text-warning" role="alert">{{ error }} <button class="underline" @click="() => load()">Retry</button></p>
+    </main>
+</template>

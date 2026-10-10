@@ -6,7 +6,7 @@ const ASSET_CACHE = `${PREFIX}assets-${VERSION}`;
 const PRIVATE_CACHE = `${PREFIX}private-${VERSION}`;
 const SESSION_CACHE = `${PREFIX}session`;
 const SESSION_URL = `${self.location.origin}/__pwa_session`;
-const APP_ROUTES = new Set(['', 'dashboard', 'login', 'register', 'onboarding', 'forgot-password', 'reset-password', 'categories', 'catalog', 'grammar', 'add-youtube', 'repetitions', 'practice', 'my-words', 'my-grammar', 'lessons', 'my-progress', 'check-yourself', 'chat', 'settings', 'word']);
+const APP_ROUTES = new Set(['', 'dashboard', 'login', 'register', 'onboarding', 'forgot-password', 'reset-password', 'categories', 'catalog', 'grammar', 'add-youtube', 'repetitions', 'practice', 'my-words', 'my-grammar', 'lessons', 'interview', 'my-progress', 'check-yourself', 'chat', 'settings', 'word']);
 let operations = Promise.resolve();
 
 // Serialize cache changes, including logout, without holding up network requests.
