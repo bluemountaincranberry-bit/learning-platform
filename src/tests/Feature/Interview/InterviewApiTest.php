@@ -86,6 +86,7 @@ test('learner reviews an AI question proposal before it enters the question bank
         ->assertJsonPath('data.status', 'confirmed')->assertJsonPath('data.result.prompt_en', 'How do you handle a timeout?');
     test()->getJson('/api/interview/questions')->assertOk()->assertJsonPath('data.0.prompt_en', 'How do you handle a timeout?');
     test()->postJson('/api/interview/drafts/'.$draft['id'].'/confirm')->assertStatus(409);
+    test()->postJson('/api/interview/drafts/'.$draft['id'].'/reject')->assertStatus(409);
 
     $rejected = test()->postJson('/api/interview/drafts', [
         'kind' => 'question', 'payload' => ['prompt_en' => 'What is a retry?', 'prompt_ru' => 'Что такое повтор?'],

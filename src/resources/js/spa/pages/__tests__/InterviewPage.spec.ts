@@ -79,13 +79,14 @@ describe('InterviewPage', () => {
     });
 
     it('requires explicit learner confirmation before adding an AI question proposal', async () => {
-        api.drafts.mockResolvedValue([{ id: 41, kind: 'question', promptEn: 'How do you handle a timeout?', promptRu: 'Как вы обрабатываете таймаут?' }]);
+        api.drafts.mockResolvedValue([{ id: 41, kind: 'question', promptEn: 'How do you handle a timeout?', promptRu: 'Как вы обрабатываете таймаут?', topicId: 1, tags: ['reliability'] }]);
         api.decideDraft.mockImplementation(async () => { api.drafts.mockResolvedValue([]); });
         const wrapper = mount(InterviewPage);
         await flushPromises();
 
         expect(wrapper.text()).toContain('How do you handle a timeout?');
         expect(wrapper.text()).toContain('review before adding');
+        expect(wrapper.text()).toContain('HTTP · reliability');
         await wrapper.findAll('button').find((button) => button.text() === 'Add question')!.trigger('click');
         await flushPromises();
 

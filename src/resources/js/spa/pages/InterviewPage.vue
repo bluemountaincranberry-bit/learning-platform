@@ -55,6 +55,10 @@ const topicOptions = computed(() => {
     return topics.value.map((topic) => ({ ...topic, label: label(topic) }));
 });
 
+function topicName(id: number | null) {
+    return id === null ? null : topicOptions.value.find((topic) => topic.id === id)?.label ?? null;
+}
+
 async function load(append = false) {
     busy.value = !append;
     error.value = '';
@@ -288,6 +292,7 @@ async function reopenPractice(sessionId: number) {
                 <h2 class="font-semibold text-fg">AI proposals · review before adding</h2>
                 <article v-for="draft in aiDrafts" :key="draft.id" class="mt-3 rounded-spa border border-border bg-surface p-3">
                     <p class="text-sm font-medium text-fg">{{ draft.promptEn }}</p><p v-if="draft.promptRu" class="mt-1 text-sm text-muted-foreground">{{ draft.promptRu }}</p>
+                    <p class="mt-2 text-xs text-muted-foreground">{{ topicName(draft.topicId) ?? 'No topic' }}<span v-if="draft.tags.length"> · {{ draft.tags.join(', ') }}</span></p>
                     <div class="mt-3 flex gap-2"><button class="min-h-11 rounded-spa bg-primary px-3 text-sm font-semibold text-white" @click="decideAiDraft(draft.id, 'confirm')">Add question</button><button class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" @click="decideAiDraft(draft.id, 'reject')">Discard</button></div>
                 </article>
             </section>
