@@ -4,8 +4,10 @@ import { defineComponent, h } from 'vue';
 import InterviewPage from '../InterviewPage.vue';
 
 const api = vi.hoisted(() => ({ topics: vi.fn(), tags: vi.fn(), questions: vi.fn(), profile: vi.fn(), updateQuestion: vi.fn(), saveProfile: vi.fn(), restoreRevision: vi.fn(), startSession: vi.fn(), sendSessionMessage: vi.fn(), pinVoiceRecording: vi.fn(), sessions: vi.fn(), getSession: vi.fn(), drafts: vi.fn(), decideDraft: vi.fn() }));
+const translation = vi.hoisted(() => ({ translate: vi.fn() }));
 const speech = vi.hoisted(() => ({ providers: vi.fn().mockResolvedValue({ providers: [] }), transcribe: vi.fn(), pin: vi.fn(), flow: vi.fn().mockResolvedValue({ preferences: {} }) }));
 vi.mock('../../domains/interview/api', () => ({ interviewApi: api }));
+vi.mock('../../domains/ai/api/translateApi', () => ({ translateApi: translation }));
 vi.mock('../../domains/learning', () => ({ speechApi: speech, learningFlowApi: { get: speech.flow } }));
 
 const question = {
@@ -21,6 +23,7 @@ describe('InterviewPage', () => {
     beforeEach(() => {
         vi.resetAllMocks();
         speech.providers.mockResolvedValue({ providers: [] });
+        translation.translate.mockResolvedValue({ translation: 'Стабильный интерфейс.' });
         speech.flow.mockResolvedValue({ preferences: {} });
         api.topics.mockResolvedValue([{ id: 1, name: 'HTTP', parentId: null, sortOrder: 0 }]);
         api.tags.mockResolvedValue(['REST']);
@@ -83,20 +86,95 @@ describe('InterviewPage', () => {
         });
     });
 
-    it('starts a coached session with the selected question', async () => {
-        api.startSession.mockResolvedValue({ id: 9, conversationId: 11, mode: 'coached', status: 'active', questionCount: 1, focus: null, questions: [structuredClone(question)], messages: [] });
+    it('previews a translation and keeps it out of saved text until the learner applies and saves it', async () => {
         const wrapper = mount(InterviewPage);
         await flushPromises();
+        const details = wrapper.find('[aria-label="Question details"]');
+        await details.findAll('button').find((button) => button.text() === 'Edit question')!.trigger('click');
+        const fields = details.findAll('textarea');
+        await fields[0].setValue('A stable interface.');
+        await details.findAll('button').find((button) => button.text() === 'Suggest Russian translation')!.trigger('click');
+        await flushPromises();
+
+        expect(translation.translate).toHaveBeenCalledWith('A stable interface.', 'ru');
+        expect(wrapper.text()).toContain('Стабильный интерфейс.');
+        expect(api.updateQuestion).not.toHaveBeenCalled();
+        await wrapper.find('[aria-label="Translation proposal review"]').findAll('button')[0].trigger('click');
+        expect((fields[1].element as HTMLTextAreaElement).value).toBe('Стабильный интерфейс.');
+        expect(api.updateQuestion).not.toHaveBeenCalled();
+        await details.findAll('button').find((button) => button.text() === 'Save question')!.trigger('click');
+        await flushPromises();
+
+        expect(api.updateQuestion).toHaveBeenCalledWith(2, expect.objectContaining({ promptRu: 'Стабильный интерфейс.' }));
+    });
+
+    it('can suggest English from Russian and discard without changing the saved question', async () => {
+        translation.translate.mockResolvedValue({ translation: 'What does this API do?' });
+        const wrapper = mount(InterviewPage);
+        await flushPromises();
+        const details = wrapper.find('[aria-label="Question details"]');
+        await details.findAll('button').find((button) => button.text() === 'Edit question')!.trigger('click');
+        const fields = details.findAll('textarea');
+        await fields[1].setValue('Что делает этот API?');
+        await details.findAll('button').find((button) => button.text() === 'Suggest English translation')!.trigger('click');
+        await flushPromises();
+
+        expect(translation.translate).toHaveBeenCalledWith('Что делает этот API?', 'en');
+        expect(wrapper.find('[aria-label="Translation proposal review"]').text()).toContain('What does this API do?');
+        await wrapper.find('[aria-label="Translation proposal review"]').findAll('button')[1].trigger('click');
+        expect(api.updateQuestion).not.toHaveBeenCalled();
+        expect((fields[0].element as HTMLTextAreaElement).value).toBe('What is an API?');
+    });
+
+    it('starts a coached session with the selected question', async () => {
+        api.startSession.mockResolvedValue({ id: 9, conversationId: 11, mode: 'coached', status: 'active', questionCount: 1, focus: null, difficulty: 'any', questions: [structuredClone(question)], messages: [] });
+        const wrapper = mount(InterviewPage);
+        await flushPromises();
+        await wrapper.find('[aria-label="Practice difficulty"]').setValue('advanced');
         await wrapper.findAll('button').find((button) => button.text().includes('Start coached practice'))!.trigger('click');
         await flushPromises();
 
-        expect(api.startSession).toHaveBeenCalledWith('coached', [2], 1, null, null);
+        expect(api.startSession).toHaveBeenCalledWith('coached', [2], 1, null, null, 'advanced');
         expect(wrapper.text()).toContain('Coached practice');
         expect(wrapper.find('#interview-practice-message').exists()).toBe(true);
     });
 
+    it('shows a Continue action and evidence-based topics to revisit on the preparation home', async () => {
+        const session = { id: 19, conversationId: 23, mode: 'coached' as const, status: 'active' as const, questionCount: 1, focus: null, difficulty: 'any' as const, questions: [structuredClone(question)], messages: [] };
+        api.questions.mockResolvedValue({ items: [{ ...structuredClone(question), preparationState: 'needs_practice' }], hasMore: false });
+        api.sessions.mockResolvedValue([{ id: 19, mode: 'coached', status: 'active', updatedAt: '2026-10-09T12:00:00Z' }]);
+        api.getSession.mockResolvedValue(session);
+        const wrapper = mount(InterviewPage);
+        await flushPromises();
+
+        expect(wrapper.find('[aria-label="Interview preparation home"]').text()).toContain('Suggested topics to revisit:');
+        expect(wrapper.text()).toContain('HTTP · 1');
+        await wrapper.findAll('button').find((button) => button.text() === 'Continue practice')!.trigger('click');
+        await flushPromises();
+
+        expect(api.getSession).toHaveBeenCalledWith(19);
+        expect(wrapper.text()).toContain('Coached practice');
+    });
+
+    it('includes revisit topics found on later question-bank pages', async () => {
+        api.topics.mockResolvedValue([
+            { id: 1, name: 'HTTP', parentId: null, sortOrder: 0 },
+            { id: 2, name: 'Databases', parentId: null, sortOrder: 1 },
+        ]);
+        api.questions.mockImplementation(async (params: Record<string, string> = {}) => {
+            if (params.per_page !== '100') return { items: [structuredClone(question)], hasMore: false };
+            if (params.page === '1') return { items: [structuredClone(question)], hasMore: true };
+            return { items: [{ ...structuredClone(question), id: 200, preparationState: 'needs_practice', topic: { id: 2, name: 'Databases', parentId: null, sortOrder: 1 } }], hasMore: false };
+        });
+        const wrapper = mount(InterviewPage);
+        await flushPromises();
+
+        expect(wrapper.text()).toContain('Databases · 1');
+        expect(api.questions).toHaveBeenCalledWith({ per_page: '100', page: '2' });
+    });
+
     it('keeps the learner answer available when the message provider rejects the send', async () => {
-        api.startSession.mockResolvedValue({ id: 9, conversationId: 11, mode: 'coached', status: 'active', questionCount: 1, focus: null, questions: [structuredClone(question)], messages: [] });
+        api.startSession.mockResolvedValue({ id: 9, conversationId: 11, mode: 'coached', status: 'active', questionCount: 1, focus: null, difficulty: 'any', questions: [structuredClone(question)], messages: [] });
         api.sendSessionMessage.mockRejectedValue(new Error('provider unavailable'));
         const wrapper = mount(InterviewPage);
         await flushPromises();
@@ -114,7 +192,7 @@ describe('InterviewPage', () => {
     it('explains when an accepted answer gets no agent reply and allows a session refresh', async () => {
         vi.useFakeTimers();
         try {
-            const session = { id: 9, conversationId: 11, mode: 'coached', status: 'active', questionCount: 1, focus: null, questions: [structuredClone(question)], messages: [] };
+            const session = { id: 9, conversationId: 11, mode: 'coached', status: 'active', questionCount: 1, focus: null, difficulty: 'any', questions: [structuredClone(question)], messages: [] };
             api.startSession.mockResolvedValue(session);
             api.sendSessionMessage.mockResolvedValue(undefined);
             api.getSession.mockResolvedValue(session);
@@ -139,7 +217,7 @@ describe('InterviewPage', () => {
     });
 
     it('lets a learner edit the transcribed answer before attaching the recording', async () => {
-        const session = { id: 9, conversationId: 11, mode: 'coached', status: 'active', questionCount: 1, focus: null, questions: [structuredClone(question)], messages: [] };
+        const session = { id: 9, conversationId: 11, mode: 'coached', status: 'active', questionCount: 1, focus: null, difficulty: 'any', questions: [structuredClone(question)], messages: [] };
         api.startSession.mockResolvedValue(session);
         api.sendSessionMessage.mockResolvedValue(undefined);
         api.getSession.mockResolvedValue({ ...session, messages: [{ id: 21, role: 'assistant', content: 'Tell me more.', voiceAudioUrl: null, voiceAudioPinned: false, voiceAudioExpiresAt: null }] });
@@ -168,7 +246,7 @@ describe('InterviewPage', () => {
 
     it('reopens a saved session from recent practice history', async () => {
         const feedback = '**Содержание:** Вы назвали API и тесты для таймаутов.\n\n**English improvement:** “I added timeout tests.”';
-        const session = { id: 9, conversationId: 11, mode: 'mock', status: 'completed', questionCount: 1, focus: null, questions: [structuredClone(question)], messages: [{ id: 21, role: 'assistant', content: feedback }] } as const;
+        const session = { id: 9, conversationId: 11, mode: 'mock', status: 'completed', questionCount: 1, focus: null, difficulty: 'any', questions: [structuredClone(question)], messages: [{ id: 21, role: 'assistant', content: feedback }] } as const;
         api.sessions.mockResolvedValue([{ id: 9, mode: 'mock', status: 'completed', updatedAt: '2026-10-10' }]);
         api.getSession.mockResolvedValue(session);
         const wrapper = mount(InterviewPage);

@@ -20,6 +20,7 @@ class InterviewSessionRequest extends FormRequest
             'question_count' => ['sometimes', 'integer', 'min:1', 'max:30'],
             'topic_id' => ['nullable', 'integer'],
             'focus' => ['nullable', 'string', 'max:120'],
+            'difficulty' => ['sometimes', 'in:any,beginner,intermediate,advanced'],
         ];
     }
 }

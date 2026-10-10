@@ -66,6 +66,20 @@ test('interview questions and topics are private and foreign resources return no
     test()->deleteJson('/api/interview/topics/'.$topic['id'])->assertNotFound();
 });
 
+test('changing one question language never overwrites the saved translation', function () {
+    interviewLearner();
+    $question = test()->postJson('/api/interview/questions', [
+        'prompt_en' => 'What is a stable interface?',
+        'prompt_ru' => 'Что такое стабильный интерфейс?',
+    ])->assertCreated()->json('data');
+
+    test()->putJson('/api/interview/questions/'.$question['id'], [
+        'prompt_en' => 'How do you design a stable interface?',
+    ])->assertOk()
+        ->assertJsonPath('data.prompt_en', 'How do you design a stable interface?')
+        ->assertJsonPath('data.prompt_ru', 'Что такое стабильный интерфейс?');
+});
+
 test('profile supports a goal and optional milestones', function () {
     $learner = interviewLearner();
 
@@ -113,8 +127,8 @@ test('learner can create and reopen a private coached or mock practice session',
     ])->assertCreated()->json('data');
 
     $session = test()->postJson('/api/interview/sessions', [
-        'mode' => 'coached', 'question_ids' => [$question['id']], 'question_count' => 1,
-    ])->assertCreated()->json('data');
+        'mode' => 'coached', 'question_ids' => [$question['id']], 'question_count' => 1, 'difficulty' => 'advanced',
+    ])->assertCreated()->assertJsonPath('data.difficulty', 'advanced')->json('data');
 
     expect($session['mode'])->toBe('coached')
         ->and($session['status'])->toBe('active')

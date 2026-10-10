@@ -4,8 +4,10 @@ namespace App\Modules\Interview\Application;
 
 use App\Contracts\Ai\InterviewConversationGateway;
 use App\Modules\Interview\Domain\Models\InterviewPracticeSession;
+use App\Modules\Interview\Domain\Models\InterviewProfile;
 use App\Modules\Interview\Domain\Models\InterviewQuestion;
 use App\Modules\Interview\Domain\Models\InterviewTopic;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -17,7 +19,7 @@ final class InterviewPracticeService
     public function start(int $userId, array $data): InterviewPracticeSession
     {
         $questionIds = array_values($data['question_ids'] ?? []);
-        abort_if($questionIds !== [] && InterviewQuestion::query()->where('user_id', $userId)->whereIn('id', $questionIds)->count() !== count($questionIds), 404);
+        InterviewUseCaseException::ensure($questionIds === [] || InterviewQuestion::query()->where('user_id', $userId)->whereIn('id', $questionIds)->count() === count($questionIds), InterviewUseCaseException::NOT_FOUND);
         $count = $data['question_count'] ?? max(1, count($questionIds));
         if ($questionIds === []) {
             $questionQuery = InterviewQuestion::query()->where('user_id', $userId)->where('preparation_state', '!=', 'confident');
@@ -41,6 +43,7 @@ final class InterviewPracticeService
                 'question_ids' => $questionIds,
                 'question_count' => $count,
                 'focus' => $data['focus'] ?? null,
+                'difficulty' => $data['difficulty'] ?? 'any',
             ]);
         });
     }
@@ -50,9 +53,14 @@ final class InterviewPracticeService
         return InterviewPracticeSession::query()->where('user_id', $userId)->findOrFail($sessionId);
     }
 
+    public function sessions(int $userId): LengthAwarePaginator
+    {
+        return InterviewPracticeSession::query()->where('user_id', $userId)->latest('updated_at')->paginate(20);
+    }
+
     public function complete(InterviewPracticeSession $session): InterviewPracticeSession
     {
-        abort_if($session->status !== 'active', 409, 'Only an active practice session can be completed.');
+        InterviewUseCaseException::ensure($session->status === 'active', InterviewUseCaseException::CONFLICT, 'Only an active practice session can be completed.');
         $session->update(['status' => 'completed']);
 
         return $session->fresh();
@@ -61,7 +69,7 @@ final class InterviewPracticeService
     /** @param array<string, mixed>|null $voice */
     public function sendMessage(InterviewPracticeSession $session, int $userId, string $content, ?array $voice = null): int|false
     {
-        abort_if($session->status !== 'active', 409, 'This practice session is complete.');
+        InterviewUseCaseException::ensure($session->status === 'active', InterviewUseCaseException::CONFLICT, 'This practice session is complete.');
 
         return $this->conversations->enqueueMessage($session->agent_conversation_id, $userId, $content, $voice);
     }
@@ -78,8 +86,14 @@ final class InterviewPracticeService
         $questionIds = array_map('intval', $session->question_ids);
 
         return InterviewQuestion::query()->where('user_id', $session->user_id)->whereIn('id', $questionIds)
-            ->with(['topic', 'tags', 'answers'])->get()
+            ->with(['topic', 'tags', 'answers.revisions'])->get()
             ->sortBy(fn (InterviewQuestion $question) => array_search($question->id, $questionIds, true))->values();
+    }
+
+    public function profileForSession(InterviewPracticeSession $session): ?InterviewProfile
+    {
+        return InterviewProfile::query()->where('user_id', $session->user_id)
+            ->with(['milestones', 'observations'])->first();
     }
 
     /** @return array<int, int> */

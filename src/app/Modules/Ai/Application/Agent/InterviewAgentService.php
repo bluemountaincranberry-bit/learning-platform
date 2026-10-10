@@ -44,6 +44,8 @@ final class InterviewAgentService implements AgentService
                 The returned profile and question bank are confirmed learner data. Never invent personal history, skills,
                 projects, or outcomes. Ask concise clarifying questions whenever a factual detail is missing.
                 The learner is practising English: ask interview questions in English and explain coaching feedback in Russian.
+                Adapt the question depth and technical detail to the session difficulty in practice context; when it is
+                "any", keep the level suitable for the learner's confirmed profile and career goal.
                 When asking a question from the learner's bank, include its exact English prompt text verbatim so answer
                 evidence can be tied to the right question. In coached mode, handle one question at a time, discuss
                 the response, and help improve it before moving on.
@@ -83,10 +85,7 @@ final class InterviewAgentService implements AgentService
 
     public function handleTurn(int $conversationId): void
     {
-        $conversation = AgentConversation::query()->findOrFail($conversationId);
-        if ($conversation->agent_type !== self::AGENT_TYPE) {
-            abort(404);
-        }
+        $conversation = AgentConversation::query()->where('agent_type', self::AGENT_TYPE)->findOrFail($conversationId);
         $trace = TraceContext::newTrace();
         $this->loop->run(
             systemPrompt: $this->blueprint->systemPrompt,

@@ -1,12 +1,12 @@
 import axios from 'axios';
-import { speechApi, type SpeechLanguage, type SpeechProvider } from '../learning/api/speechApi';
+import { speechApi, type SpeechLanguage, type SpeechProvider } from '../learning';
 import type { InterviewAnswer, InterviewDraft, InterviewPracticeSession, InterviewPracticeSummary, InterviewProfile, InterviewQuestion, InterviewTopic } from './types';
 
 type WireTopic = { id: number; name: string; parent_id: number | null; sort_order: number };
 type WireAnswer = { id: number; en: string | null; ru: string | null; revisions: { id: number; text_en: string | null; text_ru: string | null; created_at: string }[] };
 type WireQuestion = { id: number; prompt_en: string; prompt_ru: string | null; preparation_state: InterviewQuestion['preparationState']; topic: WireTopic | null; tags: string[]; answers: Partial<Record<'short' | 'full', WireAnswer>> };
 type WireProfile = { id?: number; career_goal: string | null; skills: string[] | null; experience_level: string | null; projects: string[] | null; experience_stories: string[] | null; milestones: { id?: number; title: string; target_date: string | null }[]; observations: { id: number; pattern_type: 'strength' | 'improvement'; summary: string; examples: { session_id: number; question_id: number; question_prompt_en: string; evidence: string; source_message_id: number }[] }[] };
-type WireSession = { id: number; conversation_id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; question_count: number; focus: string | null; questions: WireQuestion[]; messages: { id: number; role: 'user' | 'assistant'; content: string; voice_audio_url: string | null; voice_audio_pinned: boolean; voice_audio_expires_at: string | null }[] };
+type WireSession = { id: number; conversation_id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; question_count: number; focus: string | null; difficulty: InterviewPracticeSession['difficulty']; questions: WireQuestion[]; messages: { id: number; role: 'user' | 'assistant'; content: string; voice_audio_url: string | null; voice_audio_pinned: boolean; voice_audio_expires_at: string | null }[] };
 type WireSessionSummary = { id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; updated_at: string };
 type WireDraft = { id: number; kind: 'question' | 'profile' | 'answer' | 'vocabulary' | 'observation' | 'pattern_observation'; payload: Record<string, unknown>; status: 'pending' };
 
@@ -30,7 +30,7 @@ const profilePayload = (profile: InterviewProfile) => ({
 });
 const mapSession = (session: WireSession): InterviewPracticeSession => ({
     id: session.id, conversationId: session.conversation_id, mode: session.mode, status: session.status,
-    questionCount: session.question_count, focus: session.focus, questions: session.questions.map(mapQuestion),
+    questionCount: session.question_count, focus: session.focus, difficulty: session.difficulty, questions: session.questions.map(mapQuestion),
     messages: session.messages.map((message) => ({ id: message.id, role: message.role, content: message.content, voiceAudioUrl: message.voice_audio_url ?? null, voiceAudioPinned: Boolean(message.voice_audio_pinned), voiceAudioExpiresAt: message.voice_audio_expires_at ?? null })),
 });
 
@@ -101,8 +101,8 @@ export const interviewApi = {
     async saveProfile(profile: InterviewProfile): Promise<InterviewProfile> {
         return mapProfile((await axios.put('/api/interview/profile', profilePayload(profile))).data.data);
     },
-    async startSession(mode: 'coached' | 'mock', questionIds: number[] = [], questionCount = Math.max(1, questionIds.length), topicId: number | null = null, focus: string | null = null): Promise<InterviewPracticeSession> {
-        return mapSession((await axios.post('/api/interview/sessions', { mode, question_ids: questionIds, question_count: questionCount, topic_id: topicId, focus })).data.data);
+    async startSession(mode: 'coached' | 'mock', questionIds: number[] = [], questionCount = Math.max(1, questionIds.length), topicId: number | null = null, focus: string | null = null, difficulty: InterviewPracticeSession['difficulty'] = 'any'): Promise<InterviewPracticeSession> {
+        return mapSession((await axios.post('/api/interview/sessions', { mode, question_ids: questionIds, question_count: questionCount, topic_id: topicId, focus, difficulty })).data.data);
     },
     async getSession(id: number): Promise<InterviewPracticeSession> {
         return mapSession((await axios.get(`/api/interview/sessions/${id}`)).data.data);

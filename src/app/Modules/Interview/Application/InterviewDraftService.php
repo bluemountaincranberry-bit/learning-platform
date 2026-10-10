@@ -13,7 +13,6 @@ use App\Modules\Interview\Domain\Models\InterviewQuestion;
 use App\Modules\Interview\Domain\Models\InterviewTag;
 use App\Modules\Interview\Domain\Models\InterviewTopic;
 use App\Modules\Learning\Application\Contracts\PersonalVocabularyWriterInterface;
-use App\Modules\User\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -23,6 +22,11 @@ final class InterviewDraftService implements InterviewDraftWriter
         private readonly PersonalVocabularyWriterInterface $vocabulary,
         private readonly InterviewConversationGateway $conversations,
     ) {}
+
+    public function pendingDrafts(int $userId): \Illuminate\Database\Eloquent\Collection
+    {
+        return InterviewAiDraft::query()->where('user_id', $userId)->where('status', 'pending')->latest()->get();
+    }
 
     public function questionDraft(int $conversationId, int $userId, array $proposal): int
     {
@@ -57,7 +61,7 @@ final class InterviewDraftService implements InterviewDraftWriter
             'milestones.*.title' => ['required', 'string', 'max:250'],
             'milestones.*.target_date' => ['nullable', 'date'],
         ])->validate();
-        abort_if($data === [], 422, 'A profile proposal must contain at least one change.');
+        InterviewUseCaseException::ensure($data !== [], InterviewUseCaseException::INVALID, 'A profile proposal must contain at least one change.');
 
         return InterviewAiDraft::query()->create(['user_id' => $userId, 'kind' => 'profile', 'payload' => $data])->id;
     }
@@ -72,7 +76,7 @@ final class InterviewDraftService implements InterviewDraftWriter
             'text_en' => ['present', 'nullable', 'string', 'max:10000'],
             'text_ru' => ['present', 'nullable', 'string', 'max:10000'],
         ])->validate();
-        abort_unless(in_array((int) $data['question_id'], array_map('intval', $session->question_ids ?? []), true), 404);
+        InterviewUseCaseException::ensure(in_array((int) $data['question_id'], array_map('intval', $session->question_ids ?? []), true), InterviewUseCaseException::NOT_FOUND);
         $question = InterviewQuestion::query()->where('user_id', $userId)->findOrFail($data['question_id']);
         $data['question_prompt_en'] = $question->prompt_en;
         $data['question_prompt_ru'] = $question->prompt_ru;
@@ -96,7 +100,7 @@ final class InterviewDraftService implements InterviewDraftWriter
     {
         $session = InterviewPracticeSession::query()->where('agent_conversation_id', $conversationId)
             ->where('user_id', $userId)->firstOrFail();
-        abort_if($session->status !== 'active', 409, 'Only an active practice session can propose a question state change.');
+        InterviewUseCaseException::ensure($session->status === 'active', InterviewUseCaseException::CONFLICT, 'Only an active practice session can propose a question state change.');
         $data = Validator::make($proposal, [
             'question_id' => ['required', 'integer'],
             'preparation_state' => ['required', 'in:needs_practice,confident'],
@@ -104,7 +108,7 @@ final class InterviewDraftService implements InterviewDraftWriter
             'reason' => ['required', 'string', 'max:1000'],
         ])->validate();
         $verifiedExample = $this->verifiedAnswerEvidence($session, $userId, (int) $data['question_id'], $data['evidence']);
-        abort_unless($verifiedExample !== null, 422, 'Evidence must quote a learner answer to this question.');
+        InterviewUseCaseException::ensure($verifiedExample !== null, InterviewUseCaseException::INVALID, 'Evidence must quote a learner answer to this question.');
         $question = InterviewQuestion::query()->where('user_id', $userId)->findOrFail($data['question_id']);
         $data['question_prompt_en'] = $question->prompt_en;
         $data['question_prompt_ru'] = $question->prompt_ru;
@@ -119,7 +123,7 @@ final class InterviewDraftService implements InterviewDraftWriter
     {
         $origin = InterviewPracticeSession::query()->where('agent_conversation_id', $conversationId)
             ->where('user_id', $userId)->firstOrFail();
-        abort_if($origin->status !== 'active', 409, 'Only an active practice session can propose a profile observation.');
+        InterviewUseCaseException::ensure($origin->status === 'active', InterviewUseCaseException::CONFLICT, 'Only an active practice session can propose a profile observation.');
         $data = Validator::make($proposal, [
             'pattern_type' => ['required', 'in:strength,improvement'],
             'summary' => ['required', 'string', 'max:500'],
@@ -131,15 +135,15 @@ final class InterviewDraftService implements InterviewDraftWriter
 
         $sourceIds = array_map('intval', array_column($data['examples'], 'session_id'));
         $sourceSessions = InterviewPracticeSession::query()->where('user_id', $userId)->whereIn('id', $sourceIds)->get()->keyBy('id');
-        abort_unless($sourceSessions->count() === count($sourceIds), 404, 'A source practice session was not found.');
+        InterviewUseCaseException::ensure($sourceSessions->count() === count($sourceIds), InterviewUseCaseException::NOT_FOUND, 'A source practice session was not found.');
 
         $verifiedExamples = [];
         foreach ($data['examples'] as $example) {
             $sourceSession = $sourceSessions->get((int) $example['session_id']);
-            abort_unless($sourceSession !== null, 404, 'A source practice session was not found.');
-            abort_unless($sourceSession->id === $origin->id || $sourceSession->status === 'completed', 422, 'Prior examples must come from completed practice sessions.');
+            InterviewUseCaseException::ensure($sourceSession !== null, InterviewUseCaseException::NOT_FOUND, 'A source practice session was not found.');
+            InterviewUseCaseException::ensure($sourceSession->id === $origin->id || $sourceSession->status === 'completed', InterviewUseCaseException::INVALID, 'Prior examples must come from completed practice sessions.');
             $verified = $this->verifiedAnswerEvidence($sourceSession, $userId, (int) $example['question_id'], $example['evidence']);
-            abort_unless($verified !== null, 422, 'Each example must quote the learner answer to its selected question.');
+            InterviewUseCaseException::ensure($verified !== null, InterviewUseCaseException::INVALID, 'Each example must quote the learner answer to its selected question.');
             $verifiedExamples[] = [
                 'session_id' => $sourceSession->id,
                 'question_id' => (int) $example['question_id'],
@@ -159,10 +163,10 @@ final class InterviewDraftService implements InterviewDraftWriter
     {
         return DB::transaction(function () use ($draftId, $userId): InterviewQuestion|InterviewProfile|array {
             $draft = InterviewAiDraft::query()->where('user_id', $userId)->lockForUpdate()->findOrFail($draftId);
-            abort_unless($draft->status === 'pending', 409, 'This proposal has already been decided.');
+            InterviewUseCaseException::ensure($draft->status === 'pending', InterviewUseCaseException::CONFLICT, 'This proposal has already been decided.');
             $data = $draft->payload;
             if ($draft->kind === 'profile') {
-                User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
+                $this->lockUser($userId);
                 $profile = InterviewProfile::query()->firstOrNew(['user_id' => $userId]);
                 $profile->fill(collect($data)->except('milestones')->all())->save();
                 foreach ($data['milestones'] ?? [] as $milestone) {
@@ -199,11 +203,11 @@ final class InterviewDraftService implements InterviewDraftWriter
                 return $word;
             }
             if ($draft->kind === 'pattern_observation') {
-                User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
+                $this->lockUser($userId);
                 $profile = InterviewProfile::query()->firstOrNew(['user_id' => $userId]);
                 $profile->save();
-                abort_if(InterviewCoachingObservation::query()->where('profile_id', $profile->id)
-                    ->where('source_key', $data['source_key'])->exists(), 409, 'This evidence has already been saved as an observation.');
+                InterviewUseCaseException::ensure(! InterviewCoachingObservation::query()->where('profile_id', $profile->id)
+                    ->where('source_key', $data['source_key'])->exists(), InterviewUseCaseException::CONFLICT, 'This evidence has already been saved as an observation.');
                 $profile->observations()->create([
                     'pattern_type' => $data['pattern_type'],
                     'summary' => $data['summary'],
@@ -221,7 +225,7 @@ final class InterviewDraftService implements InterviewDraftWriter
 
                 return $question->fresh(['topic', 'tags', 'answers']);
             }
-            abort_unless($draft->kind === 'question', 409, 'This proposal type cannot be confirmed here.');
+            InterviewUseCaseException::ensure($draft->kind === 'question', InterviewUseCaseException::CONFLICT, 'This proposal type cannot be confirmed here.');
             if (! empty($data['topic_id'])) {
                 $this->ownedTopic((int) $data['topic_id'], $userId);
             }
@@ -247,7 +251,7 @@ final class InterviewDraftService implements InterviewDraftWriter
     {
         DB::transaction(function () use ($draftId, $userId): void {
             $draft = InterviewAiDraft::query()->where('user_id', $userId)->lockForUpdate()->findOrFail($draftId);
-            abort_unless($draft->status === 'pending', 409, 'This proposal has already been decided.');
+            InterviewUseCaseException::ensure($draft->status === 'pending', InterviewUseCaseException::CONFLICT, 'This proposal has already been decided.');
             $draft->update(['status' => 'rejected', 'decided_at' => now()]);
         });
     }
@@ -255,6 +259,11 @@ final class InterviewDraftService implements InterviewDraftWriter
     private function ownedTopic(int $topicId, int $userId): InterviewTopic
     {
         return InterviewTopic::query()->where('user_id', $userId)->findOrFail($topicId);
+    }
+
+    private function lockUser(int $userId): void
+    {
+        InterviewUseCaseException::ensure(DB::table('users')->where('id', $userId)->lockForUpdate()->first() !== null, InterviewUseCaseException::NOT_FOUND);
     }
 
     /** @return array{evidence: string, source_message_id: int, question_prompt_en: string, question_prompt_ru: ?string}|null */

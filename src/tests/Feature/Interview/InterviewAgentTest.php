@@ -10,11 +10,11 @@ use App\Modules\Ai\Interfaces\Jobs\RunAgentTurnJob;
 use App\Modules\Content\Domain\Models\Content;
 use App\Modules\Content\Domain\Models\ContentLexeme;
 use App\Modules\Content\Domain\Models\Lexeme;
+use App\Modules\Interview\Application\InterviewUseCaseException;
 use App\Modules\Interview\Domain\Models\InterviewPracticeSession;
 use App\Modules\Learning\Domain\Models\UserLexemeProgress;
 use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(RefreshDatabase::class);
 
@@ -36,7 +36,7 @@ test('Interview Agent receives only confirmed context for its private coached se
         'prompt_en' => 'Describe an API you built.', 'prompt_ru' => 'Опишите API, который вы создали.',
     ])->assertCreated()->json('data');
     $session = test()->postJson('/api/interview/sessions', [
-        'mode' => 'coached', 'question_ids' => [$question['id']],
+        'mode' => 'coached', 'question_ids' => [$question['id']], 'difficulty' => 'advanced',
     ])->assertCreated()->json('data');
     $conversation = AgentConversation::query()->findOrFail($session['conversation_id']);
     $conversation->messages()->create(['role' => 'user', 'content' => 'I built a small API for my study project.']);
@@ -52,6 +52,7 @@ test('Interview Agent receives only confirmed context for its private coached se
 
     $toolMessage = $conversation->messages()->where('role', 'tool')->firstOrFail();
     expect($toolMessage->tool_result['mode'])->toBe('coached')
+        ->and($toolMessage->tool_result['difficulty'])->toBe('advanced')
         ->and($toolMessage->tool_result['profile']['career_goal'])->toBe('Junior API developer')
         ->and($toolMessage->tool_result['questions'][0]['prompt_en'])->toBe('Describe an API you built.')
         ->and($toolMessage->tool_result['learned_english_vocabulary'][0]['lemma'])->toBe('idempotent')
@@ -284,11 +285,11 @@ test('Interview Agent proposes evidence-backed question state changes for review
     expect(fn () => app(InterviewDraftWriter::class)->observationDraft($conversation->id, $learner->id, [
         'question_id' => $question['id'], 'preparation_state' => 'needs_practice',
         'evidence' => 'I built a portfolio project called Falcon.', 'reason' => 'This belongs to another question.',
-    ]))->toThrow(HttpException::class);
+    ]))->toThrow(InterviewUseCaseException::class);
     expect(fn () => app(InterviewDraftWriter::class)->observationDraft($conversation->id, $learner->id, [
         'question_id' => $question['id'], 'preparation_state' => 'needs_practice',
         'evidence' => 'I owned the whole timeout system.', 'reason' => 'Unsupported statement.',
-    ]))->toThrow(HttpException::class);
+    ]))->toThrow(InterviewUseCaseException::class);
 
     $toolClient = Mockery::mock(AiToolCallingClient::class);
     $toolClient->shouldReceive('chat')->times(3)->andReturn(
@@ -351,7 +352,7 @@ test('repeated profile observations require two distinct owner-scoped question a
             $proposal['examples'][0],
             ['session_id' => $secondSession['id'], 'question_id' => $secondQuestion['id'], 'evidence' => 'I led a team of engineers.'],
         ]]))
-        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        ->toThrow(InterviewUseCaseException::class);
 
     $draft = test()->getJson('/api/interview/drafts')->assertOk()->assertJsonCount(0, 'data');
     $draftId = app(\App\Modules\Interview\Application\InterviewDraftService::class)

@@ -14,7 +14,7 @@ export interface InterviewProfile {
 export interface InterviewPracticeMessage { id: number; role: 'user' | 'assistant'; content: string; voiceAudioUrl: string | null; voiceAudioPinned: boolean; voiceAudioExpiresAt: string | null; }
 export interface InterviewPracticeSession {
     id: number; conversationId: number; mode: 'coached' | 'mock'; status: 'active' | 'completed';
-    questionCount: number; focus: string | null; questions: InterviewQuestion[]; messages: InterviewPracticeMessage[];
+    questionCount: number; focus: string | null; difficulty: 'any' | 'beginner' | 'intermediate' | 'advanced'; questions: InterviewQuestion[]; messages: InterviewPracticeMessage[];
 }
 export interface InterviewPracticeSummary { id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; updatedAt: string; }
 export type InterviewDraft =

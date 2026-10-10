@@ -34,6 +34,7 @@ final class InterviewSessionContext implements InterviewSessionContextReader
             'mode' => $session->mode,
             'status' => $session->status,
             'focus' => $session->focus,
+            'difficulty' => $session->difficulty,
             'question_count' => $session->question_count,
             'profile' => $profile?->only(['career_goal', 'skills', 'experience_level', 'projects', 'experience_stories']),
             'milestones' => $profile?->milestones->map(fn ($milestone) => $milestone->only(['title', 'target_date']))->all() ?? [],

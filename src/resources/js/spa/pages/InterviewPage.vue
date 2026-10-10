@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import VoiceDictationControl from '../shared/ui/VoiceDictationControl.vue';
-import type { SpeechLanguage, SpeechProvider } from '../domains/learning/api/speechApi';
+import { translateApi } from '../domains/ai';
+import type { SpeechLanguage, SpeechProvider } from '../domains/learning';
 import { interviewApi } from '../domains/interview/api';
 import type { InterviewDraft, InterviewPracticeSession, InterviewProfile, InterviewQuestion, InterviewTopic } from '../domains/interview/types';
 
 const questions = ref<InterviewQuestion[]>([]);
+const revisitQuestions = ref<InterviewQuestion[]>([]);
 const topics = ref<InterviewTopic[]>([]);
 const availableTags = ref<string[]>([]);
 const profile = ref<InterviewProfile | null>(null);
@@ -47,6 +49,18 @@ const recentSessions = ref<{ id: number; mode: 'coached' | 'mock'; status: 'acti
 const aiDrafts = ref<InterviewDraft[]>([]);
 const practiceQuestionCount = ref(3);
 const practiceFocus = ref('');
+const practiceDifficulty = ref<InterviewPracticeSession['difficulty']>('any');
+const translationProposal = ref<{ target: 'question' | 'answer'; variant?: 'short' | 'full'; targetLanguage: 'en' | 'ru'; text: string } | null>(null);
+const translating = ref(false);
+const suggestedTopics = computed(() => {
+    const counts = new Map<number, number>();
+    revisitQuestions.value.forEach((question) => {
+        if (question.topic && question.preparationState === 'needs_practice') counts.set(question.topic.id, (counts.get(question.topic.id) ?? 0) + 1);
+    });
+    return topicOptions.value.map((topic) => ({ ...topic, revisitCount: counts.get(topic.id) ?? 0 }))
+        .filter((topic) => topic.revisitCount > 0).sort((left, right) => right.revisitCount - left.revisitCount).slice(0, 3);
+});
+const activePractice = computed(() => recentSessions.value.find((session) => session.status === 'active') ?? null);
 
 const topicOptions = computed(() => {
     const byId = new Map(topics.value.map((topic) => [topic.id, topic]));
@@ -77,12 +91,22 @@ async function load(append = false) {
                 page: String(page),
             }), interviewApi.profile(), interviewApi.tags(), interviewApi.sessions(), interviewApi.drafts(),
         ]);
+        const reviewQuestions: InterviewQuestion[] = [];
+        let reviewPage = 1;
+        let reviewHasMore = true;
+        while (reviewHasMore) {
+            const result = await interviewApi.questions({ per_page: '100', page: String(reviewPage) });
+            reviewQuestions.push(...result.items);
+            reviewHasMore = result.hasMore;
+            reviewPage += 1;
+        }
         topics.value = topicData;
         questions.value = append ? [...questions.value, ...questionPage.items] : questionPage.items;
         hasMore.value = questionPage.hasMore;
         currentPage.value = page;
         availableTags.value = tagData;
         recentSessions.value = sessionData;
+        revisitQuestions.value = reviewQuestions;
         aiDrafts.value = draftData;
         profile.value = profileData;
         goalDraft.value = profileData.careerGoal ?? '';
@@ -163,6 +187,31 @@ function startQuestionEdit() {
     editingQuestion.value = true;
 }
 
+async function suggestTranslation(source: string, targetLanguage: 'en' | 'ru', target: 'question' | 'answer', variant?: 'short' | 'full') {
+    if (!source.trim()) return;
+    translating.value = true;
+    error.value = '';
+    translationProposal.value = null;
+    try {
+        const result = await translateApi.translate(source.trim(), targetLanguage);
+        translationProposal.value = { target, variant, targetLanguage, text: result.translation };
+    } catch {
+        error.value = 'A translation suggestion is unavailable right now. Your saved text is unchanged.';
+    } finally { translating.value = false; }
+}
+
+function useTranslationProposal() {
+    const proposal = translationProposal.value;
+    if (!proposal) return;
+    if (proposal.target === 'question') {
+        if (proposal.targetLanguage === 'ru') draftPromptRu.value = proposal.text;
+        else draftPromptEn.value = proposal.text;
+    } else if (selected.value && proposal.variant) {
+        selected.value.answers[proposal.variant]![proposal.targetLanguage] = proposal.text;
+    }
+    translationProposal.value = null;
+}
+
 async function saveQuestion() {
     if (!selected.value) return;
     saving.value = true;
@@ -221,7 +270,7 @@ async function startPractice(mode: 'coached' | 'mock') {
     try {
         const selectedIds = mode === 'coached' && selected.value ? [selected.value.id] : [];
         practiceSession.value = await interviewApi.startSession(mode, selectedIds, mode === 'coached' ? 1 : practiceQuestionCount.value,
-            topicId.value ? Number(topicId.value) : null, practiceFocus.value.trim() || null);
+            topicId.value ? Number(topicId.value) : null, practiceFocus.value.trim() || null, practiceDifficulty.value);
     } catch { error.value = 'Interview practice could not start. The question bank remains available.'; }
     finally { startingPractice.value = false; }
 }
@@ -310,6 +359,19 @@ async function reopenPractice(sessionId: number) {
     catch { error.value = 'This practice history could not be opened.'; }
 }
 
+async function continuePreparation() {
+    if (activePractice.value) {
+        await reopenPractice(activePractice.value.id);
+        return;
+    }
+    await startPractice('coached');
+}
+
+function revisitTopic(id: number) {
+    topicId.value = String(id);
+    state.value = 'needs_practice';
+}
+
 async function pinInterviewVoice(messageId: number, pinned: boolean) {
     const result = await interviewApi.pinVoiceRecording(messageId, pinned);
     const message = practiceSession.value?.messages.find((item) => item.id === messageId);
@@ -325,6 +387,19 @@ async function pinInterviewVoice(messageId: number, pinned: boolean) {
             <h1 class="text-2xl font-semibold text-fg">Build confidence one answer at a time</h1>
             <p class="text-sm text-muted-foreground">Your questions and preparation profile are private to your account.</p>
         </header>
+
+        <section class="grid gap-3 rounded-spa-lg border border-primary/20 bg-primary/5 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" aria-label="Interview preparation home">
+            <div class="min-w-0">
+                <p class="text-xs font-semibold uppercase tracking-wide text-primary">Your preparation</p>
+                <p class="mt-1 break-words text-sm font-medium text-fg">{{ profile?.careerGoal || 'Set a career goal to guide your practice.' }}</p>
+                <div v-if="suggestedTopics.length" class="mt-3 flex flex-wrap items-center gap-2">
+                    <span class="text-xs text-muted-foreground">Suggested topics to revisit:</span>
+                    <button v-for="topic in suggestedTopics" :key="topic.id" class="min-h-9 rounded-full border border-border bg-surface px-3 text-xs text-fg" @click="revisitTopic(topic.id)">{{ topic.label }} · {{ topic.revisitCount }}</button>
+                </div>
+                <p v-else class="mt-2 text-xs text-muted-foreground">No topics need extra practice right now.</p>
+            </div>
+            <button class="min-h-11 rounded-spa bg-primary px-4 text-sm font-semibold text-white disabled:opacity-50" :disabled="startingPractice" @click="continuePreparation">{{ activePractice ? 'Continue practice' : 'Continue preparation' }}</button>
+        </section>
 
         <section class="rounded-spa-lg border border-border bg-surface p-4 sm:p-5" aria-label="Interview practice">
             <section v-if="aiDrafts.length" class="mb-4 rounded-spa border border-primary/30 bg-surface-alt p-3" aria-label="AI proposals for review">
@@ -351,6 +426,9 @@ async function pinInterviewVoice(messageId: number, pinned: boolean) {
                         </label>
                         <label class="flex items-center gap-2 text-xs text-muted-foreground">Mock questions
                             <select v-model.number="practiceQuestionCount" class="min-h-11 rounded-spa border border-border bg-surface-alt px-2 text-sm text-fg"><option :value="1">1</option><option :value="3">3</option><option :value="5">5</option></select>
+                        </label>
+                        <label class="flex items-center gap-2 text-xs text-muted-foreground">Difficulty
+                            <select v-model="practiceDifficulty" aria-label="Practice difficulty" class="min-h-11 rounded-spa border border-border bg-surface-alt px-2 text-sm text-fg"><option value="any">Match my profile</option><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select>
                         </label>
                         <button class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg disabled:opacity-50" :disabled="startingPractice" @click="startPractice('coached')">Start coached practice</button>
                         <button class="min-h-11 rounded-spa bg-primary px-3 text-sm font-semibold text-white disabled:opacity-50" :disabled="startingPractice" @click="startPractice('mock')">Start mock interview</button>
@@ -462,7 +540,9 @@ async function pinInterviewVoice(messageId: number, pinned: boolean) {
                         <div class="min-w-0 flex-1">
                             <template v-if="editingQuestion">
                                 <label class="block text-xs text-muted-foreground">Question in English<textarea v-model="draftPromptEn" rows="2" class="mt-1 w-full rounded-spa border border-border bg-surface-alt p-2 text-base text-fg" /></label>
+                                <button class="mt-1 min-h-9 rounded-spa border border-border px-3 text-xs text-fg disabled:opacity-50" :disabled="translating || !draftPromptEn.trim()" @click="suggestTranslation(draftPromptEn, 'ru', 'question')">{{ translating ? 'Suggesting…' : 'Suggest Russian translation' }}</button>
                                 <label class="mt-2 block text-xs text-muted-foreground">Russian translation<textarea v-model="draftPromptRu" rows="2" class="mt-1 w-full rounded-spa border border-border bg-surface-alt p-2 text-sm text-fg" /></label>
+                                <button class="mt-1 min-h-9 rounded-spa border border-border px-3 text-xs text-fg disabled:opacity-50" :disabled="translating || !draftPromptRu.trim()" @click="suggestTranslation(draftPromptRu, 'en', 'question')">{{ translating ? 'Suggesting…' : 'Suggest English translation' }}</button>
                                 <label class="mt-2 block text-xs text-muted-foreground">Tags<input v-model="draftTags" class="mt-1 w-full rounded-spa border border-border bg-surface-alt px-3 py-2 text-sm text-fg" /></label>
                                 <button class="mt-2 min-h-11 rounded-spa bg-primary px-3 text-sm font-semibold text-white" :disabled="saving" @click="saveQuestion">Save question</button>
                             </template>
@@ -475,8 +555,16 @@ async function pinInterviewVoice(messageId: number, pinned: boolean) {
                     <article v-for="kind in (['short', 'full'] as const)" :key="kind" class="space-y-2 rounded-spa border border-border p-3">
                         <div class="flex items-center justify-between gap-2"><h3 class="font-semibold capitalize text-fg">{{ kind }} answer</h3><button v-if="selected.answers[kind]?.revisions.length" class="text-xs text-primary underline" @click="interviewApi.restoreRevision(selected.id, selected.answers[kind]!.id, selected.answers[kind]!.revisions[0].id).then((q) => selected = q)">Restore previous version</button></div>
                         <label class="block text-xs text-muted-foreground">English<textarea v-model="selected.answers[kind]!.en" rows="3" class="mt-1 w-full resize-y rounded-spa border border-border bg-surface-alt p-2 text-sm text-fg" placeholder="Write your answer in English" /></label>
+                        <button class="min-h-9 rounded-spa border border-border px-3 text-xs text-fg disabled:opacity-50" :disabled="translating || !selected.answers[kind]?.en?.trim()" @click="suggestTranslation(selected.answers[kind]?.en ?? '', 'ru', 'answer', kind)">{{ translating ? 'Suggesting…' : 'Suggest Russian translation' }}</button>
                         <label class="block text-xs text-muted-foreground">Russian<textarea v-model="selected.answers[kind]!.ru" rows="2" class="mt-1 w-full resize-y rounded-spa border border-border bg-surface-alt p-2 text-sm text-fg" placeholder="Write your answer in Russian" /></label>
+                        <button class="min-h-9 rounded-spa border border-border px-3 text-xs text-fg disabled:opacity-50" :disabled="translating || !selected.answers[kind]?.ru?.trim()" @click="suggestTranslation(selected.answers[kind]?.ru ?? '', 'en', 'answer', kind)">{{ translating ? 'Suggesting…' : 'Suggest English translation' }}</button>
                         <button class="rounded-spa bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" :disabled="saving" @click="saveAnswer(kind)">Save {{ kind }} answer</button>
+                    </article>
+                    <article v-if="translationProposal" class="rounded-spa border border-primary/30 bg-primary/5 p-3" aria-label="Translation proposal review">
+                        <p class="text-xs font-semibold uppercase text-primary">Translation proposal · {{ translationProposal.targetLanguage === 'ru' ? 'Russian' : 'English' }}</p>
+                        <p class="mt-1 break-words text-sm text-fg">{{ translationProposal.text }}</p>
+                        <div class="mt-2 flex flex-wrap gap-2"><button class="min-h-10 rounded-spa bg-primary px-3 text-sm font-semibold text-white" @click="useTranslationProposal">Use suggestion</button><button class="min-h-10 rounded-spa border border-border px-3 text-sm text-fg" @click="translationProposal = null">Discard</button></div>
+                        <p class="mt-2 text-xs text-muted-foreground">The saved answer remains unchanged until you use the suggestion and save the answer.</p>
                     </article>
                     <p class="text-xs text-muted-foreground">Answer changes keep the previous version so you can restore it.</p>
                 </div>

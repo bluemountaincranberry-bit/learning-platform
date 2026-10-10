@@ -1,9 +1,11 @@
 <?php
 
+use App\Modules\Interview\Application\InterviewUseCaseException;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -24,5 +26,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (InterviewUseCaseException $exception, Request $request) {
+            $status = match ($exception->reason) {
+                InterviewUseCaseException::NOT_FOUND => 404,
+                InterviewUseCaseException::CONFLICT => 409,
+                default => 422,
+            };
+
+            return response()->json(['message' => $exception->getMessage()], $status);
+        });
     })->create();
