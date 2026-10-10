@@ -4,6 +4,7 @@ namespace App\Modules\Interview\Interfaces\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Interview\Application\InterviewPracticeService;
+use App\Modules\Interview\Domain\Models\InterviewAiDraft;
 use App\Modules\Interview\Domain\Models\InterviewAnswerRevision;
 use App\Modules\Interview\Domain\Models\InterviewAnswerVariant;
 use App\Modules\Interview\Domain\Models\InterviewPracticeSession;
@@ -23,6 +24,65 @@ use Illuminate\Support\Facades\DB;
 class InterviewController extends Controller
 {
     public function __construct(private readonly InterviewPracticeService $practice) {}
+
+    public function drafts(Request $request): JsonResponse
+    {
+        return response()->json(['data' => InterviewAiDraft::query()->where('user_id', $request->user()->id)
+            ->where('status', 'pending')->latest()->get()]);
+    }
+
+    public function storeDraft(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'kind' => ['required', 'in:question'],
+            'payload.prompt_en' => ['required', 'string', 'max:2000'],
+            'payload.prompt_ru' => ['nullable', 'string', 'max:2000'],
+            'payload.topic_id' => ['nullable', 'integer'],
+            'payload.tags' => ['sometimes', 'array'],
+            'payload.tags.*' => ['string', 'max:80'],
+        ]);
+        $payload = $data['payload'];
+        if (! empty($payload['topic_id'])) {
+            $this->ownedTopic((int) $payload['topic_id'], $request->user()->id);
+        }
+        $draft = InterviewAiDraft::query()->create([
+            'user_id' => $request->user()->id, 'kind' => $data['kind'], 'payload' => $payload,
+        ]);
+
+        return response()->json(['data' => $draft->fresh()], 201);
+    }
+
+    public function confirmDraft(Request $request, int $draft): JsonResponse
+    {
+        $question = DB::transaction(function () use ($draft, $request): InterviewQuestion {
+            $record = InterviewAiDraft::query()->where('user_id', $request->user()->id)->lockForUpdate()->findOrFail($draft);
+            abort_unless($record->status === 'pending', 409, 'This proposal has already been decided.');
+            $data = $record->payload;
+            if (! empty($data['topic_id'])) {
+                $this->ownedTopic((int) $data['topic_id'], $request->user()->id);
+            }
+            $question = InterviewQuestion::query()->create([
+                'user_id' => $request->user()->id, 'topic_id' => $data['topic_id'] ?? null,
+                'prompt_en' => $data['prompt_en'], 'prompt_ru' => $data['prompt_ru'] ?? null,
+                'preparation_state' => 'unpracticed',
+            ]);
+            $this->syncTags($question, $data['tags'] ?? []);
+            $record->update(['status' => 'confirmed', 'result_question_id' => $question->id, 'decided_at' => now()]);
+
+            return $question;
+        });
+
+        return response()->json(['data' => ['status' => 'confirmed', 'result' => $this->questionPayload($question->fresh(['topic', 'tags', 'answers']))]]);
+    }
+
+    public function rejectDraft(Request $request, int $draft): JsonResponse
+    {
+        $record = InterviewAiDraft::query()->where('user_id', $request->user()->id)->findOrFail($draft);
+        abort_unless($record->status === 'pending', 409, 'This proposal has already been decided.');
+        $record->update(['status' => 'rejected', 'decided_at' => now()]);
+
+        return response()->json(['data' => ['status' => 'rejected']]);
+    }
 
     public function sessions(Request $request): JsonResponse
     {

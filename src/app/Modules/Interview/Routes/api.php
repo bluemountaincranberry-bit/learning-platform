@@ -15,6 +15,10 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->prefix('interview')->group
     Route::put('/questions/{question}', [InterviewController::class, 'updateQuestion']);
     Route::delete('/questions/{question}', [InterviewController::class, 'deleteQuestion']);
     Route::post('/questions/{question}/answers/{answer}/revisions/{revision}/restore', [InterviewController::class, 'restoreAnswerRevision']);
+    Route::get('/drafts', [InterviewController::class, 'drafts']);
+    Route::post('/drafts', [InterviewController::class, 'storeDraft']);
+    Route::post('/drafts/{draft}/confirm', [InterviewController::class, 'confirmDraft']);
+    Route::post('/drafts/{draft}/reject', [InterviewController::class, 'rejectDraft']);
     Route::get('/profile', [InterviewController::class, 'profile']);
     Route::put('/profile', [InterviewController::class, 'saveProfile']);
     Route::get('/sessions', [InterviewController::class, 'sessions']);

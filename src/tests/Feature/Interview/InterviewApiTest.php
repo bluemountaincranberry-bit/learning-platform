@@ -74,6 +74,30 @@ test('profile supports a goal and optional milestones', function () {
         ->assertJsonPath('data.milestones.0.title', 'Build a portfolio bot');
 });
 
+test('learner reviews an AI question proposal before it enters the question bank', function () {
+    interviewLearner();
+    $draft = test()->postJson('/api/interview/drafts', [
+        'kind' => 'question',
+        'payload' => ['prompt_en' => 'How do you handle a timeout?', 'prompt_ru' => 'Как вы обрабатываете таймаут?'],
+    ])->assertCreated()->assertJsonPath('data.status', 'pending')->json('data');
+
+    test()->getJson('/api/interview/drafts')->assertOk()->assertJsonPath('data.0.id', $draft['id']);
+    test()->postJson('/api/interview/drafts/'.$draft['id'].'/confirm')->assertOk()
+        ->assertJsonPath('data.status', 'confirmed')->assertJsonPath('data.result.prompt_en', 'How do you handle a timeout?');
+    test()->getJson('/api/interview/questions')->assertOk()->assertJsonPath('data.0.prompt_en', 'How do you handle a timeout?');
+    test()->postJson('/api/interview/drafts/'.$draft['id'].'/confirm')->assertStatus(409);
+
+    $rejected = test()->postJson('/api/interview/drafts', [
+        'kind' => 'question', 'payload' => ['prompt_en' => 'What is a retry?', 'prompt_ru' => 'Что такое повтор?'],
+    ])->assertCreated()->json('data');
+    test()->postJson('/api/interview/drafts/'.$rejected['id'].'/reject')->assertOk()->assertJsonPath('data.status', 'rejected');
+    test()->postJson('/api/interview/drafts/'.$rejected['id'].'/confirm')->assertStatus(409);
+
+    $other = User::factory()->create();
+    test()->actingAs($other)->getJson('/api/interview/drafts')->assertOk()->assertJsonCount(0, 'data');
+    test()->postJson('/api/interview/drafts/'.$draft['id'].'/confirm')->assertNotFound();
+});
+
 test('learner can create and reopen a private coached or mock practice session', function () {
     $learner = interviewLearner();
     test()->putJson('/api/interview/profile', ['career_goal' => 'Junior developer'])->assertOk();

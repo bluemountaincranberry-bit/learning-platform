@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import InterviewPage from '../InterviewPage.vue';
 
-const api = vi.hoisted(() => ({ topics: vi.fn(), tags: vi.fn(), questions: vi.fn(), profile: vi.fn(), updateQuestion: vi.fn(), saveProfile: vi.fn(), restoreRevision: vi.fn(), startSession: vi.fn(), sessions: vi.fn(), getSession: vi.fn() }));
+const api = vi.hoisted(() => ({ topics: vi.fn(), tags: vi.fn(), questions: vi.fn(), profile: vi.fn(), updateQuestion: vi.fn(), saveProfile: vi.fn(), restoreRevision: vi.fn(), startSession: vi.fn(), sessions: vi.fn(), getSession: vi.fn(), drafts: vi.fn(), decideDraft: vi.fn() }));
 vi.mock('../../domains/interview/api', () => ({ interviewApi: api }));
 
 const question = {
@@ -22,6 +22,7 @@ describe('InterviewPage', () => {
         api.questions.mockResolvedValue({ items: [structuredClone(question)], hasMore: false });
         api.profile.mockResolvedValue({ careerGoal: 'Copilot Studio Developer', milestones: [] });
         api.sessions.mockResolvedValue([]);
+        api.drafts.mockResolvedValue([]);
         api.updateQuestion.mockImplementation(async (_id: number, payload: { answers: { short: { en: string; ru: string } } }) => ({
             ...structuredClone(question), answers: { ...structuredClone(question.answers), short: { ...question.answers.short, ...payload.answers.short } },
         }));
@@ -75,5 +76,20 @@ describe('InterviewPage', () => {
 
         expect(api.getSession).toHaveBeenCalledWith(9);
         expect(wrapper.text()).toContain('Your examples were clear.');
+    });
+
+    it('requires explicit learner confirmation before adding an AI question proposal', async () => {
+        api.drafts.mockResolvedValue([{ id: 41, kind: 'question', promptEn: 'How do you handle a timeout?', promptRu: 'Как вы обрабатываете таймаут?' }]);
+        api.decideDraft.mockImplementation(async () => { api.drafts.mockResolvedValue([]); });
+        const wrapper = mount(InterviewPage);
+        await flushPromises();
+
+        expect(wrapper.text()).toContain('How do you handle a timeout?');
+        expect(wrapper.text()).toContain('review before adding');
+        await wrapper.findAll('button').find((button) => button.text() === 'Add question')!.trigger('click');
+        await flushPromises();
+
+        expect(api.decideDraft).toHaveBeenCalledWith(41, 'confirm');
+        expect(wrapper.text()).not.toContain('How do you handle a timeout?');
     });
 });

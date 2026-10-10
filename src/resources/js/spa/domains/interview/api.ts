@@ -7,6 +7,7 @@ type WireQuestion = { id: number; prompt_en: string; prompt_ru: string | null; p
 type WireProfile = { id?: number; career_goal: string | null; skills: string[] | null; experience_level: string | null; projects: string[] | null; experience_stories: string[] | null; milestones: { id?: number; title: string; target_date: string | null }[] };
 type WireSession = { id: number; conversation_id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; question_count: number; focus: string | null; questions: WireQuestion[]; messages: { id: number; role: 'user' | 'assistant'; content: string }[] };
 type WireSessionSummary = { id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; updated_at: string };
+type WireDraft = { id: number; kind: 'question'; payload: { prompt_en: string; prompt_ru?: string | null }; status: 'pending' };
 
 const mapTopic = (topic: WireTopic): InterviewTopic => ({ id: topic.id, name: topic.name, parentId: topic.parent_id, sortOrder: topic.sort_order });
 const mapAnswer = (answer: WireAnswer): InterviewAnswer => ({ id: answer.id, en: answer.en, ru: answer.ru, revisions: answer.revisions.map(({ id, text_en, text_ru, created_at }) => ({ id, textEn: text_en, textRu: text_ru, createdAt: created_at })) });
@@ -32,6 +33,13 @@ const mapSession = (session: WireSession): InterviewPracticeSession => ({
 });
 
 export const interviewApi = {
+    async drafts(): Promise<{ id: number; kind: 'question'; promptEn: string; promptRu: string | null }[]> {
+        const data = (await axios.get('/api/interview/drafts')).data.data as WireDraft[];
+        return data.map((draft) => ({ id: draft.id, kind: draft.kind, promptEn: draft.payload.prompt_en, promptRu: draft.payload.prompt_ru ?? null }));
+    },
+    async decideDraft(id: number, decision: 'confirm' | 'reject'): Promise<void> {
+        await axios.post(`/api/interview/drafts/${id}/${decision}`);
+    },
     async topics(): Promise<InterviewTopic[]> {
         return ((await axios.get('/api/interview/topics')).data.data as WireTopic[]).map(mapTopic);
     },

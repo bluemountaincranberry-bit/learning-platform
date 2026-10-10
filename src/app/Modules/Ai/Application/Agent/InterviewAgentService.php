@@ -10,6 +10,7 @@ use App\Modules\Ai\Application\Agent\Data\AgentChatResponse;
 use App\Modules\Ai\Application\Agent\Data\AgentToolCall;
 use App\Modules\Ai\Application\Agent\Data\AgentToolContext;
 use App\Modules\Ai\Application\Agent\Data\AgentToolDefinition;
+use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewQuestionDraftTool;
 use App\Modules\Ai\Application\Agent\Tools\Interview\GetInterviewPracticeContextTool;
 use App\Modules\Ai\Application\Agent\Tracing\SpanRecorder;
 use App\Modules\Ai\Application\Agent\Tracing\TraceContext;
@@ -40,13 +41,14 @@ final class InterviewAgentService implements AgentService
                 The learner is practising English: ask interview questions in English and explain coaching feedback in Russian.
                 In coached mode, handle one question at a time, discuss the response, and help improve it before moving on.
                 In mock mode, conduct the selected sequence in English and postpone all feedback until the learner says
-                the interview is complete or the selected question count is reached. Never claim to save a proposed edit;
-                summarize suggested changes and ask for confirmation in chat. Keep feedback specific to evidence in the
+                the interview is complete or the selected question count is reached. Never claim a question is saved to
+                the bank until the learner confirms it. For a concrete new question, use propose_interview_question and
+                tell the learner it awaits review. Keep feedback specific to evidence in the
                 learner's answer and avoid an overall readiness score.
                 PROMPT,
-            tools: [GetInterviewPracticeContextTool::class],
+            tools: [GetInterviewPracticeContextTool::class, CreateInterviewQuestionDraftTool::class],
             maxIterations: 4,
-            allowedSideEffects: [AgentToolDefinition::SIDE_EFFECT_READ_ONLY],
+            allowedSideEffects: [AgentToolDefinition::SIDE_EFFECT_READ_ONLY, AgentToolDefinition::SIDE_EFFECT_DRAFT_ONLY],
         );
     }
 

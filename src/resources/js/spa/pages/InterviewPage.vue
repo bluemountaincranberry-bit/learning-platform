@@ -40,6 +40,7 @@ const practiceMessage = ref('');
 const sendingPractice = ref(false);
 const startingPractice = ref(false);
 const recentSessions = ref<{ id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; updatedAt: string }[]>([]);
+const aiDrafts = ref<{ id: number; kind: 'question'; promptEn: string; promptRu: string | null }[]>([]);
 const practiceQuestionCount = ref(3);
 const practiceFocus = ref('');
 
@@ -59,14 +60,14 @@ async function load(append = false) {
     error.value = '';
     try {
         const page = append ? Number(currentPage.value) + 1 : 1;
-        const [topicData, questionPage, profileData, tagData, sessionData] = await Promise.all([
+        const [topicData, questionPage, profileData, tagData, sessionData, draftData] = await Promise.all([
             interviewApi.topics(), interviewApi.questions({
                 ...(search.value.trim() ? { search: search.value.trim() } : {}),
                 ...(topicId.value ? { topic_id: topicId.value } : {}),
                 ...(state.value ? { state: state.value } : {}),
                 ...(tag.value ? { tag: tag.value } : {}),
                 page: String(page),
-            }), interviewApi.profile(), interviewApi.tags(), interviewApi.sessions(),
+            }), interviewApi.profile(), interviewApi.tags(), interviewApi.sessions(), interviewApi.drafts(),
         ]);
         topics.value = topicData;
         questions.value = append ? [...questions.value, ...questionPage.items] : questionPage.items;
@@ -74,6 +75,7 @@ async function load(append = false) {
         currentPage.value = page;
         availableTags.value = tagData;
         recentSessions.value = sessionData;
+        aiDrafts.value = draftData;
         profile.value = profileData;
         goalDraft.value = profileData.careerGoal ?? '';
         levelDraft.value = profileData.experienceLevel ?? '';
@@ -84,6 +86,18 @@ async function load(append = false) {
     } catch {
         error.value = 'Interview preparation could not load. Check your connection and try again.';
     } finally { busy.value = false; }
+}
+
+async function decideAiDraft(id: number, decision: 'confirm' | 'reject') {
+    try {
+        await interviewApi.decideDraft(id, decision);
+        aiDrafts.value = aiDrafts.value.filter((draft) => draft.id !== id);
+        if (decision === 'confirm') await load();
+    } catch { error.value = 'This AI proposal could not be saved. Please try again.'; }
+}
+
+async function refreshAiDrafts() {
+    aiDrafts.value = await interviewApi.drafts();
 }
 
 const currentPage = ref(1);
@@ -219,6 +233,7 @@ async function sendPracticeMessage() {
             practiceSession.value = updated;
             if (updated.messages.some((message) => message.role === 'assistant' && message.id > previousAssistantId)) break;
         }
+        await refreshAiDrafts();
     } catch { error.value = 'The Interview Agent is unavailable right now. You can retry or continue editing your question bank.'; }
     finally { sendingPractice.value = false; }
 }
@@ -269,6 +284,13 @@ async function reopenPractice(sessionId: number) {
         </header>
 
         <section class="rounded-spa-lg border border-border bg-surface p-4 sm:p-5" aria-label="Interview practice">
+            <section v-if="aiDrafts.length" class="mb-4 rounded-spa border border-primary/30 bg-surface-alt p-3" aria-label="AI proposals for review">
+                <h2 class="font-semibold text-fg">AI proposals · review before adding</h2>
+                <article v-for="draft in aiDrafts" :key="draft.id" class="mt-3 rounded-spa border border-border bg-surface p-3">
+                    <p class="text-sm font-medium text-fg">{{ draft.promptEn }}</p><p v-if="draft.promptRu" class="mt-1 text-sm text-muted-foreground">{{ draft.promptRu }}</p>
+                    <div class="mt-3 flex gap-2"><button class="min-h-11 rounded-spa bg-primary px-3 text-sm font-semibold text-white" @click="decideAiDraft(draft.id, 'confirm')">Add question</button><button class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" @click="decideAiDraft(draft.id, 'reject')">Discard</button></div>
+                </article>
+            </section>
             <template v-if="!practiceSession">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="min-w-0"><h2 class="font-semibold text-fg">Practise with your Interview Agent</h2><p class="text-sm text-muted-foreground">Uses your confirmed profile and the selected question.</p></div>
