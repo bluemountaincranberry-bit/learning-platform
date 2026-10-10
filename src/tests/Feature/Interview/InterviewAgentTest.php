@@ -72,6 +72,9 @@ test('Interview Agent stores an AI question proposal as pending until learner co
 
 test('Interview Agent profile proposal stays pending and changes profile only after confirmation', function () {
     $learner = User::factory()->create();
+    test()->actingAs($learner)->putJson('/api/interview/profile', [
+        'milestones' => [['title' => 'Portfolio project', 'target_date' => '2026-11-01']],
+    ])->assertOk();
     $session = test()->actingAs($learner)->postJson('/api/interview/sessions', ['mode' => 'coached'])->assertCreated()->json('data');
     $conversation = AgentConversation::query()->findOrFail($session['conversation_id']);
     $conversation->messages()->create(['role' => 'user', 'content' => 'I am aiming for a junior developer role and have built a study project.']);
@@ -81,6 +84,7 @@ test('Interview Agent profile proposal stays pending and changes profile only af
         new AgentChatResponse(null, [new AgentToolCall('context_1', 'get_interview_practice_context', [])]),
         new AgentChatResponse(null, [new AgentToolCall('profile_1', 'propose_interview_profile_update', [
             'career_goal' => 'Junior developer', 'experience_stories' => ['I built a study project.'],
+            'milestones' => [['title' => 'Portfolio project', 'target_date' => '2026-12-01']],
         ])]),
         new AgentChatResponse('I drafted profile updates from the details you shared. Please review them.'),
     );
@@ -88,12 +92,14 @@ test('Interview Agent profile proposal stays pending and changes profile only af
 
     (new RunAgentTurnJob($conversation->id))->handle();
 
-    test()->getJson('/api/interview/profile')->assertOk()->assertJsonPath('data.career_goal', null);
+    test()->getJson('/api/interview/profile')->assertOk()->assertJsonPath('data.career_goal', null)
+        ->assertJsonPath('data.milestones.0.target_date', '2026-11-01');
     $draft = test()->getJson('/api/interview/drafts')->assertOk()->assertJsonPath('data.0.kind', 'profile')
         ->assertJsonPath('data.0.payload.career_goal', 'Junior developer')->json('data.0');
     test()->postJson('/api/interview/drafts/'.$draft['id'].'/confirm')->assertOk()
         ->assertJsonPath('data.status', 'confirmed')->assertJsonPath('data.result.career_goal', 'Junior developer');
     test()->getJson('/api/interview/profile')->assertOk()
         ->assertJsonPath('data.career_goal', 'Junior developer')
-        ->assertJsonPath('data.experience_stories.0', 'I built a study project.');
+        ->assertJsonPath('data.experience_stories.0', 'I built a study project.')
+        ->assertJsonCount(1, 'data.milestones')->assertJsonPath('data.milestones.0.target_date', '2026-12-01');
 });

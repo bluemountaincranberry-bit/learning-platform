@@ -9,6 +9,7 @@ use App\Modules\Interview\Domain\Models\InterviewProfile;
 use App\Modules\Interview\Domain\Models\InterviewQuestion;
 use App\Modules\Interview\Domain\Models\InterviewTag;
 use App\Modules\Interview\Domain\Models\InterviewTopic;
+use App\Modules\User\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -59,10 +60,16 @@ final class InterviewDraftService implements InterviewDraftWriter
             abort_unless($draft->status === 'pending', 409, 'This proposal has already been decided.');
             $data = $draft->payload;
             if ($draft->kind === 'profile') {
+                User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
                 $profile = InterviewProfile::query()->firstOrNew(['user_id' => $userId]);
                 $profile->fill(collect($data)->except('milestones')->all())->save();
                 foreach ($data['milestones'] ?? [] as $milestone) {
-                    $profile->milestones()->create($milestone);
+                    $existingMilestone = $profile->milestones()->where('title', $milestone['title'])->first();
+                    if ($existingMilestone) {
+                        $existingMilestone->update(['target_date' => $milestone['target_date'] ?? null]);
+                    } else {
+                        $profile->milestones()->create($milestone);
+                    }
                 }
                 $draft->update(['status' => 'confirmed', 'result_profile_id' => $profile->id, 'decided_at' => now()]);
 

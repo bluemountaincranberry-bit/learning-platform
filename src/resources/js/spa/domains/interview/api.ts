@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { InterviewAnswer, InterviewPracticeSession, InterviewPracticeSummary, InterviewProfile, InterviewQuestion, InterviewTopic } from './types';
+import type { InterviewAnswer, InterviewDraft, InterviewPracticeSession, InterviewPracticeSummary, InterviewProfile, InterviewQuestion, InterviewTopic } from './types';
 
 type WireTopic = { id: number; name: string; parent_id: number | null; sort_order: number };
 type WireAnswer = { id: number; en: string | null; ru: string | null; revisions: { id: number; text_en: string | null; text_ru: string | null; created_at: string }[] };
@@ -8,9 +8,6 @@ type WireProfile = { id?: number; career_goal: string | null; skills: string[] |
 type WireSession = { id: number; conversation_id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; question_count: number; focus: string | null; questions: WireQuestion[]; messages: { id: number; role: 'user' | 'assistant'; content: string }[] };
 type WireSessionSummary = { id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; updated_at: string };
 type WireDraft = { id: number; kind: 'question' | 'profile'; payload: Record<string, unknown>; status: 'pending' };
-export type InterviewDraft =
-    | { id: number; kind: 'question'; promptEn: string; promptRu: string | null; topicId: number | null; tags: string[] }
-    | { id: number; kind: 'profile'; changes: { label: string; value: string }[] };
 
 const mapTopic = (topic: WireTopic): InterviewTopic => ({ id: topic.id, name: topic.name, parentId: topic.parent_id, sortOrder: topic.sort_order });
 const mapAnswer = (answer: WireAnswer): InterviewAnswer => ({ id: answer.id, en: answer.en, ru: answer.ru, revisions: answer.revisions.map(({ id, text_en, text_ru, created_at }) => ({ id, textEn: text_en, textRu: text_ru, createdAt: created_at })) });
@@ -35,16 +32,23 @@ const mapSession = (session: WireSession): InterviewPracticeSession => ({
     messages: session.messages,
 });
 
+const draftLabels: Record<string, string> = { career_goal: 'Career goal', skills: 'Skills', experience_level: 'Experience level', projects: 'Projects', experience_stories: 'Experience stories', milestones: 'Milestones' };
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+const formatDraftValues = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return [typeof value === 'string' ? value : '—'];
+    return value.flatMap((item) => {
+        if (typeof item === 'string') return [item];
+        if (!isRecord(item) || typeof item.title !== 'string') return [];
+        return [typeof item.target_date === 'string' ? `${item.title} · ${item.target_date}` : item.title];
+    });
+};
+
 export const interviewApi = {
     async drafts(): Promise<InterviewDraft[]> {
         const data = (await axios.get('/api/interview/drafts')).data.data as WireDraft[];
         return data.map((draft) => draft.kind === 'question'
-            ? ({ id: draft.id, kind: 'question', promptEn: String(draft.payload.prompt_en), promptRu: typeof draft.payload.prompt_ru === 'string' ? draft.payload.prompt_ru : null, topicId: typeof draft.payload.topic_id === 'number' ? draft.payload.topic_id : null, tags: Array.isArray(draft.payload.tags) ? draft.payload.tags as string[] : [] })
-            : ({ id: draft.id, kind: 'profile', changes: Object.entries(draft.payload).flatMap(([key, value]) => {
-                const labels: Record<string, string> = { career_goal: 'Career goal', skills: 'Skills', experience_level: 'Experience level', projects: 'Projects', experience_stories: 'Experience stories', milestones: 'Milestones' };
-                const values = Array.isArray(value) ? value.map((item) => typeof item === 'object' && item !== null ? `${String((item as Record<string, unknown>).title)}${(item as Record<string, unknown>).target_date ? ` · ${String((item as Record<string, unknown>).target_date)}` : ''}` : String(item)) : [String(value ?? '—')];
-                return values.map((entry) => ({ label: labels[key] ?? key, value: entry }));
-            }) }));
+            ? ({ id: draft.id, kind: 'question', promptEn: typeof draft.payload.prompt_en === 'string' ? draft.payload.prompt_en : '', promptRu: typeof draft.payload.prompt_ru === 'string' ? draft.payload.prompt_ru : null, topicId: typeof draft.payload.topic_id === 'number' ? draft.payload.topic_id : null, tags: Array.isArray(draft.payload.tags) ? draft.payload.tags.filter((tag): tag is string => typeof tag === 'string') : [] })
+            : ({ id: draft.id, kind: 'profile', changes: Object.entries(draft.payload).flatMap(([key, value]) => formatDraftValues(value).map((entry) => ({ label: draftLabels[key] ?? key, value: entry }))) }));
     },
     async decideDraft(id: number, decision: 'confirm' | 'reject'): Promise<void> {
         await axios.post(`/api/interview/drafts/${id}/${decision}`);

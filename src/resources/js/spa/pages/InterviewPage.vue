@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { interviewApi } from '../domains/interview/api';
-import type { InterviewPracticeSession, InterviewProfile, InterviewQuestion, InterviewTopic } from '../domains/interview/types';
-import type { InterviewDraft } from '../domains/interview/api';
+import type { InterviewDraft, InterviewPracticeSession, InterviewProfile, InterviewQuestion, InterviewTopic } from '../domains/interview/types';
 
 const questions = ref<InterviewQuestion[]>([]);
 const topics = ref<InterviewTopic[]>([]);
