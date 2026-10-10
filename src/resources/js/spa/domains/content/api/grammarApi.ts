@@ -7,6 +7,12 @@ import type {
     GrammarRuleExamplesResponse,
     GrammarRuleExampleRequestStatus,
 } from '../../../types';
+import type {
+    GrammarRuleEditorDraft,
+    GrammarRuleEditorRevision,
+    GrammarRuleEditorRule,
+    GrammarRuleEditorTurn,
+} from '../../../types/grammar/GrammarRuleEditor';
 
 export const grammarApi = {
     getList(params: GrammarRuleListParams = {}): Promise<GrammarRuleListResponse> {
@@ -15,6 +21,37 @@ export const grammarApi = {
 
     getOne(id: string | number): Promise<GrammarRuleOneResponse> {
         return axios.get(`/api/grammar-rules/${id}`).then((r) => r.data);
+    },
+
+    getEditorRule(id: string | number): Promise<{ rule: GrammarRuleEditorRule }> {
+        return axios.get(`/api/grammar-rules/${id}/editor`).then((r) => r.data);
+    },
+
+    proposeGrammarEdit(
+        id: string | number,
+        payload: { instruction: string; conversation: GrammarRuleEditorTurn[]; draft: GrammarRuleEditorDraft },
+    ): Promise<{ proposal: GrammarRuleEditorDraft; message?: string | null }> {
+        return axios.post(`/api/grammar-rules/${id}/editor/proposals`, payload).then((r) => r.data);
+    },
+
+    applyGrammarEdit(
+        id: string | number,
+        draft: GrammarRuleEditorDraft,
+        expectedVersion: number,
+    ): Promise<{ rule: GrammarRuleEditorRule }> {
+        return axios.put(`/api/grammar-rules/${id}/editor`, { ...draft, expected_version: expectedVersion }).then((r) => r.data);
+    },
+
+    getGrammarEditRevisions(id: string | number, page = 1): Promise<{ revisions: GrammarRuleEditorRevision[]; has_more: boolean; next_page: number | null }> {
+        return axios.get(`/api/grammar-rules/${id}/editor/revisions`, { params: { page } }).then((r) => r.data);
+    },
+
+    restoreGrammarEditRevision(
+        id: string | number,
+        revisionId: number,
+        expectedVersion: number,
+    ): Promise<{ rule: GrammarRuleEditorRule }> {
+        return axios.post(`/api/grammar-rules/${id}/editor/revisions/${revisionId}/restore`, { expected_version: expectedVersion }).then((r) => r.data);
     },
 
     getForContent(contentId: string | number): Promise<ContentGrammarRulesResponse> {

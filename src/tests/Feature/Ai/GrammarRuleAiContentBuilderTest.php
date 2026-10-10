@@ -30,6 +30,30 @@ test('buildPrompt uses the instruction as the user message when given', function
     expect($prompt['user'])->toBe('Make it shorter.');
 });
 
+test('buildConversationPrompt grounds each turn in the current draft and returns complete editable fields', function () {
+    $topic = GrammarTopic::query()->create(['slug' => 'editor-topic', 'language' => 'en', 'name' => 'Editor topic', 'status' => 'active']);
+    $rule = GrammarRule::query()->create([
+        'topic_id' => $topic->id, 'slug' => 'editor-rule', 'language' => 'en', 'title' => 'Present Simple', 'status' => 'published',
+    ]);
+    $draft = [
+        'title' => 'Present Simple', 'summary' => 'Habits.', 'body' => '## Use\nHabits.',
+        'examples' => [['id' => 24, 'language' => 'en', 'example' => 'I walk.', 'translation' => 'Я хожу.', 'is_primary' => true]],
+    ];
+
+    $prompt = app(GrammarRuleAiContentBuilder::class)->buildConversationPrompt(
+        $rule,
+        'Add one more example.',
+        [['role' => 'user', 'content' => 'Make the explanation easier to read.']],
+        $draft,
+    );
+
+    expect($prompt['user'])->toContain('Make the explanation easier to read.')
+        ->and($prompt['user'])->toContain('Add one more example.')
+        ->and($prompt['user'])->toContain('"id": 24')
+        ->and($prompt['schema'])->toHaveKeys(['title', 'summary', 'body', 'examples'])
+        ->and($prompt['feature'])->toBe('grammar_rule_editor');
+});
+
 test('buildPrompt falls back to a generic request when no instruction is given', function () {
     $topic = GrammarTopic::query()->create(['slug' => 'topic-x', 'language' => 'en', 'name' => 'Topic X', 'status' => 'active']);
     $rule = GrammarRule::query()->create(['topic_id' => $topic->id, 'slug' => 'rule-x', 'language' => 'en', 'title' => 'Rule X', 'status' => 'draft']);

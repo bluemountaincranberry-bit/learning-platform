@@ -35,6 +35,8 @@ export interface GrammarRuleTopic {
 
 export interface GrammarRule {
     id: number;
+    /** Present on public grammar API responses. */
+    editor_version?: number;
     slug: string;
     title: string;
     language: string;

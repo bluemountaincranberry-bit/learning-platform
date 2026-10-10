@@ -1,0 +1,3 @@
+# AI grammar rule editing uses drafts and versioned apply
+
+The learner facing grammar editor uses the existing provider independent field-edit capability to propose a complete rule draft, but only an explicit apply request may change the shared catalog. Apply and restore run through one version checked content use case and record before/after snapshots, including examples; removed examples are archived so learner hide state and source provenance survive. The temporary rollout permits authenticated users through `GrammarRulePolicy::editWithAi`, keeping the later admin-only role change localized to that policy.

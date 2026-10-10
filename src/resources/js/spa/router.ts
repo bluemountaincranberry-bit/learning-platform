@@ -69,6 +69,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'Grammar rule', section: 'grammar' } as RouteMeta,
     },
     {
+        path: '/grammar/:id/editor',
+        name: 'grammar.editor',
+        component: () => import('./pages/GrammarRuleAiEditorPage.vue'),
+        meta: { requiresAuth: true, title: 'AI grammar editor', section: 'grammar', focusLayout: true },
+    },
+    {
         path: '/grammar/:id/practice',
         name: 'grammar.practice',
         component: () => import('./pages/GrammarPracticePage.vue'),

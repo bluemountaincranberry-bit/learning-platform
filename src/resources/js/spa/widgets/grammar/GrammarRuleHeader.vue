@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui';
-import { ArrowLeft, Check, Dumbbell, Ellipsis, MessageCircle, Plus, Undo2 } from 'lucide-vue-next';
+import { ArrowLeft, Check, Dumbbell, Ellipsis, MessageCircle, Plus, Sparkles, Undo2 } from 'lucide-vue-next';
 import UiBadge from '../../shared/ui/UiBadge.vue';
 import UiButton from '../../shared/ui/UiButton.vue';
 import type { GrammarRule } from '../../types';
@@ -28,16 +28,17 @@ const emit = defineEmits<{
     learned: [];
     remove: [];
     discuss: [];
+    edit: [];
 }>();
 
-type MenuAction = 'discuss' | 'learned' | 'remove';
+type MenuAction = 'discuss' | 'edit' | 'learned' | 'remove';
 
 const canAdd = computed(() => props.authenticated && !props.rule.in_my_list && !props.rule.learned);
 
 const menu = computed(() => {
-    const items: { action: MenuAction; label: string; icon: typeof Check }[] = [
-        { action: 'discuss', label: 'Discuss with AI', icon: MessageCircle },
-    ];
+    const items: { action: MenuAction; label: string; icon: typeof Check }[] = [];
+    if (props.authenticated) items.push({ action: 'edit', label: 'Edit with AI', icon: Sparkles });
+    items.push({ action: 'discuss', label: 'Discuss with AI', icon: MessageCircle });
     if (props.authenticated && !props.rule.learned) {
         items.push({ action: 'learned', label: 'Mark as learned', icon: Check });
     }
@@ -49,6 +50,7 @@ const menu = computed(() => {
 
 function select(action: MenuAction): void {
     if (action === 'discuss') emit('discuss');
+    else if (action === 'edit') emit('edit');
     else if (action === 'learned') emit('learned');
     else emit('remove');
 }

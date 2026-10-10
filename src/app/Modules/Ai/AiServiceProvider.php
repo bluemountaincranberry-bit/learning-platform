@@ -5,6 +5,7 @@ namespace App\Modules\Ai;
 use App\Contracts\Ai\AiAnalysisRunDispatcher;
 use App\Contracts\Ai\AiClientInterface;
 use App\Contracts\Ai\AiJsonClient;
+use App\Contracts\Ai\AiFieldEditCapability;
 use App\Contracts\Ai\AiStreamingChatClient;
 use App\Contracts\Ai\AiToolCallingClient;
 use App\Contracts\Ai\ChatAiServiceInterface;
@@ -44,6 +45,7 @@ use App\Modules\Ai\Application\Agent\Tracing\NullSpanRecorder;
 use App\Modules\Ai\Application\Agent\Tracing\SpanRecorder;
 use App\Modules\Ai\Application\AiAnalysisRunDispatchService;
 use App\Modules\Ai\Application\AiContentAnalysisService;
+use App\Modules\Ai\Application\AiFieldEditService;
 use App\Modules\Ai\Application\Capabilities\ContextSentenceGenerationService;
 use App\Modules\Ai\Application\Capabilities\LexemeExplanationService;
 use App\Modules\Ai\Application\Capabilities\LexemeMetadataSuggestionService;
@@ -125,6 +127,7 @@ class AiServiceProvider extends ServiceProvider
 
         $this->app->bind(PromptRegistryInterface::class, PromptRegistryService::class);
         $this->app->bind(ContentAnalysisCapability::class, AiContentAnalysisService::class);
+        $this->app->bind(AiFieldEditCapability::class, AiFieldEditService::class);
         $this->app->bind(ContentExamGenerationCapability::class, SentencePracticeService::class);
         $this->app->bind(AiAnalysisRunDispatcher::class, AiAnalysisRunDispatchService::class);
         $this->app->bind(LexemeExplanationCapability::class, LexemeExplanationService::class);

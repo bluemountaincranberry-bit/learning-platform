@@ -9,6 +9,7 @@ use App\Modules\Content\Interfaces\Http\Controllers\ContentController;
 use App\Modules\Content\Interfaces\Http\Controllers\ContentGrammarPreExamController;
 use App\Modules\Content\Interfaces\Http\Controllers\ContentReadinessController;
 use App\Modules\Content\Interfaces\Http\Controllers\GrammarRuleController;
+use App\Modules\Content\Interfaces\Http\Controllers\GrammarRuleEditorController;
 use App\Modules\Content\Interfaces\Http\Controllers\GrammarRuleExampleController;
 use App\Modules\Content\Interfaces\Http\Controllers\LexemeController;
 use App\Modules\Content\Interfaces\Http\Controllers\TranscriptController;
@@ -31,6 +32,13 @@ Route::get('/grammar-rules/{rule}', [GrammarRuleController::class, 'show'])->nam
 Route::get('/dictionary/{word}', [LexemeController::class, 'show'])->name('api.dictionary.show');
 
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function (): void {
+    Route::get('/grammar-rules/{rule}/editor', [GrammarRuleEditorController::class, 'show'])->name('api.grammar-rules.editor.show');
+    Route::post('/grammar-rules/{rule}/editor/proposals', [GrammarRuleEditorController::class, 'propose'])
+        ->middleware('ai.rate_limit:explain')->name('api.grammar-rules.editor.proposals');
+    Route::put('/grammar-rules/{rule}/editor', [GrammarRuleEditorController::class, 'apply'])->name('api.grammar-rules.editor.apply');
+    Route::get('/grammar-rules/{rule}/editor/revisions', [GrammarRuleEditorController::class, 'revisions'])->name('api.grammar-rules.editor.revisions');
+    Route::post('/grammar-rules/{rule}/editor/revisions/{revision}/restore', [GrammarRuleEditorController::class, 'restore'])
+        ->whereNumber('revision')->name('api.grammar-rules.editor.revisions.restore');
     Route::post('/content/submit-youtube', [ContentController::class, 'submitYoutube'])->name('api.content.submit-youtube');
     Route::post('/content/import-youtube-transcript', [ContentController::class, 'importYoutubeTranscript'])->name('api.content.import-youtube-transcript');
     Route::get('/content/{content}/transcript/translations', [TranscriptTranslationController::class, 'index'])

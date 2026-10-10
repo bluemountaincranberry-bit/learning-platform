@@ -13,6 +13,7 @@ final class GrammarRuleExampleReader implements GrammarRuleExampleReaderInterfac
     {
         return GrammarRuleExample::query()
             ->where('grammar_rule_id', $ruleId)
+            ->whereNull('archived_at')
             ->when($userId !== null, fn ($query) => $query->whereNotIn(
                 'id',
                 GrammarRuleExampleHide::query()->where('user_id', $userId)->select('grammar_rule_example_id')
@@ -26,7 +27,7 @@ final class GrammarRuleExampleReader implements GrammarRuleExampleReaderInterfac
 
     public function hide(int $ruleId, int $exampleId, int $userId): bool
     {
-        $belongs = GrammarRuleExample::query()->whereKey($exampleId)->where('grammar_rule_id', $ruleId)->exists();
+        $belongs = GrammarRuleExample::query()->whereKey($exampleId)->where('grammar_rule_id', $ruleId)->whereNull('archived_at')->exists();
         if (! $belongs) {
             return false;
         }

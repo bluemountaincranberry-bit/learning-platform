@@ -5,6 +5,8 @@ namespace App\Modules\Ai\Application;
 use App\Modules\Ai\Application\Agent\Tracing\TraceContext;
 use App\Modules\Ai\Application\Agent\Tracing\TracedLlmCall;
 use App\Contracts\Ai\AiEditablePrompt;
+use App\Contracts\Ai\AiConversationalEditablePrompt;
+use App\Contracts\Ai\AiFieldEditCapability;
 use App\Contracts\Ai\AiJsonClient;
 use Illuminate\Database\Eloquent\Model;
 
@@ -18,7 +20,7 @@ use Illuminate\Database\Eloquent\Model;
  * used throughout the AI candidate extraction epic, just at field-level
  * instead of batch-candidate-level.
  */
-class AiFieldEditService
+class AiFieldEditService implements AiFieldEditCapability
 {
     public function __construct(
         private readonly AiJsonClient $client,
@@ -46,10 +48,30 @@ class AiFieldEditService
             $this->client,
             TraceContext::newTrace(),
             'field_edit.completeJson',
-            ['feature' => 'field_edit', 'subject_type' => $subjectType, 'subject_id' => $subjectId],
+            ['feature' => $prompt['feature'] ?? 'field_edit', 'subject_type' => $subjectType, 'subject_id' => $subjectId],
             $prompt['system'],
             $prompt['user'],
             $prompt['schema'],
+            $prompt['model'] ?? null,
+        );
+    }
+
+    /**
+     * @param  list<array{role: string, content: string}>  $conversation
+     * @param  array<string, mixed>  $draft
+     * @return array<string, mixed>
+     */
+    public function proposeConversation(
+        Model $subject,
+        AiConversationalEditablePrompt $builder,
+        string $instruction,
+        array $conversation,
+        array $draft,
+    ): array {
+        return $this->proposePrepared(
+            $builder->buildConversationPrompt($subject, $instruction, $conversation, $draft),
+            $subject::class,
+            (int) $subject->getKey(),
         );
     }
 }

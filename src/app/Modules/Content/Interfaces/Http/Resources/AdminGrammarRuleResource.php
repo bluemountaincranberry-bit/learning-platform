@@ -51,6 +51,7 @@ class AdminGrammarRuleResource extends JsonResource
             ])->values()),
             'created_at' => optional($this->created_at)?->toIso8601String(),
             'updated_at' => optional($this->updated_at)?->toIso8601String(),
+            'editor_version' => (int) $this->editor_version,
         ];
     }
 }

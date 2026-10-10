@@ -36,6 +36,10 @@ class GrammarRule extends Model
         static::saving(function (GrammarRule $rule): void {
             $rule->normalized_title = GrammarRuleTitle::normalize((string) $rule->title);
         });
+
+        static::updating(function (GrammarRule $rule): void {
+            $rule->editor_version = (int) $rule->getOriginal('editor_version', 0) + 1;
+        });
     }
 
     public function topic(): BelongsTo
@@ -50,6 +54,12 @@ class GrammarRule extends Model
     }
 
     public function examples(): HasMany
+    {
+        return $this->hasMany(GrammarRuleExample::class)->whereNull('archived_at')->orderBy('sort_order');
+    }
+
+    /** Includes archived examples for revision restoration and audit flows. */
+    public function allExamples(): HasMany
     {
         return $this->hasMany(GrammarRuleExample::class)->orderBy('sort_order');
     }

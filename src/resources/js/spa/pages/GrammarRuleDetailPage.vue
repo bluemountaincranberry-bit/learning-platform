@@ -107,6 +107,11 @@ function discuss(): void {
     });
 }
 
+function editWithAi(): void {
+    if (!rule.value || !authStore.isAuthenticated) return;
+    router.push({ name: 'grammar.editor', params: { id: rule.value.id } });
+}
+
 onMounted(loadRule);
 </script>
 
@@ -128,6 +133,7 @@ onMounted(loadRule);
                     @learned="markLearned"
                     @remove="removeFromMyList"
                     @discuss="discuss"
+                    @edit="editWithAi"
                 />
             </section>
 

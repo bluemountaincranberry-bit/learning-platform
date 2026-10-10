@@ -48,6 +48,7 @@ async function mountPage(from?: string): Promise<{ page: VueWrapper; router: Rou
             { path: '/chat', name: 'chat', component: Stub },
             { path: '/lessons/:id', name: 'lesson.details', component: Stub },
             { path: '/grammar/:id', name: 'grammar.details', component: GrammarRuleDetailPage },
+            { path: '/grammar/:id/editor', name: 'grammar.editor', component: Stub },
         ],
     });
     if (from) await router.push(from);
@@ -151,5 +152,19 @@ describe('GrammarRuleDetailPage', () => {
 
         expect(router.currentRoute.value.name).toBe('chat');
         expect(router.currentRoute.value.query).toEqual({ context_type: 'grammar', context_id: '3', context_title: 'Present Simple' });
+    });
+
+    it('opens the contextual editor from the rule actions', async () => {
+        const { page, router } = await mountPage();
+
+        await page.get('[data-test="rule-menu"]').trigger('keydown', { key: 'Enter' });
+        await flushPromises();
+        Array.from(document.body.querySelectorAll<HTMLElement>('[data-test="rule-menu-item"]'))
+            .find((node) => node.textContent?.includes('Edit with AI'))!
+            .click();
+        await flushPromises();
+
+        expect(router.currentRoute.value.name).toBe('grammar.editor');
+        expect(router.currentRoute.value.params.id).toBe('3');
     });
 });

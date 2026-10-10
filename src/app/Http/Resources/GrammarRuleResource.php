@@ -20,6 +20,7 @@ class GrammarRuleResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'editor_version' => (int) $this->editor_version,
             'slug' => $this->slug,
             'title' => $this->title,
             'language' => $this->language,

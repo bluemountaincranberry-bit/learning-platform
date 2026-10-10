@@ -31,6 +31,13 @@ export type {
     GrammarPracticeReviewItem,
     GrammarPracticeResult,
 } from './grammar';
+export type {
+    GrammarRuleEditorDraft,
+    GrammarRuleEditorExample,
+    GrammarRuleEditorRevision,
+    GrammarRuleEditorRule,
+    GrammarRuleEditorTurn,
+} from './grammar/GrammarRuleEditor';
 export type { ApiError, ApiErrorResponse } from './api';
 export { parseApiError } from './api';
 export type {
