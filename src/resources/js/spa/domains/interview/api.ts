@@ -7,7 +7,7 @@ type WireQuestion = { id: number; prompt_en: string; prompt_ru: string | null; p
 type WireProfile = { id?: number; career_goal: string | null; skills: string[] | null; experience_level: string | null; projects: string[] | null; experience_stories: string[] | null; milestones: { id?: number; title: string; target_date: string | null }[] };
 type WireSession = { id: number; conversation_id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; question_count: number; focus: string | null; questions: WireQuestion[]; messages: { id: number; role: 'user' | 'assistant'; content: string }[] };
 type WireSessionSummary = { id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; updated_at: string };
-type WireDraft = { id: number; kind: 'question' | 'profile' | 'answer'; payload: Record<string, unknown>; status: 'pending' };
+type WireDraft = { id: number; kind: 'question' | 'profile' | 'answer' | 'vocabulary'; payload: Record<string, unknown>; status: 'pending' };
 
 const mapTopic = (topic: WireTopic): InterviewTopic => ({ id: topic.id, name: topic.name, parentId: topic.parent_id, sortOrder: topic.sort_order });
 const mapAnswer = (answer: WireAnswer): InterviewAnswer => ({ id: answer.id, en: answer.en, ru: answer.ru, revisions: answer.revisions.map(({ id, text_en, text_ru, created_at }) => ({ id, textEn: text_en, textRu: text_ru, createdAt: created_at })) });
@@ -50,6 +50,7 @@ export const interviewApi = {
         return data.map((draft) => {
             if (draft.kind === 'question') return { id: draft.id, kind: 'question', promptEn: typeof draft.payload.prompt_en === 'string' ? draft.payload.prompt_en : '', promptRu: typeof draft.payload.prompt_ru === 'string' ? draft.payload.prompt_ru : null, topicId: typeof draft.payload.topic_id === 'number' ? draft.payload.topic_id : null, tags: Array.isArray(draft.payload.tags) ? draft.payload.tags.filter((tag): tag is string => typeof tag === 'string') : [] };
             if (draft.kind === 'answer') return { id: draft.id, kind: 'answer', questionPromptEn: typeof draft.payload.question_prompt_en === 'string' ? draft.payload.question_prompt_en : '', questionPromptRu: typeof draft.payload.question_prompt_ru === 'string' ? draft.payload.question_prompt_ru : null, variant: draft.payload.variant === 'full' ? 'full' : 'short', textEn: typeof draft.payload.text_en === 'string' ? draft.payload.text_en : null, textRu: typeof draft.payload.text_ru === 'string' ? draft.payload.text_ru : null };
+            if (draft.kind === 'vocabulary') return { id: draft.id, kind: 'vocabulary', lemma: typeof draft.payload.lemma === 'string' ? draft.payload.lemma : '', language: 'en' };
             return { id: draft.id, kind: 'profile', changes: Object.entries(draft.payload).flatMap(([key, value]) => formatDraftValues(key, value).map((entry) => ({ label: draftLabels[key] ?? key, value: entry }))) };
         });
     },

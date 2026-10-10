@@ -128,4 +128,18 @@ describe('InterviewPage', () => {
 
         expect(api.decideDraft).toHaveBeenCalledWith(43, 'confirm');
     });
+
+    it('requires confirmation before adding an AI vocabulary suggestion', async () => {
+        api.drafts.mockResolvedValue([{ id: 44, kind: 'vocabulary', lemma: 'resilient', language: 'en' }]);
+        api.decideDraft.mockResolvedValue(undefined);
+        const wrapper = mount(InterviewPage);
+        await flushPromises();
+
+        expect(wrapper.text()).toContain('Add resilient to your English vocabulary?');
+        await wrapper.findAll('button').find((button) => button.text() === 'Add to My words')!.trigger('click');
+        await flushPromises();
+
+        expect(api.decideDraft).toHaveBeenCalledWith(44, 'confirm');
+        expect(wrapper.text()).toContain('Added “resilient” to My words.');
+    });
 });

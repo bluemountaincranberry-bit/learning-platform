@@ -13,6 +13,7 @@ const state = ref('');
 const tag = ref('');
 const busy = ref(true);
 const error = ref('');
+const notice = ref('');
 const selected = ref<InterviewQuestion | null>(null);
 const russian = ref(false);
 const goalDraft = ref('');
@@ -93,10 +94,14 @@ async function load(append = false) {
 }
 
 async function decideAiDraft(id: number, decision: 'confirm' | 'reject') {
+    const draft = aiDrafts.value.find((item) => item.id === id);
     try {
         await interviewApi.decideDraft(id, decision);
         aiDrafts.value = aiDrafts.value.filter((draft) => draft.id !== id);
-        if (decision === 'confirm') await load();
+        if (decision === 'confirm') {
+            if (draft?.kind === 'vocabulary') notice.value = `Added “${draft.lemma}” to My words.`;
+            await load();
+        }
     } catch { error.value = 'This AI proposal could not be saved. Please try again.'; }
 }
 
@@ -281,6 +286,7 @@ async function reopenPractice(sessionId: number) {
 
 <template>
     <main class="mx-auto w-full max-w-6xl space-y-5 px-4 py-5 sm:px-6">
+        <p v-if="notice" class="rounded-spa border border-success/40 bg-success/10 p-3 text-sm text-success" role="status">{{ notice }}</p>
         <header class="space-y-1">
             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Interview preparation</p>
             <h1 class="text-2xl font-semibold text-fg">Build confidence one answer at a time</h1>
@@ -296,8 +302,9 @@ async function reopenPractice(sessionId: number) {
                         <p class="mt-2 text-xs text-muted-foreground">{{ topicName(draft.topicId) ?? 'No topic' }}<span v-if="draft.tags.length"> · {{ draft.tags.join(', ') }}</span></p>
                     </template>
                     <dl v-else-if="draft.kind === 'profile'" class="space-y-1 text-sm"><div v-for="(change, index) in draft.changes" :key="`${change.label}-${index}`" class="grid grid-cols-[8rem_1fr] gap-2"><dt class="text-muted-foreground">{{ change.label }}</dt><dd class="break-words text-fg">{{ change.value }}</dd></div></dl>
-                    <div v-else class="space-y-2 text-sm"><p class="font-medium text-fg">{{ draft.questionPromptEn }} · {{ draft.variant }} answer</p><p v-if="draft.questionPromptRu" class="text-xs text-muted-foreground">{{ draft.questionPromptRu }}</p><div class="grid gap-2 sm:grid-cols-2"><div><p class="text-xs text-muted-foreground">English</p><p class="break-words text-fg">{{ draft.textEn ?? '(empty — clears this answer)' }}</p></div><div><p class="text-xs text-muted-foreground">Russian</p><p class="break-words text-fg">{{ draft.textRu ?? '(empty — clears this answer)' }}</p></div></div></div>
-                    <div class="mt-3 flex gap-2"><button class="min-h-11 rounded-spa bg-primary px-3 text-sm font-semibold text-white" @click="decideAiDraft(draft.id, 'confirm')">{{ draft.kind === 'question' ? 'Add question' : draft.kind === 'profile' ? 'Save profile updates' : 'Save answer revision' }}</button><button class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" @click="decideAiDraft(draft.id, 'reject')">Discard</button></div>
+                    <div v-else-if="draft.kind === 'answer'" class="space-y-2 text-sm"><p class="font-medium text-fg">{{ draft.questionPromptEn }} · {{ draft.variant }} answer</p><p v-if="draft.questionPromptRu" class="text-xs text-muted-foreground">{{ draft.questionPromptRu }}</p><div class="grid gap-2 sm:grid-cols-2"><div><p class="text-xs text-muted-foreground">English</p><p class="break-words text-fg">{{ draft.textEn ?? '(empty — clears this answer)' }}</p></div><div><p class="text-xs text-muted-foreground">Russian</p><p class="break-words text-fg">{{ draft.textRu ?? '(empty — clears this answer)' }}</p></div></div></div>
+                    <p v-else class="text-sm text-fg">Add <strong>{{ draft.lemma }}</strong> to your English vocabulary?</p>
+                    <div class="mt-3 flex gap-2"><button class="min-h-11 rounded-spa bg-primary px-3 text-sm font-semibold text-white" @click="decideAiDraft(draft.id, 'confirm')">{{ draft.kind === 'question' ? 'Add question' : draft.kind === 'profile' ? 'Save profile updates' : draft.kind === 'answer' ? 'Save answer revision' : 'Add to My words' }}</button><button class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" @click="decideAiDraft(draft.id, 'reject')">Discard</button></div>
                 </article>
             </section>
             <template v-if="!practiceSession">

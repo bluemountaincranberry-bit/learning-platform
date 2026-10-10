@@ -10,12 +10,15 @@ use App\Modules\Interview\Domain\Models\InterviewProfile;
 use App\Modules\Interview\Domain\Models\InterviewQuestion;
 use App\Modules\Interview\Domain\Models\InterviewTag;
 use App\Modules\Interview\Domain\Models\InterviewTopic;
+use App\Modules\Learning\Application\Contracts\PersonalVocabularyWriterInterface;
 use App\Modules\User\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 final class InterviewDraftService implements InterviewDraftWriter
 {
+    public function __construct(private readonly PersonalVocabularyWriterInterface $vocabulary) {}
+
     public function questionDraft(int $conversationId, int $userId, array $proposal): int
     {
         InterviewPracticeSession::query()->where('agent_conversation_id', $conversationId)
@@ -72,9 +75,21 @@ final class InterviewDraftService implements InterviewDraftWriter
         return InterviewAiDraft::query()->create(['user_id' => $userId, 'kind' => 'answer', 'payload' => $data])->id;
     }
 
-    public function confirm(int $draftId, int $userId): InterviewQuestion|InterviewProfile
+    public function vocabularyDraft(int $conversationId, int $userId, array $proposal): int
     {
-        return DB::transaction(function () use ($draftId, $userId): InterviewQuestion|InterviewProfile {
+        InterviewPracticeSession::query()->where('agent_conversation_id', $conversationId)
+            ->where('user_id', $userId)->firstOrFail();
+        $data = Validator::make($proposal, [
+            'lemma' => ['required', 'string', 'max:120'],
+            'language' => ['required', 'in:en'],
+        ])->validate();
+
+        return InterviewAiDraft::query()->create(['user_id' => $userId, 'kind' => 'vocabulary', 'payload' => $data])->id;
+    }
+
+    public function confirm(int $draftId, int $userId): InterviewQuestion|InterviewProfile|array
+    {
+        return DB::transaction(function () use ($draftId, $userId): InterviewQuestion|InterviewProfile|array {
             $draft = InterviewAiDraft::query()->where('user_id', $userId)->lockForUpdate()->findOrFail($draftId);
             abort_unless($draft->status === 'pending', 409, 'This proposal has already been decided.');
             $data = $draft->payload;
@@ -108,6 +123,12 @@ final class InterviewDraftService implements InterviewDraftWriter
                 $draft->update(['status' => 'confirmed', 'result_question_id' => $question->id, 'result_answer_id' => $variant->id, 'decided_at' => now()]);
 
                 return $question->fresh(['topic', 'tags', 'answers']);
+            }
+            if ($draft->kind === 'vocabulary') {
+                $word = $this->vocabulary->addConfirmedWord($userId, $data['language'], $data['lemma']);
+                $draft->update(['status' => 'confirmed', 'decided_at' => now()]);
+
+                return $word;
             }
             abort_unless($draft->kind === 'question', 409, 'This proposal type cannot be confirmed here.');
             if (! empty($data['topic_id'])) {

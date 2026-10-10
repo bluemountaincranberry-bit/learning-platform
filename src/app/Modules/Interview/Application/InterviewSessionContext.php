@@ -6,10 +6,14 @@ use App\Modules\Interview\Application\Contracts\InterviewSessionContextReader;
 use App\Modules\Interview\Domain\Models\InterviewPracticeSession;
 use App\Modules\Interview\Domain\Models\InterviewProfile;
 use App\Modules\Interview\Domain\Models\InterviewQuestion;
+use App\Modules\Learning\Application\Contracts\StudentVocabularyReaderInterface;
 
 final class InterviewSessionContext implements InterviewSessionContextReader
 {
-    public function __construct(private readonly InterviewPracticeService $practice) {}
+    public function __construct(
+        private readonly InterviewPracticeService $practice,
+        private readonly StudentVocabularyReaderInterface $vocabulary,
+    ) {}
 
     public function forConversation(int $conversationId, int $userId): array
     {
@@ -34,6 +38,7 @@ final class InterviewSessionContext implements InterviewSessionContextReader
             'profile' => $profile?->only(['career_goal', 'skills', 'experience_level', 'projects', 'experience_stories']),
             'milestones' => $profile?->milestones->map(fn ($milestone) => $milestone->only(['title', 'target_date']))->all() ?? [],
             'questions' => $questions,
+            'learned_english_vocabulary' => $this->vocabulary->history($userId, 'en', 20),
         ];
     }
 }

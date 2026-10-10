@@ -6,7 +6,11 @@ use App\Modules\Ai\Application\Agent\Data\AgentToolCall;
 use App\Modules\Ai\Application\Agent\InterviewAgentService;
 use App\Modules\Ai\Domain\Models\AgentConversation;
 use App\Modules\Ai\Interfaces\Jobs\RunAgentTurnJob;
+use App\Modules\Content\Domain\Models\Content;
+use App\Modules\Content\Domain\Models\ContentLexeme;
+use App\Modules\Content\Domain\Models\Lexeme;
 use App\Modules\Interview\Domain\Models\InterviewPracticeSession;
+use App\Modules\Learning\Domain\Models\UserLexemeProgress;
 use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -14,6 +18,15 @@ uses(RefreshDatabase::class);
 
 test('Interview Agent receives only confirmed context for its private coached session through AgentLoop', function () {
     $learner = User::factory()->create();
+    $lexeme = Lexeme::query()->create([
+        'slug' => 'en-interview-context-'.uniqid(), 'language' => 'en', 'lemma' => 'idempotent',
+        'normalized_lemma' => 'idempotent', 'status' => 'published',
+    ]);
+    $content = Content::factory()->create();
+    $contentLexeme = $content->lexemes()->create([
+        'type' => ContentLexeme::TYPE_WORD, 'text' => 'idempotent', 'sort_order' => 1, 'lexeme_id' => $lexeme->id,
+    ]);
+    UserLexemeProgress::query()->create(['user_id' => $learner->id, 'content_lexeme_id' => $contentLexeme->id, 'lexeme_id' => $lexeme->id, 'learned_at' => now()]);
     $profile = test()->actingAs($learner)->putJson('/api/interview/profile', [
         'career_goal' => 'Junior API developer', 'experience_stories' => ['I built a study project.'],
     ])->assertOk();
@@ -39,9 +52,25 @@ test('Interview Agent receives only confirmed context for its private coached se
     expect($toolMessage->tool_result['mode'])->toBe('coached')
         ->and($toolMessage->tool_result['profile']['career_goal'])->toBe('Junior API developer')
         ->and($toolMessage->tool_result['questions'][0]['prompt_en'])->toBe('Describe an API you built.')
+        ->and($toolMessage->tool_result['learned_english_vocabulary'][0]['lemma'])->toBe('idempotent')
         ->and($conversation->messages()->where('role', 'assistant')->first()->content)->toBe('Tell me what problem your API solved.')
         ->and(config('ai.agent.registry')[InterviewAgentService::AGENT_TYPE])->toBe(InterviewAgentService::class)
         ->and(InterviewPracticeSession::query()->where('id', $session['id'])->exists())->toBeTrue();
+
+    $nextSession = test()->postJson('/api/interview/sessions', ['mode' => 'coached', 'question_ids' => [$question['id']]])
+        ->assertCreated()->json('data');
+    $nextConversation = AgentConversation::query()->findOrFail($nextSession['conversation_id']);
+    $nextConversation->messages()->create(['role' => 'user', 'content' => 'Continue my interview preparation.']);
+    $nextToolClient = Mockery::mock(AiToolCallingClient::class);
+    $nextToolClient->shouldReceive('chat')->twice()->andReturn(
+        new AgentChatResponse(null, [new AgentToolCall('context_2', 'get_interview_practice_context', [])]),
+        new AgentChatResponse('Let us continue with your API experience.'),
+    );
+    app()->instance(AiToolCallingClient::class, $nextToolClient);
+    (new RunAgentTurnJob($nextConversation->id))->handle();
+    $nextContext = $nextConversation->messages()->where('role', 'tool')->firstOrFail()->tool_result;
+    expect($nextContext['profile']['career_goal'])->toBe('Junior API developer')
+        ->and($nextContext['learned_english_vocabulary'][0]['lemma'])->toBe('idempotent');
 });
 
 test('Interview Agent stores an AI question proposal as pending until learner confirms it', function () {
@@ -139,4 +168,30 @@ test('Interview Agent answer revision is a previewable draft until confirmed and
     test()->postJson('/api/interview/drafts/'.$draft['id'].'/confirm')->assertOk()
         ->assertJsonPath('data.result.answers.short.en', 'I built an app to help learners practise English.')
         ->assertJsonPath('data.result.answers.short.revisions.0.text_en', 'I built a study app.');
+});
+
+test('Interview vocabulary suggestion is separate and enters My words only after confirmation', function () {
+    $learner = User::factory()->create();
+    $session = test()->actingAs($learner)->postJson('/api/interview/sessions', ['mode' => 'coached'])->assertCreated()->json('data');
+    $conversation = AgentConversation::query()->findOrFail($session['conversation_id']);
+    $conversation->messages()->create(['role' => 'user', 'content' => 'What does resilient mean? Could you add it to my vocabulary?']);
+
+    $toolClient = Mockery::mock(AiToolCallingClient::class);
+    $toolClient->shouldReceive('chat')->times(3)->andReturn(
+        new AgentChatResponse(null, [new AgentToolCall('context_1', 'get_interview_practice_context', [])]),
+        new AgentChatResponse(null, [new AgentToolCall('vocabulary_1', 'propose_interview_vocabulary', [
+            'lemma' => 'resilient', 'language' => 'en',
+        ])]),
+        new AgentChatResponse('I drafted “resilient” as a vocabulary suggestion for you to review.'),
+    );
+    app()->instance(AiToolCallingClient::class, $toolClient);
+
+    (new RunAgentTurnJob($conversation->id))->handle();
+
+    test()->getJson('/api/me/words?search=resilient')->assertOk()->assertJsonCount(0, 'data');
+    $draft = test()->getJson('/api/interview/drafts')->assertOk()->assertJsonPath('data.0.kind', 'vocabulary')
+        ->assertJsonPath('data.0.payload.lemma', 'resilient')->json('data.0');
+    test()->postJson('/api/interview/drafts/'.$draft['id'].'/confirm')->assertOk()
+        ->assertJsonPath('data.result.lemma', 'resilient');
+    test()->getJson('/api/me/words?search=resilient')->assertOk()->assertJsonPath('data.0.lexeme', 'resilient');
 });

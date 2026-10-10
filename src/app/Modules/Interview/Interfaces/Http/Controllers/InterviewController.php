@@ -45,7 +45,7 @@ class InterviewController extends Controller
         $confirmed = $this->drafts->confirm($draft, $request->user()->id);
         $result = $confirmed instanceof InterviewQuestion
             ? $this->questionPayload($confirmed->fresh(['topic', 'tags', 'answers']))
-            : $confirmed->load('milestones');
+            : ($confirmed instanceof InterviewProfile ? $confirmed->load('milestones') : $confirmed);
 
         return response()->json(['data' => ['status' => 'confirmed', 'result' => $result]]);
     }

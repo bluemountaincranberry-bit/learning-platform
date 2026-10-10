@@ -19,4 +19,5 @@ export interface InterviewPracticeSummary { id: number; mode: 'coached' | 'mock'
 export type InterviewDraft =
     | { id: number; kind: 'question'; promptEn: string; promptRu: string | null; topicId: number | null; tags: string[] }
     | { id: number; kind: 'profile'; changes: { label: string; value: string }[] }
-    | { id: number; kind: 'answer'; questionPromptEn: string; questionPromptRu: string | null; variant: 'short' | 'full'; textEn: string | null; textRu: string | null };
+    | { id: number; kind: 'answer'; questionPromptEn: string; questionPromptRu: string | null; variant: 'short' | 'full'; textEn: string | null; textRu: string | null }
+    | { id: number; kind: 'vocabulary'; lemma: string; language: 'en' };

@@ -15,7 +15,7 @@ final class GetInterviewPracticeContextTool implements AgentTool
     {
         return new AgentToolDefinition(
             name: 'get_interview_practice_context',
-            description: 'Read the confirmed career profile and questions for the current private interview practice session.',
+            description: 'Read the confirmed career profile, session questions and a small sample of learned English vocabulary for the current private practice session.',
             parameters: ['type' => 'object', 'properties' => (object) [], 'required' => []],
             sideEffect: AgentToolDefinition::SIDE_EFFECT_READ_ONLY,
         );

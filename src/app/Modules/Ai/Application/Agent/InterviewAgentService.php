@@ -13,6 +13,7 @@ use App\Modules\Ai\Application\Agent\Data\AgentToolDefinition;
 use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewAnswerDraftTool;
 use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewProfileDraftTool;
 use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewQuestionDraftTool;
+use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewVocabularyDraftTool;
 use App\Modules\Ai\Application\Agent\Tools\Interview\GetInterviewPracticeContextTool;
 use App\Modules\Ai\Application\Agent\Tracing\SpanRecorder;
 use App\Modules\Ai\Application\Agent\Tracing\TraceContext;
@@ -50,8 +51,12 @@ final class InterviewAgentService implements AgentService
                 Tell the learner the profile proposal awaits review. Only use propose_interview_answer_revision after
                 the learner explicitly asks to save revised answer wording, and present it as pending review. Keep feedback specific to evidence in the
                 learner's answer and avoid an overall readiness score.
+                Use the learned English vocabulary returned in practice context only when a word fits the interview
+                answer naturally; do not force vocabulary into the answer. Suggest an existing learned word for review,
+                but do not treat it as new vocabulary. If a genuinely useful new English word comes up, you may use
+                propose_interview_vocabulary to offer it separately; clearly tell the learner it needs confirmation.
                 PROMPT,
-            tools: [GetInterviewPracticeContextTool::class, CreateInterviewQuestionDraftTool::class, CreateInterviewProfileDraftTool::class, CreateInterviewAnswerDraftTool::class],
+            tools: [GetInterviewPracticeContextTool::class, CreateInterviewQuestionDraftTool::class, CreateInterviewProfileDraftTool::class, CreateInterviewAnswerDraftTool::class, CreateInterviewVocabularyDraftTool::class],
             maxIterations: 4,
             allowedSideEffects: [AgentToolDefinition::SIDE_EFFECT_READ_ONLY, AgentToolDefinition::SIDE_EFFECT_DRAFT_ONLY],
         );
