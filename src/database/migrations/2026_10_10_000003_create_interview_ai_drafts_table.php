@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('status', 16)->default('pending');
             $table->foreignId('result_question_id')->nullable()->constrained('interview_questions')->nullOnDelete();
             $table->foreignId('result_profile_id')->nullable()->constrained('interview_profiles')->nullOnDelete();
+            $table->foreignId('result_answer_id')->nullable()->constrained('interview_answer_variants')->nullOnDelete();
             $table->timestamp('decided_at')->nullable();
             $table->timestamps();
             $table->index(['user_id', 'status']);

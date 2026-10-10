@@ -4,6 +4,7 @@ namespace App\Modules\Interview\Application;
 
 use App\Contracts\Ai\InterviewDraftWriter;
 use App\Modules\Interview\Domain\Models\InterviewAiDraft;
+use App\Modules\Interview\Domain\Models\InterviewAnswerRevision;
 use App\Modules\Interview\Domain\Models\InterviewPracticeSession;
 use App\Modules\Interview\Domain\Models\InterviewProfile;
 use App\Modules\Interview\Domain\Models\InterviewQuestion;
@@ -53,6 +54,24 @@ final class InterviewDraftService implements InterviewDraftWriter
         return InterviewAiDraft::query()->create(['user_id' => $userId, 'kind' => 'profile', 'payload' => $data])->id;
     }
 
+    public function answerDraft(int $conversationId, int $userId, array $proposal): int
+    {
+        $session = InterviewPracticeSession::query()->where('agent_conversation_id', $conversationId)
+            ->where('user_id', $userId)->firstOrFail();
+        $data = Validator::make($proposal, [
+            'question_id' => ['required', 'integer'],
+            'variant' => ['required', 'in:short,full'],
+            'text_en' => ['present', 'nullable', 'string', 'max:10000'],
+            'text_ru' => ['present', 'nullable', 'string', 'max:10000'],
+        ])->validate();
+        abort_unless(in_array((int) $data['question_id'], array_map('intval', $session->question_ids ?? []), true), 404);
+        $question = InterviewQuestion::query()->where('user_id', $userId)->findOrFail($data['question_id']);
+        $data['question_prompt_en'] = $question->prompt_en;
+        $data['question_prompt_ru'] = $question->prompt_ru;
+
+        return InterviewAiDraft::query()->create(['user_id' => $userId, 'kind' => 'answer', 'payload' => $data])->id;
+    }
+
     public function confirm(int $draftId, int $userId): InterviewQuestion|InterviewProfile
     {
         return DB::transaction(function () use ($draftId, $userId): InterviewQuestion|InterviewProfile {
@@ -74,6 +93,21 @@ final class InterviewDraftService implements InterviewDraftWriter
                 $draft->update(['status' => 'confirmed', 'result_profile_id' => $profile->id, 'decided_at' => now()]);
 
                 return $profile->load('milestones');
+            }
+            if ($draft->kind === 'answer') {
+                $question = InterviewQuestion::query()->where('user_id', $userId)->lockForUpdate()->findOrFail($data['question_id']);
+                $variant = $question->answers()->where('kind', $data['variant'])->lockForUpdate()->first();
+                if ($variant && ($variant->text_en !== $data['text_en'] || $variant->text_ru !== $data['text_ru'])) {
+                    InterviewAnswerRevision::query()->create([
+                        'answer_variant_id' => $variant->id, 'created_by' => $userId,
+                        'text_en' => $variant->text_en, 'text_ru' => $variant->text_ru,
+                    ]);
+                }
+                $variant ??= $question->answers()->make(['kind' => $data['variant']]);
+                $variant->fill(['text_en' => $data['text_en'], 'text_ru' => $data['text_ru']])->save();
+                $draft->update(['status' => 'confirmed', 'result_question_id' => $question->id, 'result_answer_id' => $variant->id, 'decided_at' => now()]);
+
+                return $question->fresh(['topic', 'tags', 'answers']);
             }
             abort_unless($draft->kind === 'question', 409, 'This proposal type cannot be confirmed here.');
             if (! empty($data['topic_id'])) {

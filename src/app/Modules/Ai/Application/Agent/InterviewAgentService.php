@@ -10,6 +10,7 @@ use App\Modules\Ai\Application\Agent\Data\AgentChatResponse;
 use App\Modules\Ai\Application\Agent\Data\AgentToolCall;
 use App\Modules\Ai\Application\Agent\Data\AgentToolContext;
 use App\Modules\Ai\Application\Agent\Data\AgentToolDefinition;
+use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewAnswerDraftTool;
 use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewProfileDraftTool;
 use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewQuestionDraftTool;
 use App\Modules\Ai\Application\Agent\Tools\Interview\GetInterviewPracticeContextTool;
@@ -46,10 +47,11 @@ final class InterviewAgentService implements AgentService
                 the bank until the learner confirms it. For a concrete new question, use propose_interview_question and
                 tell the learner it awaits review. Only propose profile changes from facts explicitly shared by the
                 learner, using propose_interview_profile_update; never turn suggestions or assumptions into facts.
-                Tell the learner the profile proposal awaits review. Keep feedback specific to evidence in the
+                Tell the learner the profile proposal awaits review. Only use propose_interview_answer_revision after
+                the learner explicitly asks to save revised answer wording, and present it as pending review. Keep feedback specific to evidence in the
                 learner's answer and avoid an overall readiness score.
                 PROMPT,
-            tools: [GetInterviewPracticeContextTool::class, CreateInterviewQuestionDraftTool::class, CreateInterviewProfileDraftTool::class],
+            tools: [GetInterviewPracticeContextTool::class, CreateInterviewQuestionDraftTool::class, CreateInterviewProfileDraftTool::class, CreateInterviewAnswerDraftTool::class],
             maxIterations: 4,
             allowedSideEffects: [AgentToolDefinition::SIDE_EFFECT_READ_ONLY, AgentToolDefinition::SIDE_EFFECT_DRAFT_ONLY],
         );

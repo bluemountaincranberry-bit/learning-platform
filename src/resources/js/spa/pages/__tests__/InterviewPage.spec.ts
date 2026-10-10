@@ -113,4 +113,19 @@ describe('InterviewPage', () => {
 
         expect(api.decideDraft).toHaveBeenCalledWith(42, 'confirm');
     });
+
+    it('previews both languages of an AI answer revision before saving it', async () => {
+        api.drafts.mockResolvedValue([{ id: 43, kind: 'answer', questionPromptEn: 'Describe a project you built.', questionPromptRu: 'Опишите проект, который вы создали.', variant: 'short', textEn: 'I built an app.', textRu: 'Я сделал приложение.' }]);
+        api.decideDraft.mockResolvedValue(undefined);
+        const wrapper = mount(InterviewPage);
+        await flushPromises();
+
+        expect(wrapper.text()).toContain('Describe a project you built. · short answer');
+        expect(wrapper.text()).toContain('I built an app.');
+        expect(wrapper.text()).toContain('Я сделал приложение.');
+        await wrapper.findAll('button').find((button) => button.text() === 'Save answer revision')!.trigger('click');
+        await flushPromises();
+
+        expect(api.decideDraft).toHaveBeenCalledWith(43, 'confirm');
+    });
 });

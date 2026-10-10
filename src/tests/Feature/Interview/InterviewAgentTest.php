@@ -103,3 +103,40 @@ test('Interview Agent profile proposal stays pending and changes profile only af
         ->assertJsonPath('data.experience_stories.0', 'I built a study project.')
         ->assertJsonCount(1, 'data.milestones')->assertJsonPath('data.milestones.0.target_date', '2026-12-01');
 });
+
+test('Interview Agent answer revision is a previewable draft until confirmed and retains the prior wording', function () {
+    $learner = User::factory()->create();
+    $question = test()->actingAs($learner)->postJson('/api/interview/questions', [
+        'prompt_en' => 'Describe a project you built.',
+        'prompt_ru' => 'Опишите проект, который вы создали.',
+        'answers' => ['short' => ['en' => 'I built a study app.', 'ru' => 'Я сделал учебное приложение.']],
+    ])->assertCreated()->json('data');
+    $session = test()->postJson('/api/interview/sessions', ['mode' => 'coached', 'question_ids' => [$question['id']]])->assertCreated()->json('data');
+    $conversation = AgentConversation::query()->findOrFail($session['conversation_id']);
+    $conversation->messages()->create(['role' => 'user', 'content' => 'Please save the revised short answer: I built an app to help learners practise English.']);
+
+    $toolClient = Mockery::mock(AiToolCallingClient::class);
+    $toolClient->shouldReceive('chat')->times(3)->andReturn(
+        new AgentChatResponse(null, [new AgentToolCall('context_1', 'get_interview_practice_context', [])]),
+        new AgentChatResponse(null, [new AgentToolCall('answer_1', 'propose_interview_answer_revision', [
+            'question_id' => $question['id'], 'variant' => 'short',
+            'text_en' => 'I built an app to help learners practise English.',
+            'text_ru' => 'Я создал приложение, которое помогает изучать английский.',
+        ])]),
+        new AgentChatResponse('I prepared the bilingual short-answer revision for review.'),
+    );
+    app()->instance(AiToolCallingClient::class, $toolClient);
+
+    (new RunAgentTurnJob($conversation->id))->handle();
+
+    test()->getJson('/api/interview/questions/'.$question['id'])->assertOk()
+        ->assertJsonPath('data.answers.short.en', 'I built a study app.')
+        ->assertJsonCount(0, 'data.answers.short.revisions');
+    $draft = test()->getJson('/api/interview/drafts')->assertOk()->assertJsonPath('data.0.kind', 'answer')
+        ->assertJsonPath('data.0.payload.question_prompt_en', 'Describe a project you built.')
+        ->assertJsonPath('data.0.payload.text_en', 'I built an app to help learners practise English.')
+        ->json('data.0');
+    test()->postJson('/api/interview/drafts/'.$draft['id'].'/confirm')->assertOk()
+        ->assertJsonPath('data.result.answers.short.en', 'I built an app to help learners practise English.')
+        ->assertJsonPath('data.result.answers.short.revisions.0.text_en', 'I built a study app.');
+});
