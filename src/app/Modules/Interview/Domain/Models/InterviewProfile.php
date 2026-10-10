@@ -15,4 +15,9 @@ class InterviewProfile extends Model
     {
         return $this->hasMany(InterviewMilestone::class, 'profile_id')->orderBy('target_date')->orderBy('id');
     }
+
+    public function observations(): HasMany
+    {
+        return $this->hasMany(InterviewCoachingObservation::class, 'profile_id')->orderBy('created_at')->orderBy('id');
+    }
 }

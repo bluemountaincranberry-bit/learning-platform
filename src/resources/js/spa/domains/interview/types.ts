@@ -9,6 +9,7 @@ export interface InterviewProfile {
     id?: number; careerGoal: string | null; skills: string[] | null; experienceLevel: string | null;
     projects: string[] | null; experienceStories: string[] | null;
     milestones: { id?: number; title: string; targetDate: string | null }[];
+    observations?: { id: number; patternType: 'strength' | 'improvement'; summary: string; examples: { session_id: number; question_id: number; question_prompt_en: string; evidence: string; source_message_id: number }[] }[];
 }
 export interface InterviewPracticeMessage { id: number; role: 'user' | 'assistant'; content: string; voiceAudioUrl: string | null; voiceAudioPinned: boolean; voiceAudioExpiresAt: string | null; }
 export interface InterviewPracticeSession {
@@ -21,4 +22,5 @@ export type InterviewDraft =
     | { id: number; kind: 'profile'; changes: { label: string; value: string }[] }
     | { id: number; kind: 'answer'; questionPromptEn: string; questionPromptRu: string | null; variant: 'short' | 'full'; textEn: string | null; textRu: string | null }
     | { id: number; kind: 'vocabulary'; lemma: string; language: 'en' }
-    | { id: number; kind: 'observation'; questionPromptEn: string; questionPromptRu: string | null; preparationState: 'needs_practice' | 'confident'; evidence: string; reason: string };
+    | { id: number; kind: 'observation'; questionPromptEn: string; questionPromptRu: string | null; preparationState: 'needs_practice' | 'confident'; evidence: string; reason: string }
+    | { id: number; kind: 'pattern_observation'; patternType: 'strength' | 'improvement'; summary: string; examples: { sessionId: number; questionId: number; questionPromptEn: string; evidence: string }[] };

@@ -6,6 +6,7 @@ use App\Contracts\Ai\InterviewConversationGateway;
 use App\Contracts\Ai\InterviewDraftWriter;
 use App\Modules\Interview\Domain\Models\InterviewAiDraft;
 use App\Modules\Interview\Domain\Models\InterviewAnswerRevision;
+use App\Modules\Interview\Domain\Models\InterviewCoachingObservation;
 use App\Modules\Interview\Domain\Models\InterviewPracticeSession;
 use App\Modules\Interview\Domain\Models\InterviewProfile;
 use App\Modules\Interview\Domain\Models\InterviewQuestion;
@@ -102,35 +103,56 @@ final class InterviewDraftService implements InterviewDraftWriter
             'evidence' => ['required', 'string', 'max:2000'],
             'reason' => ['required', 'string', 'max:1000'],
         ])->validate();
-        abort_unless(in_array((int) $data['question_id'], array_map('intval', $session->question_ids ?? []), true), 404);
+        $verifiedExample = $this->verifiedAnswerEvidence($session, $userId, (int) $data['question_id'], $data['evidence']);
+        abort_unless($verifiedExample !== null, 422, 'Evidence must quote a learner answer to this question.');
         $question = InterviewQuestion::query()->where('user_id', $userId)->findOrFail($data['question_id']);
-        $sessionQuestions = InterviewQuestion::query()->where('user_id', $userId)
-            ->whereIn('id', array_map('intval', $session->question_ids ?? []))->get(['id', 'prompt_en']);
-        $activeQuestionId = null;
-        $sourceMessage = null;
-        foreach ($this->conversations->history($conversationId, $userId) as $message) {
-            if ($message['role'] === 'assistant') {
-                $matchingQuestionIds = [];
-                foreach ($sessionQuestions as $sessionQuestion) {
-                    if (str_contains($message['content'], $sessionQuestion->prompt_en)) {
-                        $matchingQuestionIds[] = $sessionQuestion->id;
-                    }
-                }
-                $activeQuestionId = count($matchingQuestionIds) === 1 ? $matchingQuestionIds[0] : null;
-            } else {
-                if ($activeQuestionId === (int) $question->id && str_contains($message['content'], $data['evidence'])) {
-                    $sourceMessage = $message;
-                }
-                $activeQuestionId = null;
-            }
-        }
-        abort_unless($sourceMessage !== null, 422, 'Evidence must quote a learner answer to this question.');
         $data['question_prompt_en'] = $question->prompt_en;
         $data['question_prompt_ru'] = $question->prompt_ru;
         $data['source_conversation_id'] = $conversationId;
-        $data['source_message_id'] = $sourceMessage['id'];
+        $data['source_message_id'] = $verifiedExample['source_message_id'];
 
         return InterviewAiDraft::query()->create(['user_id' => $userId, 'kind' => 'observation', 'payload' => $data])->id;
+    }
+
+    /** @param array<string, mixed> $proposal */
+    public function patternObservationDraft(int $conversationId, int $userId, array $proposal): int
+    {
+        $origin = InterviewPracticeSession::query()->where('agent_conversation_id', $conversationId)
+            ->where('user_id', $userId)->firstOrFail();
+        abort_if($origin->status !== 'active', 409, 'Only an active practice session can propose a profile observation.');
+        $data = Validator::make($proposal, [
+            'pattern_type' => ['required', 'in:strength,improvement'],
+            'summary' => ['required', 'string', 'max:500'],
+            'examples' => ['required', 'array', 'min:2', 'max:6'],
+            'examples.*.session_id' => ['required', 'integer', 'distinct'],
+            'examples.*.question_id' => ['required', 'integer', 'distinct'],
+            'examples.*.evidence' => ['required', 'string', 'max:2000'],
+        ])->validate();
+
+        $sourceIds = array_map('intval', array_column($data['examples'], 'session_id'));
+        $sourceSessions = InterviewPracticeSession::query()->where('user_id', $userId)->whereIn('id', $sourceIds)->get()->keyBy('id');
+        abort_unless($sourceSessions->count() === count($sourceIds), 404, 'A source practice session was not found.');
+
+        $verifiedExamples = [];
+        foreach ($data['examples'] as $example) {
+            $sourceSession = $sourceSessions->get((int) $example['session_id']);
+            abort_unless($sourceSession !== null, 404, 'A source practice session was not found.');
+            abort_unless($sourceSession->id === $origin->id || $sourceSession->status === 'completed', 422, 'Prior examples must come from completed practice sessions.');
+            $verified = $this->verifiedAnswerEvidence($sourceSession, $userId, (int) $example['question_id'], $example['evidence']);
+            abort_unless($verified !== null, 422, 'Each example must quote the learner answer to its selected question.');
+            $verifiedExamples[] = [
+                'session_id' => $sourceSession->id,
+                'question_id' => (int) $example['question_id'],
+                ...$verified,
+            ];
+        }
+
+        $messageIds = array_map(fn (array $example): int => $example['source_message_id'], $verifiedExamples);
+        sort($messageIds);
+        $data['examples'] = $verifiedExamples;
+        $data['source_key'] = hash('sha256', $data['pattern_type'].'|'.implode(',', $messageIds));
+
+        return InterviewAiDraft::query()->create(['user_id' => $userId, 'kind' => 'pattern_observation', 'payload' => $data])->id;
     }
 
     public function confirm(int $draftId, int $userId): InterviewQuestion|InterviewProfile|array
@@ -176,6 +198,22 @@ final class InterviewDraftService implements InterviewDraftWriter
 
                 return $word;
             }
+            if ($draft->kind === 'pattern_observation') {
+                User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
+                $profile = InterviewProfile::query()->firstOrNew(['user_id' => $userId]);
+                $profile->save();
+                abort_if(InterviewCoachingObservation::query()->where('profile_id', $profile->id)
+                    ->where('source_key', $data['source_key'])->exists(), 409, 'This evidence has already been saved as an observation.');
+                $profile->observations()->create([
+                    'pattern_type' => $data['pattern_type'],
+                    'summary' => $data['summary'],
+                    'examples' => $data['examples'],
+                    'source_key' => $data['source_key'],
+                ]);
+                $draft->update(['status' => 'confirmed', 'result_profile_id' => $profile->id, 'decided_at' => now()]);
+
+                return $profile->fresh()->load(['milestones', 'observations']);
+            }
             if ($draft->kind === 'observation') {
                 $question = InterviewQuestion::query()->where('user_id', $userId)->lockForUpdate()->findOrFail($data['question_id']);
                 $question->update(['preparation_state' => $data['preparation_state']]);
@@ -217,5 +255,44 @@ final class InterviewDraftService implements InterviewDraftWriter
     private function ownedTopic(int $topicId, int $userId): InterviewTopic
     {
         return InterviewTopic::query()->where('user_id', $userId)->findOrFail($topicId);
+    }
+
+    /** @return array{evidence: string, source_message_id: int, question_prompt_en: string, question_prompt_ru: ?string}|null */
+    private function verifiedAnswerEvidence(InterviewPracticeSession $session, int $userId, int $questionId, string $evidence): ?array
+    {
+        $questionIds = array_map('intval', $session->question_ids ?? []);
+        if (! in_array($questionId, $questionIds, true)) {
+            return null;
+        }
+        $questions = InterviewQuestion::query()->where('user_id', $userId)->whereIn('id', $questionIds)->get(['id', 'prompt_en', 'prompt_ru']);
+        $question = $questions->firstWhere('id', $questionId);
+        if ($question === null) {
+            return null;
+        }
+
+        $activeQuestionId = null;
+        $source = null;
+        foreach ($this->conversations->history($session->agent_conversation_id, $userId) as $message) {
+            if ($message['role'] === 'assistant') {
+                $matchingIds = $questions->filter(fn (InterviewQuestion $candidate): bool => str_contains($message['content'], $candidate->prompt_en))
+                    ->pluck('id')->all();
+                $activeQuestionId = count($matchingIds) === 1 ? (int) $matchingIds[0] : null;
+            } else {
+                if ($activeQuestionId === $questionId && str_contains($message['content'], $evidence)) {
+                    $source = $message;
+                }
+                $activeQuestionId = null;
+            }
+        }
+        if ($source === null) {
+            return null;
+        }
+
+        return [
+            'evidence' => $evidence,
+            'source_message_id' => (int) $source['id'],
+            'question_prompt_en' => $question->prompt_en,
+            'question_prompt_ru' => $question->prompt_ru,
+        ];
     }
 }

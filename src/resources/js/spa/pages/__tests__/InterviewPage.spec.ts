@@ -45,6 +45,30 @@ describe('InterviewPage', () => {
         expect(wrapper.text()).toContain('Что такое API?');
     });
 
+    it('previews cross-session observation evidence and persists it only after confirmation', async () => {
+        const observation = { id: 17, patternType: 'strength' as const, summary: 'You connect your action to a measurable outcome.', examples: [
+            { session_id: 10, question_id: 2, question_prompt_en: 'What is an API?', evidence: 'I built a small API.', source_message_id: 101 },
+            { session_id: 11, question_id: 3, question_prompt_en: 'Describe a challenge.', evidence: 'I fixed the timeout bug.', source_message_id: 102 },
+        ] };
+        api.profile.mockResolvedValue({ careerGoal: 'Copilot Studio Developer', milestones: [], observations: [observation] });
+        api.drafts.mockResolvedValue([{ id: 44, kind: 'pattern_observation', patternType: 'strength', summary: observation.summary, examples: [
+            { sessionId: 10, questionId: 2, questionPromptEn: 'What is an API?', evidence: 'I built a small API.' },
+            { sessionId: 11, questionId: 3, questionPromptEn: 'Describe a challenge.', evidence: 'I fixed the timeout bug.' },
+        ] }]);
+        const wrapper = mount(InterviewPage);
+        await flushPromises();
+
+        expect(wrapper.text()).toContain('I built a small API.');
+        expect(wrapper.text()).toContain('I fixed the timeout bug.');
+        expect(wrapper.text()).not.toContain('Repeated coaching observations');
+        await wrapper.findAll('button').find((button) => button.text() === 'Save observation')!.trigger('click');
+        await flushPromises();
+
+        expect(api.decideDraft).toHaveBeenCalledWith(44, 'confirm');
+        expect(wrapper.text()).toContain('Repeated coaching observation saved to your profile.');
+        expect(wrapper.text()).toContain('You connect your action to a measurable outcome.');
+    });
+
     it('saves both language fields as one revisionable answer variant', async () => {
         const wrapper = mount(InterviewPage);
         await flushPromises();

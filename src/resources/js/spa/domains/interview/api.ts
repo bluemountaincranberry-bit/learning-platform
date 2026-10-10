@@ -5,10 +5,10 @@ import type { InterviewAnswer, InterviewDraft, InterviewPracticeSession, Intervi
 type WireTopic = { id: number; name: string; parent_id: number | null; sort_order: number };
 type WireAnswer = { id: number; en: string | null; ru: string | null; revisions: { id: number; text_en: string | null; text_ru: string | null; created_at: string }[] };
 type WireQuestion = { id: number; prompt_en: string; prompt_ru: string | null; preparation_state: InterviewQuestion['preparationState']; topic: WireTopic | null; tags: string[]; answers: Partial<Record<'short' | 'full', WireAnswer>> };
-type WireProfile = { id?: number; career_goal: string | null; skills: string[] | null; experience_level: string | null; projects: string[] | null; experience_stories: string[] | null; milestones: { id?: number; title: string; target_date: string | null }[] };
+type WireProfile = { id?: number; career_goal: string | null; skills: string[] | null; experience_level: string | null; projects: string[] | null; experience_stories: string[] | null; milestones: { id?: number; title: string; target_date: string | null }[]; observations: { id: number; pattern_type: 'strength' | 'improvement'; summary: string; examples: { session_id: number; question_id: number; question_prompt_en: string; evidence: string; source_message_id: number }[] }[] };
 type WireSession = { id: number; conversation_id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; question_count: number; focus: string | null; questions: WireQuestion[]; messages: { id: number; role: 'user' | 'assistant'; content: string; voice_audio_url: string | null; voice_audio_pinned: boolean; voice_audio_expires_at: string | null }[] };
 type WireSessionSummary = { id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; updated_at: string };
-type WireDraft = { id: number; kind: 'question' | 'profile' | 'answer' | 'vocabulary' | 'observation'; payload: Record<string, unknown>; status: 'pending' };
+type WireDraft = { id: number; kind: 'question' | 'profile' | 'answer' | 'vocabulary' | 'observation' | 'pattern_observation'; payload: Record<string, unknown>; status: 'pending' };
 
 const mapTopic = (topic: WireTopic): InterviewTopic => ({ id: topic.id, name: topic.name, parentId: topic.parent_id, sortOrder: topic.sort_order });
 const mapAnswer = (answer: WireAnswer): InterviewAnswer => ({ id: answer.id, en: answer.en, ru: answer.ru, revisions: answer.revisions.map(({ id, text_en, text_ru, created_at }) => ({ id, textEn: text_en, textRu: text_ru, createdAt: created_at })) });
@@ -21,6 +21,7 @@ const mapProfile = (profile: WireProfile): InterviewProfile => ({
     id: profile.id, careerGoal: profile.career_goal, skills: profile.skills, experienceLevel: profile.experience_level,
     projects: profile.projects, experienceStories: profile.experience_stories,
     milestones: profile.milestones.map(({ id, title, target_date }) => ({ id, title, targetDate: target_date })),
+    observations: (profile.observations ?? []).map(({ id, pattern_type, summary, examples }) => ({ id, patternType: pattern_type, summary, examples })),
 });
 const profilePayload = (profile: InterviewProfile) => ({
     career_goal: profile.careerGoal, skills: profile.skills, experience_level: profile.experienceLevel,
@@ -53,6 +54,10 @@ export const interviewApi = {
             if (draft.kind === 'answer') return { id: draft.id, kind: 'answer', questionPromptEn: typeof draft.payload.question_prompt_en === 'string' ? draft.payload.question_prompt_en : '', questionPromptRu: typeof draft.payload.question_prompt_ru === 'string' ? draft.payload.question_prompt_ru : null, variant: draft.payload.variant === 'full' ? 'full' : 'short', textEn: typeof draft.payload.text_en === 'string' ? draft.payload.text_en : null, textRu: typeof draft.payload.text_ru === 'string' ? draft.payload.text_ru : null };
             if (draft.kind === 'vocabulary') return { id: draft.id, kind: 'vocabulary', lemma: typeof draft.payload.lemma === 'string' ? draft.payload.lemma : '', language: 'en' };
             if (draft.kind === 'observation') return { id: draft.id, kind: 'observation', questionPromptEn: typeof draft.payload.question_prompt_en === 'string' ? draft.payload.question_prompt_en : '', questionPromptRu: typeof draft.payload.question_prompt_ru === 'string' ? draft.payload.question_prompt_ru : null, preparationState: draft.payload.preparation_state === 'confident' ? 'confident' : 'needs_practice', evidence: typeof draft.payload.evidence === 'string' ? draft.payload.evidence : '', reason: typeof draft.payload.reason === 'string' ? draft.payload.reason : '' };
+            if (draft.kind === 'pattern_observation') {
+                const examples = Array.isArray(draft.payload.examples) ? draft.payload.examples.flatMap((item) => isRecord(item) && typeof item.session_id === 'number' && typeof item.question_id === 'number' && typeof item.question_prompt_en === 'string' && typeof item.evidence === 'string' ? [{ sessionId: item.session_id, questionId: item.question_id, questionPromptEn: item.question_prompt_en, evidence: item.evidence }] : []) : [];
+                return { id: draft.id, kind: 'pattern_observation', patternType: draft.payload.pattern_type === 'improvement' ? 'improvement' : 'strength', summary: typeof draft.payload.summary === 'string' ? draft.payload.summary : '', examples };
+            }
             return { id: draft.id, kind: 'profile', changes: Object.entries(draft.payload).flatMap(([key, value]) => formatDraftValues(key, value).map((entry) => ({ label: draftLabels[key] ?? key, value: entry }))) };
         });
     },

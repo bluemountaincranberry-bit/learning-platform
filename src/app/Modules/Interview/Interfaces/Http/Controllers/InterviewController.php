@@ -46,7 +46,7 @@ class InterviewController extends Controller
         $confirmed = $this->drafts->confirm($draft, $request->user()->id);
         $result = $confirmed instanceof InterviewQuestion
             ? $this->questionPayload($confirmed->fresh(['topic', 'tags', 'answers']))
-            : ($confirmed instanceof InterviewProfile ? $confirmed->load('milestones') : $confirmed);
+            : ($confirmed instanceof InterviewProfile ? $confirmed->load(['milestones', 'observations']) : $confirmed);
 
         return response()->json(['data' => ['status' => 'confirmed', 'result' => $result]]);
     }
@@ -253,7 +253,8 @@ class InterviewController extends Controller
 
     public function profile(Request $request): JsonResponse
     {
-        $profile = InterviewProfile::query()->with('milestones')->firstOrCreate(['user_id' => $request->user()->id]);
+        $profile = InterviewProfile::query()->with(['milestones', 'observations'])->firstOrCreate(['user_id' => $request->user()->id]);
+        $profile->loadMissing(['milestones', 'observations']);
 
         return response()->json(['data' => $profile]);
     }
@@ -276,7 +277,7 @@ class InterviewController extends Controller
             return $profile;
         });
 
-        return response()->json(['data' => $profile->load('milestones')]);
+        return response()->json(['data' => $profile->load(['milestones', 'observations'])]);
     }
 
     private function syncTags(InterviewQuestion $question, array $tags): void
@@ -347,7 +348,7 @@ class InterviewController extends Controller
 
     private function sessionPayload(InterviewPracticeSession $session): array
     {
-        $profile = InterviewProfile::query()->where('user_id', $session->user_id)->with('milestones')->first();
+        $profile = InterviewProfile::query()->where('user_id', $session->user_id)->with(['milestones', 'observations'])->first();
         $questions = $this->practice->questionsForSession($session)
             ->map(fn (InterviewQuestion $question) => $this->questionPayload($question))->values();
         $messages = $this->practice->history($session);

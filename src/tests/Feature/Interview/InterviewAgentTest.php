@@ -280,3 +280,67 @@ test('Interview Agent proposes evidence-backed question state changes for review
         ->assertJsonPath('data.result.preparation_state', 'needs_practice');
     test()->getJson('/api/interview/questions/'.$question['id'])->assertOk()->assertJsonPath('data.preparation_state', 'needs_practice');
 });
+
+test('repeated profile observations require two distinct owner-scoped question and session examples', function () {
+    $learner = User::factory()->create();
+    $firstQuestion = test()->actingAs($learner)->postJson('/api/interview/questions', [
+        'prompt_en' => 'Tell me about a project you built.',
+    ])->assertCreated()->json('data');
+    $secondQuestion = test()->postJson('/api/interview/questions', [
+        'prompt_en' => 'Describe a technical challenge.',
+    ])->assertCreated()->json('data');
+    $firstSession = test()->postJson('/api/interview/sessions', ['mode' => 'coached', 'question_ids' => [$firstQuestion['id']]])->assertCreated()->json('data');
+    $secondSession = test()->postJson('/api/interview/sessions', ['mode' => 'coached', 'question_ids' => [$secondQuestion['id']]])->assertCreated()->json('data');
+    $firstConversation = AgentConversation::query()->findOrFail($firstSession['conversation_id']);
+    $firstConversation->messages()->create(['role' => 'assistant', 'content' => $firstQuestion['prompt_en']]);
+    $firstAnswer = $firstConversation->messages()->create(['role' => 'user', 'content' => 'I built a small API for my study project.']);
+    $firstConversation->update(['status' => 'completed']);
+    \App\Modules\Interview\Domain\Models\InterviewPracticeSession::query()->whereKey($firstSession['id'])->update(['status' => 'completed']);
+    $secondConversation = AgentConversation::query()->findOrFail($secondSession['conversation_id']);
+    $secondConversation->messages()->create(['role' => 'assistant', 'content' => $secondQuestion['prompt_en']]);
+    $secondAnswer = $secondConversation->messages()->create(['role' => 'user', 'content' => 'I isolated the bug with a focused test and fixed it.']);
+    $proposal = [
+        'pattern_type' => 'strength',
+        'summary' => 'You describe a concrete action and connect it to an outcome.',
+        'examples' => [
+            ['session_id' => $firstSession['id'], 'question_id' => $firstQuestion['id'], 'evidence' => 'I built a small API for my study project.'],
+            ['session_id' => $secondSession['id'], 'question_id' => $secondQuestion['id'], 'evidence' => 'I isolated the bug with a focused test and fixed it.'],
+        ],
+    ];
+
+    expect(fn () => app(\App\Modules\Interview\Application\InterviewDraftService::class)
+        ->patternObservationDraft($secondSession['conversation_id'], $learner->id, [...$proposal, 'examples' => [$proposal['examples'][0]]]))
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
+    expect(fn () => app(\App\Modules\Interview\Application\InterviewDraftService::class)
+        ->patternObservationDraft($secondSession['conversation_id'], $learner->id, [...$proposal, 'examples' => [
+            $proposal['examples'][0],
+            ['session_id' => $secondSession['id'], 'question_id' => $secondQuestion['id'], 'evidence' => 'I led a team of engineers.'],
+        ]]))
+        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+
+    $draft = test()->getJson('/api/interview/drafts')->assertOk()->assertJsonCount(0, 'data');
+    $draftId = app(\App\Modules\Interview\Application\InterviewDraftService::class)
+        ->patternObservationDraft($secondSession['conversation_id'], $learner->id, $proposal);
+    test()->getJson('/api/interview/drafts')->assertOk()->assertJsonPath('data.0.id', $draftId)
+        ->assertJsonPath('data.0.kind', 'pattern_observation')
+        ->assertJsonPath('data.0.payload.examples.0.source_message_id', $firstAnswer->id)
+        ->assertJsonPath('data.0.payload.examples.1.source_message_id', $secondAnswer->id);
+    test()->getJson('/api/interview/profile')->assertOk()->assertJsonPath('data.observations', []);
+
+    test()->postJson('/api/interview/drafts/'.$draftId.'/confirm')->assertOk()
+        ->assertJsonPath('data.result.observations.0.pattern_type', 'strength')
+        ->assertJsonPath('data.result.observations.0.summary', $proposal['summary'])
+        ->assertJsonPath('data.result.observations.0.examples.0.source_message_id', $firstAnswer->id);
+    test()->postJson('/api/interview/drafts/'.$draftId.'/confirm')->assertStatus(409);
+    expect(\App\Modules\Interview\Domain\Models\InterviewCoachingObservation::query()->count())->toBe(1);
+    $context = app(\App\Modules\Interview\Application\Contracts\InterviewSessionContextReader::class)
+        ->forConversation($secondSession['conversation_id'], $learner->id);
+    expect($context['confirmed_observations'][0]['summary'])->toBe($proposal['summary'])
+        ->and(collect($context['recent_completed_practice_evidence'])->firstWhere('source_message_id', $firstAnswer->id)['evidence'])
+        ->toBe($proposal['examples'][0]['evidence']);
+
+    $rejectedId = app(\App\Modules\Interview\Application\InterviewDraftService::class)
+        ->patternObservationDraft($secondSession['conversation_id'], $learner->id, [...$proposal, 'pattern_type' => 'improvement']);
+    test()->postJson('/api/interview/drafts/'.$rejectedId.'/reject')->assertOk();
+    expect(\App\Modules\Interview\Domain\Models\InterviewCoachingObservation::query()->count())->toBe(1);
+});
