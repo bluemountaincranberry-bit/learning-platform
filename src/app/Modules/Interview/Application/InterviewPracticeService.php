@@ -58,11 +58,12 @@ final class InterviewPracticeService
         return $session->fresh();
     }
 
-    public function sendMessage(InterviewPracticeSession $session, int $userId, string $content): int|false
+    /** @param array<string, mixed>|null $voice */
+    public function sendMessage(InterviewPracticeSession $session, int $userId, string $content, ?array $voice = null): int|false
     {
         abort_if($session->status !== 'active', 409, 'This practice session is complete.');
 
-        return $this->conversations->enqueueMessage($session->agent_conversation_id, $userId, $content);
+        return $this->conversations->enqueueMessage($session->agent_conversation_id, $userId, $content, $voice);
     }
 
     /** @return array<int, array{id: int, role: string, content: string}> */

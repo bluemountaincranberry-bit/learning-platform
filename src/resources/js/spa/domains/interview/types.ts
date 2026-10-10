@@ -10,7 +10,7 @@ export interface InterviewProfile {
     projects: string[] | null; experienceStories: string[] | null;
     milestones: { id?: number; title: string; targetDate: string | null }[];
 }
-export interface InterviewPracticeMessage { id: number; role: 'user' | 'assistant'; content: string; }
+export interface InterviewPracticeMessage { id: number; role: 'user' | 'assistant'; content: string; voiceAudioUrl: string | null; voiceAudioPinned: boolean; voiceAudioExpiresAt: string | null; }
 export interface InterviewPracticeSession {
     id: number; conversationId: number; mode: 'coached' | 'mock'; status: 'active' | 'completed';
     questionCount: number; focus: string | null; questions: InterviewQuestion[]; messages: InterviewPracticeMessage[];

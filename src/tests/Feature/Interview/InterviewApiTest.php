@@ -4,8 +4,10 @@ use App\Modules\Ai\Domain\Models\AgentConversation;
 use App\Modules\Interview\Domain\Models\InterviewQuestion;
 use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -65,7 +67,7 @@ test('interview questions and topics are private and foreign resources return no
 });
 
 test('profile supports a goal and optional milestones', function () {
-    interviewLearner();
+    $learner = interviewLearner();
 
     test()->putJson('/api/interview/profile', [
         'career_goal' => 'Junior Copilot Studio Developer',
@@ -154,6 +156,35 @@ test('mock practice selects the requested count from the chosen topic subtree', 
         ->assertJsonPath('data.questions.0.id', $first['id'])
         ->assertJsonPath('data.questions.1.id', $second['id'])
         ->assertJsonCount(2, 'data.questions');
+});
+
+test('voice answers persist an editable transcript and use the shared recording retention policy', function () {
+    $learner = interviewLearner();
+    Storage::fake('local');
+    Queue::fake();
+    config(['ai.agent.enabled' => true]);
+    $session = test()->postJson('/api/interview/sessions', ['mode' => 'coached', 'question_count' => 1])->assertCreated()->json('data');
+
+    test()->post('/api/interview/sessions/'.$session['id'].'/messages', [
+        'content' => 'Edited transcript: I built an API for my project.',
+        'voice_audio' => UploadedFile::fake()->createWithContent('answer.wav', 'RIFF'.pack('V', 36).'WAVEfmt '.pack('VvvVVvv', 16, 1, 1, 8000, 8000, 1, 8).'data'.pack('V', 0)),
+        'voice_audio_keep_forever' => '0',
+        'transcription_provider' => 'local_whisper',
+        'transcription_language' => 'en',
+    ])->assertAccepted();
+
+    $message = AgentConversation::query()->findOrFail($session['conversation_id'])->messages()->where('role', 'user')->firstOrFail();
+    expect($message->content)->toBe('Edited transcript: I built an API for my project.')
+        ->and($message->voice_audio_path)->not->toBeNull()
+        ->and($message->voice_audio_pinned)->toBeFalse()
+        ->and(now()->diffInDays($message->voice_audio_expires_at))->toBeGreaterThanOrEqual(29)
+        ->and($message->transcription_provider)->toBe('local_whisper')
+        ->and($message->transcription_language)->toBe('en');
+    Storage::disk('local')->assertExists($message->voice_audio_path);
+    test()->getJson('/api/interview/sessions/'.$session['id'])->assertOk()
+        ->assertJsonPath('data.messages.0.voice_audio_url', '/api/ai/voice-recordings/'.$message->id.'/audio');
+    test()->actingAs($learner)->postJson('/api/ai/voice-recordings/'.$message->id.'/pin', ['pinned' => true])
+        ->assertOk()->assertJsonPath('pinned', true)->assertJsonPath('expires_at', null);
 });
 
 test('starter seeding is repeatable and preserves learner edits', function () {

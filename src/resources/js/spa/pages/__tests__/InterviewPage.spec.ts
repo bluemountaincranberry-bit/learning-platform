@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
+import { defineComponent, h } from 'vue';
 import InterviewPage from '../InterviewPage.vue';
 
-const api = vi.hoisted(() => ({ topics: vi.fn(), tags: vi.fn(), questions: vi.fn(), profile: vi.fn(), updateQuestion: vi.fn(), saveProfile: vi.fn(), restoreRevision: vi.fn(), startSession: vi.fn(), sessions: vi.fn(), getSession: vi.fn(), drafts: vi.fn(), decideDraft: vi.fn() }));
+const api = vi.hoisted(() => ({ topics: vi.fn(), tags: vi.fn(), questions: vi.fn(), profile: vi.fn(), updateQuestion: vi.fn(), saveProfile: vi.fn(), restoreRevision: vi.fn(), startSession: vi.fn(), sendSessionMessage: vi.fn(), pinVoiceRecording: vi.fn(), sessions: vi.fn(), getSession: vi.fn(), drafts: vi.fn(), decideDraft: vi.fn() }));
+const speech = vi.hoisted(() => ({ providers: vi.fn().mockResolvedValue({ providers: [] }), transcribe: vi.fn(), pin: vi.fn(), flow: vi.fn().mockResolvedValue({ preferences: {} }) }));
 vi.mock('../../domains/interview/api', () => ({ interviewApi: api }));
+vi.mock('../../domains/learning', () => ({ speechApi: speech, learningFlowApi: { get: speech.flow } }));
 
 const question = {
     id: 2, promptEn: 'What is an API?', promptRu: 'Что такое API?', preparationState: 'unpracticed',
@@ -17,6 +20,8 @@ const question = {
 describe('InterviewPage', () => {
     beforeEach(() => {
         vi.resetAllMocks();
+        speech.providers.mockResolvedValue({ providers: [] });
+        speech.flow.mockResolvedValue({ preferences: {} });
         api.topics.mockResolvedValue([{ id: 1, name: 'HTTP', parentId: null, sortOrder: 0 }]);
         api.tags.mockResolvedValue(['REST']);
         api.questions.mockResolvedValue({ items: [structuredClone(question)], hasMore: false });
@@ -64,6 +69,34 @@ describe('InterviewPage', () => {
         expect(api.startSession).toHaveBeenCalledWith('coached', [2], 1, null, null);
         expect(wrapper.text()).toContain('Coached practice');
         expect(wrapper.find('#interview-practice-message').exists()).toBe(true);
+    });
+
+    it('lets a learner edit the transcribed answer before attaching the recording', async () => {
+        const session = { id: 9, conversationId: 11, mode: 'coached', status: 'active', questionCount: 1, focus: null, questions: [structuredClone(question)], messages: [] };
+        api.startSession.mockResolvedValue(session);
+        api.sendSessionMessage.mockResolvedValue(undefined);
+        api.getSession.mockResolvedValue({ ...session, messages: [{ id: 21, role: 'assistant', content: 'Tell me more.', voiceAudioUrl: null, voiceAudioPinned: false, voiceAudioExpiresAt: null }] });
+        const voiceStub = defineComponent({
+            emits: ['ready', 'cleared', 'retention'],
+            setup(_, { emit }) { return () => h('div', [
+                h('button', { type: 'button', onClick: () => emit('ready', 'Raw transcript', new Blob(['audio']), 'local_whisper', 'en', false) }, 'Use voice transcript'),
+                h('button', { type: 'button', onClick: () => emit('retention', true) }, 'Keep voice forever'),
+            ]); },
+        });
+        const wrapper = mount(InterviewPage, { global: { stubs: { VoiceDictationControl: voiceStub } } });
+        await flushPromises();
+        await wrapper.findAll('button').find((button) => button.text().includes('Start coached practice'))!.trigger('click');
+        await flushPromises();
+        await wrapper.findAll('button').find((button) => button.text() === 'Use voice transcript')!.trigger('click');
+        await wrapper.findAll('button').find((button) => button.text() === 'Keep voice forever')!.trigger('click');
+        await flushPromises();
+        const answer = wrapper.find('#interview-practice-message');
+        await answer.setValue('Edited transcript before sending.');
+        await wrapper.find('form').trigger('submit');
+        await flushPromises();
+
+        expect(api.sendSessionMessage).toHaveBeenCalledWith(9, 'Edited transcript before sending.', expect.objectContaining({ provider: 'local_whisper', language: 'en', keepForever: true }));
+        expect(api.sendSessionMessage.mock.calls[0][2].audio).toBeInstanceOf(Blob);
     });
 
     it('reopens a saved session from recent practice history', async () => {

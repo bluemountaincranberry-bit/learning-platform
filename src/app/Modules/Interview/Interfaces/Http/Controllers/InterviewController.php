@@ -22,6 +22,7 @@ use App\Modules\Interview\Interfaces\Http\Requests\InterviewTopicRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class InterviewController extends Controller
 {
@@ -89,7 +90,22 @@ class InterviewController extends Controller
     {
         $record = $this->practice->ownedSession($session, $request->user()->id);
         abort_unless(config('ai.agent.enabled', false), 503, 'AI practice is currently unavailable. Your interview bank is still available.');
-        $messageId = $this->practice->sendMessage($record, $request->user()->id, $request->validated('content'));
+        $voice = null;
+        if ($audio = $request->file('voice_audio')) {
+            $keepForever = $request->boolean('voice_audio_keep_forever');
+            $voice = [
+                'voice_audio_disk' => 'local',
+                'voice_audio_path' => $audio->store('agent-voice', 'local'),
+                'voice_audio_pinned' => $keepForever,
+                'voice_audio_expires_at' => $keepForever ? null : now()->addDays(30),
+                'transcription_provider' => $request->validated('transcription_provider'),
+                'transcription_language' => $request->validated('transcription_language'),
+            ];
+        }
+        $messageId = $this->practice->sendMessage($record, $request->user()->id, $request->validated('content'), $voice);
+        if ($messageId === false && isset($voice['voice_audio_path'])) {
+            Storage::disk('local')->delete($voice['voice_audio_path']);
+        }
         abort_if($messageId === false, 429, 'Daily Interview Agent limit reached. Try again tomorrow.');
 
         return response()->json(['data' => ['id' => $messageId, 'status' => 'queued']], 202);

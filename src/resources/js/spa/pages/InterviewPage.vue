@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import VoiceDictationControl from '../shared/ui/VoiceDictationControl.vue';
+import type { SpeechLanguage, SpeechProvider } from '../domains/learning/api/speechApi';
 import { interviewApi } from '../domains/interview/api';
 import type { InterviewDraft, InterviewPracticeSession, InterviewProfile, InterviewQuestion, InterviewTopic } from '../domains/interview/types';
 
@@ -38,6 +40,7 @@ const newTopicName = ref('');
 const newTopicParent = ref('');
 const practiceSession = ref<InterviewPracticeSession | null>(null);
 const practiceMessage = ref('');
+const practiceVoice = ref<{ audio: Blob; provider: SpeechProvider; language: SpeechLanguage; keepForever: boolean } | null>(null);
 const sendingPractice = ref(false);
 const startingPractice = ref(false);
 const recentSessions = ref<{ id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; updatedAt: string }[]>([]);
@@ -236,7 +239,8 @@ async function sendPracticeMessage() {
     practiceMessage.value = '';
     error.value = '';
     try {
-        await interviewApi.sendSessionMessage(sessionId, content);
+        await interviewApi.sendSessionMessage(sessionId, content, practiceVoice.value ?? undefined);
+        practiceVoice.value = null;
         for (let attempt = 0; attempt < 15; attempt += 1) {
             await new Promise((resolve) => setTimeout(resolve, 1000));
             const updated = await interviewApi.getSession(sessionId);
@@ -282,6 +286,12 @@ async function finishPractice() {
 async function reopenPractice(sessionId: number) {
     try { practiceSession.value = await interviewApi.getSession(sessionId); }
     catch { error.value = 'This practice history could not be opened.'; }
+}
+
+async function pinInterviewVoice(messageId: number, pinned: boolean) {
+    const result = await interviewApi.pinVoiceRecording(messageId, pinned);
+    const message = practiceSession.value?.messages.find((item) => item.id === messageId);
+    if (message) { message.voiceAudioPinned = result.pinned; message.voiceAudioExpiresAt = result.expires_at; }
 }
 </script>
 
@@ -332,11 +342,19 @@ async function reopenPractice(sessionId: number) {
                 </div>
                 <p v-for="question in practiceSession.questions" :key="question.id" class="mt-3 rounded-spa bg-surface-alt p-3 text-sm text-fg">{{ question.promptEn }}</p>
                 <ol class="mt-3 max-h-72 space-y-2 overflow-y-auto" aria-label="Practice conversation">
-                    <li v-for="message in practiceSession.messages" :key="message.id" class="max-w-full rounded-spa p-3 text-sm" :class="message.role === 'user' ? 'ml-6 bg-primary/10 text-fg' : 'mr-6 bg-surface-alt text-fg'">{{ message.content }}</li>
+                    <li v-for="message in practiceSession.messages" :key="message.id" class="max-w-full rounded-spa p-3 text-sm" :class="message.role === 'user' ? 'ml-6 bg-primary/10 text-fg' : 'mr-6 bg-surface-alt text-fg'">
+                        <p class="whitespace-pre-wrap">{{ message.content }}</p>
+                        <div v-if="message.voiceAudioUrl" class="mt-2 flex flex-wrap items-center gap-2 border-t border-border/60 pt-2">
+                            <audio :src="message.voiceAudioUrl" controls class="h-9 max-w-full" aria-label="Interview answer recording" />
+                            <button class="min-h-9 rounded-spa border border-border px-2 text-xs" @click="pinInterviewVoice(message.id, !message.voiceAudioPinned).catch(() => error = 'Recording retention could not be updated.')">{{ message.voiceAudioPinned ? 'Saved forever' : 'Keep forever' }}</button>
+                            <span v-if="!message.voiceAudioPinned && message.voiceAudioExpiresAt" class="text-xs text-muted-foreground">Expires {{ new Date(message.voiceAudioExpiresAt).toLocaleDateString() }}</span>
+                        </div>
+                    </li>
                 </ol>
                 <form v-if="practiceSession.status === 'active'" class="mt-3 space-y-2" @submit.prevent="sendPracticeMessage">
                     <label class="sr-only" for="interview-practice-message">Your interview answer</label>
                     <textarea id="interview-practice-message" v-model="practiceMessage" rows="3" maxlength="10000" class="w-full rounded-spa border border-border bg-surface-alt p-3 text-sm text-fg" placeholder="Write your answer or ask for a hint" :disabled="sendingPractice" />
+                    <VoiceDictationControl @ready="(text, audio, provider, language, keepForever) => { practiceMessage = text; practiceVoice = { audio, provider, language, keepForever }; }" @retention="(keepForever) => { if (practiceVoice) practiceVoice.keepForever = keepForever; }" @cleared="practiceVoice = null" />
                     <div class="flex flex-wrap items-center justify-between gap-2"><span class="text-xs text-muted-foreground" role="status">{{ sendingPractice ? 'Waiting for the Interview Agent…' : '' }}</span><button class="min-h-11 rounded-spa bg-primary px-4 text-sm font-semibold text-white disabled:opacity-50" :disabled="sendingPractice || !practiceMessage.trim()">Send answer</button></div>
                 </form>
             </template>

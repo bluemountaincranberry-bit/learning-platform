@@ -21,14 +21,18 @@ final class InterviewConversationService implements InterviewConversationGateway
         ])->id;
     }
 
-    public function enqueueMessage(int $conversationId, int $userId, string $content): int|false
+    public function enqueueMessage(int $conversationId, int $userId, string $content, ?array $voice = null): int|false
     {
         $conversation = AgentConversation::query()->where('created_by', $userId)
             ->where('agent_type', InterviewAgentService::AGENT_TYPE)->findOrFail($conversationId);
         if (! $this->consumeRateLimit($userId)) {
             return false;
         }
-        $message = $conversation->messages()->create(['role' => AgentMessage::ROLE_USER, 'content' => trim($content)]);
+        $message = $conversation->messages()->create([
+            'role' => AgentMessage::ROLE_USER,
+            'content' => trim($content),
+            ...($voice ?? []),
+        ]);
         RunAgentTurnJob::dispatch($conversation->id);
 
         return $message->id;
@@ -55,8 +59,11 @@ final class InterviewConversationService implements InterviewConversationGateway
         return AgentConversation::query()->where('created_by', $userId)
             ->where('agent_type', InterviewAgentService::AGENT_TYPE)->findOrFail($conversationId)
             ->messages()->whereIn('role', [AgentMessage::ROLE_USER, AgentMessage::ROLE_ASSISTANT])->orderBy('id')
-            ->get(['id', 'role', 'content'])->map(fn (AgentMessage $message) => [
+            ->get(['id', 'role', 'content', 'voice_audio_path', 'voice_audio_pinned', 'voice_audio_expires_at'])->map(fn (AgentMessage $message) => [
                 'id' => $message->id, 'role' => $message->role, 'content' => (string) $message->content,
+                'voice_audio_url' => $message->voice_audio_path !== null ? "/api/ai/voice-recordings/{$message->id}/audio" : null,
+                'voice_audio_pinned' => (bool) $message->voice_audio_pinned,
+                'voice_audio_expires_at' => $message->voice_audio_expires_at?->toISOString(),
             ])->all();
     }
 }

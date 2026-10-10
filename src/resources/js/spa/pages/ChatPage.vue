@@ -155,6 +155,11 @@ function onVoiceReady(text: string, audio: Blob, provider: SpeechProvider, langu
     keepVoiceForever.value = keepForever;
 }
 
+function onVoiceRetentionChanged(keepForever: boolean) {
+    keepVoiceForever.value = keepForever;
+    if (failedTurn.value?.audio) failedTurn.value = { ...failedTurn.value, keepForever };
+}
+
 async function ensureConversation(): Promise<number> {
     if (conversationId.value != null) return conversationId.value;
     try {
@@ -413,7 +418,7 @@ function toggleFullScreen(): void {
                                 Clear all
                             </UiButton>
                             <div class="flex items-center gap-2">
-                            <VoiceDictationControl ref="voiceControl" settings-target="#tutor-chat-settings" @ready="onVoiceReady" @cleared="voiceAudio = null" />
+                            <VoiceDictationControl ref="voiceControl" settings-target="#tutor-chat-settings" @ready="onVoiceReady" @retention="onVoiceRetentionChanged" @cleared="voiceAudio = null" />
                             <UiButton variant="primary" size="touch" :disabled="!canSend" type="submit">Send</UiButton>
                             </div>
                         </div>
