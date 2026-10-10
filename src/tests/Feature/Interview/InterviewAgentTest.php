@@ -1,6 +1,7 @@
 <?php
 
 use App\Contracts\Ai\AiToolCallingClient;
+use App\Contracts\Ai\InterviewDraftWriter;
 use App\Modules\Ai\Application\Agent\Data\AgentChatResponse;
 use App\Modules\Ai\Application\Agent\Data\AgentToolCall;
 use App\Modules\Ai\Application\Agent\InterviewAgentService;
@@ -13,6 +14,7 @@ use App\Modules\Interview\Domain\Models\InterviewPracticeSession;
 use App\Modules\Learning\Domain\Models\UserLexemeProgress;
 use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(RefreshDatabase::class);
 
@@ -228,4 +230,53 @@ test('Interview Agent gives dimension-specific Russian feedback grounded in the 
 
     test()->getJson('/api/interview/sessions/'.$session['id'])->assertOk()
         ->assertJsonPath('data.messages.1.content', "**Содержание:** Вы назвали API и тесты для таймаутов; расскажите, какую задачу решал API.\n\n**English improvement:** ‘I built a small API and added tests for timeout handling.’");
+});
+
+test('Interview Agent proposes evidence-backed question state changes for review before applying them', function () {
+    $learner = User::factory()->create();
+    $firstQuestion = test()->actingAs($learner)->postJson('/api/interview/questions', [
+        'prompt_en' => 'Describe a project you built.', 'prompt_ru' => 'Опишите проект, который вы создали.',
+    ])->assertCreated()->json('data');
+    $question = test()->actingAs($learner)->postJson('/api/interview/questions', [
+        'prompt_en' => 'How did you handle an API timeout?', 'prompt_ru' => 'Как вы обрабатывали таймаут API?',
+    ])->assertCreated()->json('data');
+    $session = test()->postJson('/api/interview/sessions', ['mode' => 'mock', 'question_ids' => [$firstQuestion['id'], $question['id']]])->assertCreated()->json('data');
+    $conversation = AgentConversation::query()->findOrFail($session['conversation_id']);
+    $conversation->messages()->create(['role' => 'assistant', 'content' => 'Describe a project you built.']);
+    $firstAnswer = $conversation->messages()->create(['role' => 'user', 'content' => 'I built a portfolio project called Falcon.']);
+    $conversation->messages()->create(['role' => 'assistant', 'content' => 'How did you handle an API timeout?']);
+    $answer = $conversation->messages()->create(['role' => 'user', 'content' => 'I added timeout tests to the API client.']);
+    expect(fn () => app(InterviewDraftWriter::class)->observationDraft($conversation->id, $learner->id, [
+        'question_id' => $question['id'], 'preparation_state' => 'needs_practice',
+        'evidence' => 'I built a portfolio project called Falcon.', 'reason' => 'This belongs to another question.',
+    ]))->toThrow(HttpException::class);
+    expect(fn () => app(InterviewDraftWriter::class)->observationDraft($conversation->id, $learner->id, [
+        'question_id' => $question['id'], 'preparation_state' => 'needs_practice',
+        'evidence' => 'I owned the whole timeout system.', 'reason' => 'Unsupported statement.',
+    ]))->toThrow(HttpException::class);
+
+    $toolClient = Mockery::mock(AiToolCallingClient::class);
+    $toolClient->shouldReceive('chat')->times(3)->andReturn(
+        new AgentChatResponse(null, [new AgentToolCall('context_1', 'get_interview_practice_context', [])]),
+        new AgentChatResponse(null, [new AgentToolCall('observation_1', 'propose_interview_question_state', [
+            'question_id' => $question['id'], 'preparation_state' => 'needs_practice',
+            'evidence' => 'I added timeout tests to the API client.',
+            'reason' => 'You described the test change, but not how you handled the timeout itself.',
+        ])]),
+        new AgentChatResponse('I recommend another practice round. Review the evidence and reason before confirming.'),
+    );
+    app()->instance(AiToolCallingClient::class, $toolClient);
+
+    (new RunAgentTurnJob($conversation->id))->handle();
+
+    test()->getJson('/api/interview/questions/'.$question['id'])->assertOk()->assertJsonPath('data.preparation_state', 'unpracticed');
+    $draft = test()->getJson('/api/interview/drafts')->assertOk()->assertJsonPath('data.0.kind', 'observation')
+        ->assertJsonPath('data.0.payload.evidence', 'I added timeout tests to the API client.')
+        ->assertJsonPath('data.0.payload.reason', 'You described the test change, but not how you handled the timeout itself.')
+        ->assertJsonPath('data.0.payload.source_conversation_id', $session['conversation_id'])
+        ->assertJsonPath('data.0.payload.source_message_id', $answer->id)
+        ->json('data.0');
+    test()->postJson('/api/interview/drafts/'.$draft['id'].'/confirm')->assertOk()
+        ->assertJsonPath('data.result.preparation_state', 'needs_practice');
+    test()->getJson('/api/interview/questions/'.$question['id'])->assertOk()->assertJsonPath('data.preparation_state', 'needs_practice');
 });

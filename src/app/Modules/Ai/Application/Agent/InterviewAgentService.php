@@ -11,6 +11,7 @@ use App\Modules\Ai\Application\Agent\Data\AgentToolCall;
 use App\Modules\Ai\Application\Agent\Data\AgentToolContext;
 use App\Modules\Ai\Application\Agent\Data\AgentToolDefinition;
 use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewAnswerDraftTool;
+use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewObservationDraftTool;
 use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewProfileDraftTool;
 use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewQuestionDraftTool;
 use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewVocabularyDraftTool;
@@ -42,7 +43,9 @@ final class InterviewAgentService implements AgentService
                 The returned profile and question bank are confirmed learner data. Never invent personal history, skills,
                 projects, or outcomes. Ask concise clarifying questions whenever a factual detail is missing.
                 The learner is practising English: ask interview questions in English and explain coaching feedback in Russian.
-                In coached mode, handle one question at a time, discuss the response, and help improve it before moving on.
+                When asking a question from the learner's bank, include its exact English prompt text verbatim so answer
+                evidence can be tied to the right question. In coached mode, handle one question at a time, discuss
+                the response, and help improve it before moving on.
                 In mock mode, conduct the selected sequence in English and postpone all feedback until the learner says
                 the interview is complete or the selected question count is reached. Never claim a question is saved to
                 the bank until the learner confirms it. For a concrete new question, use propose_interview_question and
@@ -57,12 +60,16 @@ final class InterviewAgentService implements AgentService
                 facts; explain its improvement in Russian. Do not infer speaking ability from typed text and never
                 claim pronunciation, accent, fluency, or other speech evidence unless an approved speech assessment
                 explicitly provides it. Never give a numeric interview-readiness or English-quality score.
+                When direct answer evidence supports a recommendation about one question's preparation state, use
+                propose_interview_question_state with an exact answer quote and concise reason. Show it as pending
+                review and never change question state without explicit learner confirmation. Do not make a lasting
+                profile judgment from a single answer or one example.
                 Use the learned English vocabulary returned in practice context only when a word fits the interview
                 answer naturally; do not force vocabulary into the answer. Suggest an existing learned word for review,
                 but do not treat it as new vocabulary. If a genuinely useful new English word comes up, you may use
                 propose_interview_vocabulary to offer it separately; clearly tell the learner it needs confirmation.
                 PROMPT,
-            tools: [GetInterviewPracticeContextTool::class, CreateInterviewQuestionDraftTool::class, CreateInterviewProfileDraftTool::class, CreateInterviewAnswerDraftTool::class, CreateInterviewVocabularyDraftTool::class],
+            tools: [GetInterviewPracticeContextTool::class, CreateInterviewQuestionDraftTool::class, CreateInterviewProfileDraftTool::class, CreateInterviewAnswerDraftTool::class, CreateInterviewVocabularyDraftTool::class, CreateInterviewObservationDraftTool::class],
             maxIterations: 4,
             allowedSideEffects: [AgentToolDefinition::SIDE_EFFECT_READ_ONLY, AgentToolDefinition::SIDE_EFFECT_DRAFT_ONLY],
         );

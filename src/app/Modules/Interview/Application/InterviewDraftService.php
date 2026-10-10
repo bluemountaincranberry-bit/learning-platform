@@ -2,6 +2,7 @@
 
 namespace App\Modules\Interview\Application;
 
+use App\Contracts\Ai\InterviewConversationGateway;
 use App\Contracts\Ai\InterviewDraftWriter;
 use App\Modules\Interview\Domain\Models\InterviewAiDraft;
 use App\Modules\Interview\Domain\Models\InterviewAnswerRevision;
@@ -17,7 +18,10 @@ use Illuminate\Support\Facades\Validator;
 
 final class InterviewDraftService implements InterviewDraftWriter
 {
-    public function __construct(private readonly PersonalVocabularyWriterInterface $vocabulary) {}
+    public function __construct(
+        private readonly PersonalVocabularyWriterInterface $vocabulary,
+        private readonly InterviewConversationGateway $conversations,
+    ) {}
 
     public function questionDraft(int $conversationId, int $userId, array $proposal): int
     {
@@ -87,6 +91,48 @@ final class InterviewDraftService implements InterviewDraftWriter
         return InterviewAiDraft::query()->create(['user_id' => $userId, 'kind' => 'vocabulary', 'payload' => $data])->id;
     }
 
+    public function observationDraft(int $conversationId, int $userId, array $proposal): int
+    {
+        $session = InterviewPracticeSession::query()->where('agent_conversation_id', $conversationId)
+            ->where('user_id', $userId)->firstOrFail();
+        abort_if($session->status !== 'active', 409, 'Only an active practice session can propose a question state change.');
+        $data = Validator::make($proposal, [
+            'question_id' => ['required', 'integer'],
+            'preparation_state' => ['required', 'in:needs_practice,confident'],
+            'evidence' => ['required', 'string', 'max:2000'],
+            'reason' => ['required', 'string', 'max:1000'],
+        ])->validate();
+        abort_unless(in_array((int) $data['question_id'], array_map('intval', $session->question_ids ?? []), true), 404);
+        $question = InterviewQuestion::query()->where('user_id', $userId)->findOrFail($data['question_id']);
+        $sessionQuestions = InterviewQuestion::query()->where('user_id', $userId)
+            ->whereIn('id', array_map('intval', $session->question_ids ?? []))->get(['id', 'prompt_en']);
+        $activeQuestionId = null;
+        $sourceMessage = null;
+        foreach ($this->conversations->history($conversationId, $userId) as $message) {
+            if ($message['role'] === 'assistant') {
+                $matchingQuestionIds = [];
+                foreach ($sessionQuestions as $sessionQuestion) {
+                    if (str_contains($message['content'], $sessionQuestion->prompt_en)) {
+                        $matchingQuestionIds[] = $sessionQuestion->id;
+                    }
+                }
+                $activeQuestionId = count($matchingQuestionIds) === 1 ? $matchingQuestionIds[0] : null;
+            } else {
+                if ($activeQuestionId === (int) $question->id && str_contains($message['content'], $data['evidence'])) {
+                    $sourceMessage = $message;
+                }
+                $activeQuestionId = null;
+            }
+        }
+        abort_unless($sourceMessage !== null, 422, 'Evidence must quote a learner answer to this question.');
+        $data['question_prompt_en'] = $question->prompt_en;
+        $data['question_prompt_ru'] = $question->prompt_ru;
+        $data['source_conversation_id'] = $conversationId;
+        $data['source_message_id'] = $sourceMessage['id'];
+
+        return InterviewAiDraft::query()->create(['user_id' => $userId, 'kind' => 'observation', 'payload' => $data])->id;
+    }
+
     public function confirm(int $draftId, int $userId): InterviewQuestion|InterviewProfile|array
     {
         return DB::transaction(function () use ($draftId, $userId): InterviewQuestion|InterviewProfile|array {
@@ -129,6 +175,13 @@ final class InterviewDraftService implements InterviewDraftWriter
                 $draft->update(['status' => 'confirmed', 'decided_at' => now()]);
 
                 return $word;
+            }
+            if ($draft->kind === 'observation') {
+                $question = InterviewQuestion::query()->where('user_id', $userId)->lockForUpdate()->findOrFail($data['question_id']);
+                $question->update(['preparation_state' => $data['preparation_state']]);
+                $draft->update(['status' => 'confirmed', 'result_question_id' => $question->id, 'decided_at' => now()]);
+
+                return $question->fresh(['topic', 'tags', 'answers']);
             }
             abort_unless($draft->kind === 'question', 409, 'This proposal type cannot be confirmed here.');
             if (! empty($data['topic_id'])) {

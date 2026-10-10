@@ -20,4 +20,5 @@ export type InterviewDraft =
     | { id: number; kind: 'question'; promptEn: string; promptRu: string | null; topicId: number | null; tags: string[] }
     | { id: number; kind: 'profile'; changes: { label: string; value: string }[] }
     | { id: number; kind: 'answer'; questionPromptEn: string; questionPromptRu: string | null; variant: 'short' | 'full'; textEn: string | null; textRu: string | null }
-    | { id: number; kind: 'vocabulary'; lemma: string; language: 'en' };
+    | { id: number; kind: 'vocabulary'; lemma: string; language: 'en' }
+    | { id: number; kind: 'observation'; questionPromptEn: string; questionPromptRu: string | null; preparationState: 'needs_practice' | 'confident'; evidence: string; reason: string };

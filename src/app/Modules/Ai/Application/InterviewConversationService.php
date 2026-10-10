@@ -54,7 +54,7 @@ final class InterviewConversationService implements InterviewConversationGateway
     {
         return AgentConversation::query()->where('created_by', $userId)
             ->where('agent_type', InterviewAgentService::AGENT_TYPE)->findOrFail($conversationId)
-            ->messages()->whereIn('role', [AgentMessage::ROLE_USER, AgentMessage::ROLE_ASSISTANT])
+            ->messages()->whereIn('role', [AgentMessage::ROLE_USER, AgentMessage::ROLE_ASSISTANT])->orderBy('id')
             ->get(['id', 'role', 'content'])->map(fn (AgentMessage $message) => [
                 'id' => $message->id, 'role' => $message->role, 'content' => (string) $message->content,
             ])->all();

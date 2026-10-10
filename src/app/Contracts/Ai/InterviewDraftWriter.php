@@ -15,4 +15,7 @@ interface InterviewDraftWriter
 
     /** @param array<string, mixed> $proposal */
     public function vocabularyDraft(int $conversationId, int $userId, array $proposal): int;
+
+    /** @param array<string, mixed> $proposal */
+    public function observationDraft(int $conversationId, int $userId, array $proposal): int;
 }

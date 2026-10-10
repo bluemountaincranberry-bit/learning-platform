@@ -146,4 +146,20 @@ describe('InterviewPage', () => {
         expect(api.decideDraft).toHaveBeenCalledWith(44, 'confirm');
         expect(wrapper.text()).toContain('Added “resilient” to My words.');
     });
+
+    it('shows the evidence and reason before changing a question preparation state', async () => {
+        api.drafts.mockResolvedValue([{ id: 45, kind: 'observation', questionPromptEn: 'How did you handle an API timeout?', questionPromptRu: 'Как вы обрабатывали таймаут API?', preparationState: 'needs_practice', evidence: 'I added timeout tests to the API client.', reason: 'You described the test change, but not how you handled the timeout itself.' }]);
+        api.decideDraft.mockImplementation(async () => { api.drafts.mockResolvedValue([]); });
+        const wrapper = mount(InterviewPage);
+        await flushPromises();
+
+        expect(wrapper.text()).toContain('I added timeout tests to the API client.');
+        expect(wrapper.text()).toContain('You described the test change, but not how you handled the timeout itself.');
+        expect(wrapper.text()).toContain('Suggested state: needs practice');
+        await wrapper.findAll('button').find((button) => button.text() === 'Update question state')!.trigger('click');
+        await flushPromises();
+
+        expect(api.decideDraft).toHaveBeenCalledWith(45, 'confirm');
+        expect(wrapper.text()).toContain('Question state updated to needs practice.');
+    });
 });
