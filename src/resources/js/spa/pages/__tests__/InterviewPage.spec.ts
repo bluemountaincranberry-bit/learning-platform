@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import InterviewPage from '../InterviewPage.vue';
 
-const api = vi.hoisted(() => ({ topics: vi.fn(), tags: vi.fn(), questions: vi.fn(), profile: vi.fn(), updateQuestion: vi.fn(), saveProfile: vi.fn(), restoreRevision: vi.fn() }));
+const api = vi.hoisted(() => ({ topics: vi.fn(), tags: vi.fn(), questions: vi.fn(), profile: vi.fn(), updateQuestion: vi.fn(), saveProfile: vi.fn(), restoreRevision: vi.fn(), startSession: vi.fn(), sessions: vi.fn(), getSession: vi.fn() }));
 vi.mock('../../domains/interview/api', () => ({ interviewApi: api }));
 
 const question = {
@@ -21,6 +21,7 @@ describe('InterviewPage', () => {
         api.tags.mockResolvedValue(['REST']);
         api.questions.mockResolvedValue({ items: [structuredClone(question)], hasMore: false });
         api.profile.mockResolvedValue({ careerGoal: 'Copilot Studio Developer', milestones: [] });
+        api.sessions.mockResolvedValue([]);
         api.updateQuestion.mockImplementation(async (_id: number, payload: { answers: { short: { en: string; ru: string } } }) => ({
             ...structuredClone(question), answers: { ...structuredClone(question.answers), short: { ...question.answers.short, ...payload.answers.short } },
         }));
@@ -49,5 +50,30 @@ describe('InterviewPage', () => {
         expect(api.updateQuestion).toHaveBeenCalledWith(2, {
             answers: { short: { en: 'An interface for software.', ru: 'Интерфейс для программ.' } },
         });
+    });
+
+    it('starts a coached session with the selected question', async () => {
+        api.startSession.mockResolvedValue({ id: 9, conversationId: 11, mode: 'coached', status: 'active', questionCount: 1, focus: null, questions: [structuredClone(question)], messages: [] });
+        const wrapper = mount(InterviewPage);
+        await flushPromises();
+        await wrapper.findAll('button').find((button) => button.text().includes('Start coached practice'))!.trigger('click');
+        await flushPromises();
+
+        expect(api.startSession).toHaveBeenCalledWith('coached', [2], 1, null, null);
+        expect(wrapper.text()).toContain('Coached practice');
+        expect(wrapper.find('#interview-practice-message').exists()).toBe(true);
+    });
+
+    it('reopens a saved session from recent practice history', async () => {
+        const session = { id: 9, conversationId: 11, mode: 'mock', status: 'completed', questionCount: 1, focus: null, questions: [structuredClone(question)], messages: [{ id: 21, role: 'assistant', content: 'Your examples were clear.' }] } as const;
+        api.sessions.mockResolvedValue([{ id: 9, mode: 'mock', status: 'completed', updatedAt: '2026-10-10' }]);
+        api.getSession.mockResolvedValue(session);
+        const wrapper = mount(InterviewPage);
+        await flushPromises();
+        await wrapper.findAll('button').find((button) => button.text().includes('Mock interview · completed'))!.trigger('click');
+        await flushPromises();
+
+        expect(api.getSession).toHaveBeenCalledWith(9);
+        expect(wrapper.text()).toContain('Your examples were clear.');
     });
 });

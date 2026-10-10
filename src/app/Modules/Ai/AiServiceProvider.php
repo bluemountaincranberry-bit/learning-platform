@@ -4,8 +4,8 @@ namespace App\Modules\Ai;
 
 use App\Contracts\Ai\AiAnalysisRunDispatcher;
 use App\Contracts\Ai\AiClientInterface;
-use App\Contracts\Ai\AiJsonClient;
 use App\Contracts\Ai\AiFieldEditCapability;
+use App\Contracts\Ai\AiJsonClient;
 use App\Contracts\Ai\AiStreamingChatClient;
 use App\Contracts\Ai\AiToolCallingClient;
 use App\Contracts\Ai\ChatAiServiceInterface;
@@ -13,10 +13,11 @@ use App\Contracts\Ai\ContentAnalysisCapability;
 use App\Contracts\Ai\ContentExamGenerationCapability;
 use App\Contracts\Ai\ContextSentenceGenerationCapability;
 use App\Contracts\Ai\EmbeddingsClientInterface;
+use App\Contracts\Ai\GrammarExerciseGenerationDispatcher;
 use App\Contracts\Ai\GrammarRuleExampleGenerationDispatcher;
+use App\Contracts\Ai\InterviewConversationGateway;
 use App\Contracts\Ai\LessonAssistant;
 use App\Contracts\Ai\LexemeEnrichmentCapability;
-use App\Contracts\Ai\GrammarExerciseGenerationDispatcher;
 use App\Contracts\Ai\LexemeEnrichmentDispatcher;
 use App\Contracts\Ai\LexemeExplanationCapability;
 use App\Contracts\Ai\LexemeMetadataSuggestionCapability;
@@ -34,6 +35,7 @@ use App\Modules\Ai\Application\Agent\Data\AgentToolDefinition;
 use App\Modules\Ai\Application\Agent\GrammarAgentService;
 use App\Modules\Ai\Application\Agent\Graph\GraphNodeRegistry;
 use App\Modules\Ai\Application\Agent\Graph\GraphRunStatusStreamer;
+use App\Modules\Ai\Application\Agent\InterviewAgentService;
 use App\Modules\Ai\Application\Agent\LessonAgentService;
 use App\Modules\Ai\Application\Agent\ReviewAgentService;
 use App\Modules\Ai\Application\Agent\StudentTutorAgentService;
@@ -55,13 +57,13 @@ use App\Modules\Ai\Application\Capabilities\SentenceGenerationService;
 use App\Modules\Ai\Application\Capabilities\TextTranslationService;
 use App\Modules\Ai\Application\ChatContextAiService;
 use App\Modules\Ai\Application\GrammarRuleEmbeddingMergeParticipant;
+use App\Modules\Ai\Application\InterviewConversationService;
 use App\Modules\Ai\Application\LessonAssistantService;
 use App\Modules\Ai\Application\LexemeEnrichmentService;
 use App\Modules\Ai\Application\ManualLexemeCandidateService;
 use App\Modules\Ai\Application\PromptRegistryService;
-use App\Modules\Ai\Application\QueuedGrammarRuleExampleGenerationDispatcher;
-
 use App\Modules\Ai\Application\QueuedGrammarExerciseGenerationDispatcher;
+use App\Modules\Ai\Application\QueuedGrammarRuleExampleGenerationDispatcher;
 use App\Modules\Ai\Application\QueuedLexemeEnrichmentDispatcher;
 use App\Modules\Ai\Application\SentencePracticeService;
 use App\Modules\Ai\Infrastructure\AiProviderFactory;
@@ -77,6 +79,7 @@ class AiServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->bind(InterviewConversationGateway::class, InterviewConversationService::class);
         $this->app->bind(LessonAssistant::class, LessonAssistantService::class);
         $this->app->tag([GrammarRuleEmbeddingMergeParticipant::class], GrammarRuleMergeParticipant::TAG);
         $this->app->singleton(AiProviderFactory::class, fn () => new AiProviderFactory(
@@ -196,6 +199,7 @@ class AiServiceProvider extends ServiceProvider
         // for why this is its own agent and not new tools bolted onto
         // StudentTutorAgentService).
         $this->bindAgentService(LessonAgentService::class);
+        $this->bindAgentService(InterviewAgentService::class);
 
         // GrammarAgentService (task 4.4) is a specialist agent, not a third
         // coordinator (ADR-001) — it has no AgentConversation/HTTP endpoint

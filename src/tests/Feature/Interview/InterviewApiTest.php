@@ -1,9 +1,11 @@
 <?php
 
+use App\Modules\Ai\Domain\Models\AgentConversation;
 use App\Modules\Interview\Domain\Models\InterviewQuestion;
 use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Queue;
 
 uses(RefreshDatabase::class);
 
@@ -70,6 +72,60 @@ test('profile supports a goal and optional milestones', function () {
         'milestones' => [['title' => 'Build a portfolio bot', 'target_date' => '2026-12-01']],
     ])->assertOk()->assertJsonPath('data.career_goal', 'Junior Copilot Studio Developer')
         ->assertJsonPath('data.milestones.0.title', 'Build a portfolio bot');
+});
+
+test('learner can create and reopen a private coached or mock practice session', function () {
+    $learner = interviewLearner();
+    test()->putJson('/api/interview/profile', ['career_goal' => 'Junior developer'])->assertOk();
+    $question = test()->postJson('/api/interview/questions', [
+        'prompt_en' => 'Describe an API you built.',
+        'prompt_ru' => 'Опишите API, который вы создали.',
+    ])->assertCreated()->json('data');
+
+    $session = test()->postJson('/api/interview/sessions', [
+        'mode' => 'coached', 'question_ids' => [$question['id']], 'question_count' => 1,
+    ])->assertCreated()->json('data');
+
+    expect($session['mode'])->toBe('coached')
+        ->and($session['status'])->toBe('active')
+        ->and($session['conversation_id'])->toBeInt();
+    test()->getJson('/api/interview/sessions/'.$session['id'])
+        ->assertOk()->assertJsonPath('data.id', $session['id'])
+        ->assertJsonPath('data.questions.0.prompt_en', 'Describe an API you built.')
+        ->assertJsonPath('data.profile.career_goal', 'Junior developer');
+    test()->postJson('/api/interview/sessions', ['mode' => 'mock', 'question_count' => 3])->assertCreated();
+    expect(AgentConversation::query()->where('created_by', $learner->id)->where('agent_type', 'interview')->count())->toBe(2);
+    test()->getJson('/api/interview/sessions')->assertOk()->assertJsonCount(2, 'data');
+
+    Queue::fake();
+    config(['ai.agent.enabled' => true, 'ai.agent.turns_per_day' => 1]);
+    test()->postJson('/api/interview/sessions/'.$session['id'].'/messages', ['content' => 'I built a small API.'])
+        ->assertAccepted()->assertJsonPath('data.status', 'queued');
+    Queue::assertPushed(\App\Modules\Ai\Interfaces\Jobs\RunAgentTurnJob::class, fn ($job) => $job->conversationId === $session['conversation_id']);
+    test()->postJson('/api/interview/sessions/'.$session['id'].'/messages', ['content' => 'More detail.'])->assertStatus(429);
+    test()->postJson('/api/interview/sessions/'.$session['id'].'/complete')->assertOk()->assertJsonPath('data.status', 'completed');
+    test()->postJson('/api/interview/sessions/'.$session['id'].'/messages', ['content' => 'A late message'])->assertStatus(409);
+
+    $other = User::factory()->create();
+    test()->actingAs($other)->getJson('/api/interview/sessions/'.$session['id'])->assertNotFound();
+    test()->postJson('/api/interview/sessions/'.$session['id'].'/complete')->assertNotFound();
+});
+
+test('mock practice selects the requested count from the chosen topic subtree', function () {
+    interviewLearner();
+    $parent = test()->postJson('/api/interview/topics', ['name' => 'Technical'])->assertCreated()->json('data');
+    $child = test()->postJson('/api/interview/topics', ['name' => 'HTTP', 'parent_id' => $parent['id']])->assertCreated()->json('data');
+    $first = test()->postJson('/api/interview/questions', ['prompt_en' => 'What is REST?', 'topic_id' => $child['id']])->assertCreated()->json('data');
+    $second = test()->postJson('/api/interview/questions', ['prompt_en' => 'What is an API?', 'topic_id' => $parent['id']])->assertCreated()->json('data');
+    test()->postJson('/api/interview/questions', ['prompt_en' => 'Tell me about teamwork.'])->assertCreated();
+
+    test()->postJson('/api/interview/sessions', [
+        'mode' => 'mock', 'question_count' => 2, 'topic_id' => $parent['id'], 'focus' => 'HTTP design',
+    ])->assertCreated()->assertJsonPath('data.question_count', 2)
+        ->assertJsonPath('data.focus', 'HTTP design')
+        ->assertJsonPath('data.questions.0.id', $first['id'])
+        ->assertJsonPath('data.questions.1.id', $second['id'])
+        ->assertJsonCount(2, 'data.questions');
 });
 
 test('starter seeding is repeatable and preserves learner edits', function () {

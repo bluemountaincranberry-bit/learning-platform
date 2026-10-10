@@ -117,3 +117,8 @@ _Avoid_: Mock interview.
 A practice session that asks a sequence of questions and delays feedback until
 the session ends.
 _Avoid_: Coached practice.
+
+**Interview practice session**:
+A saved coached-practice or mock-interview conversation with its selected
+questions and confirmed profile context, reopenable by its learner.
+_Avoid_: Interview chat (when meaning the saved practice record).

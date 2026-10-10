@@ -3,14 +3,18 @@
 namespace App\Modules\Interview\Interfaces\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Interview\Application\InterviewPracticeService;
 use App\Modules\Interview\Domain\Models\InterviewAnswerRevision;
 use App\Modules\Interview\Domain\Models\InterviewAnswerVariant;
+use App\Modules\Interview\Domain\Models\InterviewPracticeSession;
 use App\Modules\Interview\Domain\Models\InterviewProfile;
 use App\Modules\Interview\Domain\Models\InterviewQuestion;
 use App\Modules\Interview\Domain\Models\InterviewTag;
 use App\Modules\Interview\Domain\Models\InterviewTopic;
+use App\Modules\Interview\Interfaces\Http\Requests\InterviewMessageRequest;
 use App\Modules\Interview\Interfaces\Http\Requests\InterviewProfileRequest;
 use App\Modules\Interview\Interfaces\Http\Requests\InterviewQuestionRequest;
+use App\Modules\Interview\Interfaces\Http\Requests\InterviewSessionRequest;
 use App\Modules\Interview\Interfaces\Http\Requests\InterviewTopicRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +22,46 @@ use Illuminate\Support\Facades\DB;
 
 class InterviewController extends Controller
 {
+    public function __construct(private readonly InterviewPracticeService $practice) {}
+
+    public function sessions(Request $request): JsonResponse
+    {
+        $sessions = InterviewPracticeSession::query()->where('user_id', $request->user()->id)
+            ->latest('updated_at')->paginate(20);
+
+        return response()->json($sessions);
+    }
+
+    public function storeSession(InterviewSessionRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $session = $this->practice->start($request->user()->id, $data);
+
+        return response()->json(['data' => $this->sessionPayload($session)], 201);
+    }
+
+    public function showSession(Request $request, int $session): JsonResponse
+    {
+        return response()->json(['data' => $this->sessionPayload($this->practice->ownedSession($session, $request->user()->id))]);
+    }
+
+    public function completeSession(Request $request, int $session): JsonResponse
+    {
+        $record = $this->practice->complete($this->practice->ownedSession($session, $request->user()->id));
+
+        return response()->json(['data' => $this->sessionPayload($record->fresh())]);
+    }
+
+    public function sendSessionMessage(InterviewMessageRequest $request, int $session): JsonResponse
+    {
+        $record = $this->practice->ownedSession($session, $request->user()->id);
+        abort_unless(config('ai.agent.enabled', false), 503, 'AI practice is currently unavailable. Your interview bank is still available.');
+        $messageId = $this->practice->sendMessage($record, $request->user()->id, $request->validated('content'));
+        abort_if($messageId === false, 429, 'Daily Interview Agent limit reached. Try again tomorrow.');
+
+        return response()->json(['data' => ['id' => $messageId, 'status' => 'queued']], 202);
+    }
+
     public function topics(Request $request): JsonResponse
     {
         return response()->json(['data' => InterviewTopic::query()->where('user_id', $request->user()->id)->orderBy('sort_order')->orderBy('name')->get()]);
@@ -250,5 +294,27 @@ class InterviewController extends Controller
         }
 
         return $ids;
+    }
+
+    private function sessionPayload(InterviewPracticeSession $session): array
+    {
+        $profile = InterviewProfile::query()->where('user_id', $session->user_id)->with('milestones')->first();
+        $questions = $this->practice->questionsForSession($session)
+            ->map(fn (InterviewQuestion $question) => $this->questionPayload($question))->values();
+        $messages = $this->practice->history($session);
+
+        return [
+            'id' => $session->id,
+            'conversation_id' => $session->agent_conversation_id,
+            'mode' => $session->mode,
+            'status' => $session->status,
+            'question_count' => $session->question_count,
+            'focus' => $session->focus,
+            'questions' => $questions,
+            'profile' => $profile,
+            'messages' => $messages,
+            'created_at' => $session->created_at,
+            'updated_at' => $session->updated_at,
+        ];
     }
 }

@@ -1,10 +1,12 @@
 import axios from 'axios';
-import type { InterviewAnswer, InterviewProfile, InterviewQuestion, InterviewTopic } from './types';
+import type { InterviewAnswer, InterviewPracticeSession, InterviewPracticeSummary, InterviewProfile, InterviewQuestion, InterviewTopic } from './types';
 
 type WireTopic = { id: number; name: string; parent_id: number | null; sort_order: number };
 type WireAnswer = { id: number; en: string | null; ru: string | null; revisions: { id: number; text_en: string | null; text_ru: string | null; created_at: string }[] };
 type WireQuestion = { id: number; prompt_en: string; prompt_ru: string | null; preparation_state: InterviewQuestion['preparationState']; topic: WireTopic | null; tags: string[]; answers: Partial<Record<'short' | 'full', WireAnswer>> };
 type WireProfile = { id?: number; career_goal: string | null; skills: string[] | null; experience_level: string | null; projects: string[] | null; experience_stories: string[] | null; milestones: { id?: number; title: string; target_date: string | null }[] };
+type WireSession = { id: number; conversation_id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; question_count: number; focus: string | null; questions: WireQuestion[]; messages: { id: number; role: 'user' | 'assistant'; content: string }[] };
+type WireSessionSummary = { id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; updated_at: string };
 
 const mapTopic = (topic: WireTopic): InterviewTopic => ({ id: topic.id, name: topic.name, parentId: topic.parent_id, sortOrder: topic.sort_order });
 const mapAnswer = (answer: WireAnswer): InterviewAnswer => ({ id: answer.id, en: answer.en, ru: answer.ru, revisions: answer.revisions.map(({ id, text_en, text_ru, created_at }) => ({ id, textEn: text_en, textRu: text_ru, createdAt: created_at })) });
@@ -22,6 +24,11 @@ const profilePayload = (profile: InterviewProfile) => ({
     career_goal: profile.careerGoal, skills: profile.skills, experience_level: profile.experienceLevel,
     projects: profile.projects, experience_stories: profile.experienceStories,
     milestones: profile.milestones.map(({ id, title, targetDate }) => ({ id, title, target_date: targetDate })),
+});
+const mapSession = (session: WireSession): InterviewPracticeSession => ({
+    id: session.id, conversationId: session.conversation_id, mode: session.mode, status: session.status,
+    questionCount: session.question_count, focus: session.focus, questions: session.questions.map(mapQuestion),
+    messages: session.messages,
 });
 
 export const interviewApi = {
@@ -61,5 +68,21 @@ export const interviewApi = {
     },
     async saveProfile(profile: InterviewProfile): Promise<InterviewProfile> {
         return mapProfile((await axios.put('/api/interview/profile', profilePayload(profile))).data.data);
+    },
+    async startSession(mode: 'coached' | 'mock', questionIds: number[] = [], questionCount = Math.max(1, questionIds.length), topicId: number | null = null, focus: string | null = null): Promise<InterviewPracticeSession> {
+        return mapSession((await axios.post('/api/interview/sessions', { mode, question_ids: questionIds, question_count: questionCount, topic_id: topicId, focus })).data.data);
+    },
+    async getSession(id: number): Promise<InterviewPracticeSession> {
+        return mapSession((await axios.get(`/api/interview/sessions/${id}`)).data.data);
+    },
+    async sendSessionMessage(id: number, content: string): Promise<void> {
+        await axios.post(`/api/interview/sessions/${id}/messages`, { content });
+    },
+    async completeSession(id: number): Promise<InterviewPracticeSession> {
+        return mapSession((await axios.post(`/api/interview/sessions/${id}/complete`)).data.data);
+    },
+    async sessions(): Promise<InterviewPracticeSummary[]> {
+        const page = (await axios.get('/api/interview/sessions')).data;
+        return (page.data as WireSessionSummary[]).map((session) => ({ id: session.id, mode: session.mode, status: session.status, updatedAt: session.updated_at }));
     },
 };

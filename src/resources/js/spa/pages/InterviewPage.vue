@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { interviewApi } from '../domains/interview/api';
-import type { InterviewProfile, InterviewQuestion, InterviewTopic } from '../domains/interview/types';
+import type { InterviewPracticeSession, InterviewProfile, InterviewQuestion, InterviewTopic } from '../domains/interview/types';
 
 const questions = ref<InterviewQuestion[]>([]);
 const topics = ref<InterviewTopic[]>([]);
@@ -35,6 +35,13 @@ const draftPromptRu = ref('');
 const draftTags = ref('');
 const newTopicName = ref('');
 const newTopicParent = ref('');
+const practiceSession = ref<InterviewPracticeSession | null>(null);
+const practiceMessage = ref('');
+const sendingPractice = ref(false);
+const startingPractice = ref(false);
+const recentSessions = ref<{ id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; updatedAt: string }[]>([]);
+const practiceQuestionCount = ref(3);
+const practiceFocus = ref('');
 
 const topicOptions = computed(() => {
     const byId = new Map(topics.value.map((topic) => [topic.id, topic]));
@@ -52,20 +59,21 @@ async function load(append = false) {
     error.value = '';
     try {
         const page = append ? Number(currentPage.value) + 1 : 1;
-        const [topicData, questionPage, profileData, tagData] = await Promise.all([
+        const [topicData, questionPage, profileData, tagData, sessionData] = await Promise.all([
             interviewApi.topics(), interviewApi.questions({
                 ...(search.value.trim() ? { search: search.value.trim() } : {}),
                 ...(topicId.value ? { topic_id: topicId.value } : {}),
                 ...(state.value ? { state: state.value } : {}),
                 ...(tag.value ? { tag: tag.value } : {}),
                 page: String(page),
-            }), interviewApi.profile(), interviewApi.tags(),
+            }), interviewApi.profile(), interviewApi.tags(), interviewApi.sessions(),
         ]);
         topics.value = topicData;
         questions.value = append ? [...questions.value, ...questionPage.items] : questionPage.items;
         hasMore.value = questionPage.hasMore;
         currentPage.value = page;
         availableTags.value = tagData;
+        recentSessions.value = sessionData;
         profile.value = profileData;
         goalDraft.value = profileData.careerGoal ?? '';
         levelDraft.value = profileData.experienceLevel ?? '';
@@ -178,6 +186,78 @@ async function createTopic() {
     } catch { error.value = 'The topic could not be created.'; }
     finally { saving.value = false; }
 }
+
+async function startPractice(mode: 'coached' | 'mock') {
+    startingPractice.value = true;
+    error.value = '';
+    try {
+        const selectedIds = mode === 'coached' && selected.value ? [selected.value.id] : [];
+        practiceSession.value = await interviewApi.startSession(mode, selectedIds, mode === 'coached' ? 1 : practiceQuestionCount.value,
+            topicId.value ? Number(topicId.value) : null, practiceFocus.value.trim() || null);
+    } catch { error.value = 'Interview practice could not start. The question bank remains available.'; }
+    finally { startingPractice.value = false; }
+}
+
+async function refreshPractice() {
+    if (!practiceSession.value) return;
+    practiceSession.value = await interviewApi.getSession(practiceSession.value.id);
+}
+
+async function sendPracticeMessage() {
+    if (!practiceSession.value || !practiceMessage.value.trim()) return;
+    const sessionId = practiceSession.value.id;
+    const previousAssistantId = Math.max(0, ...practiceSession.value.messages.filter((message) => message.role === 'assistant').map((message) => message.id));
+    const content = practiceMessage.value.trim();
+    sendingPractice.value = true;
+    practiceMessage.value = '';
+    error.value = '';
+    try {
+        await interviewApi.sendSessionMessage(sessionId, content);
+        for (let attempt = 0; attempt < 15; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            const updated = await interviewApi.getSession(sessionId);
+            practiceSession.value = updated;
+            if (updated.messages.some((message) => message.role === 'assistant' && message.id > previousAssistantId)) break;
+        }
+    } catch { error.value = 'The Interview Agent is unavailable right now. You can retry or continue editing your question bank.'; }
+    finally { sendingPractice.value = false; }
+}
+
+async function finishPractice() {
+    if (!practiceSession.value) return;
+    const current = practiceSession.value;
+    if (current.mode === 'mock' && current.status === 'active') {
+        try {
+            const lastAssistantId = Math.max(0, ...current.messages.filter((message) => message.role === 'assistant').map((message) => message.id));
+            await interviewApi.sendSessionMessage(current.id, 'The mock interview is complete. Please give me your feedback now.');
+            for (let attempt = 0; attempt < 15; attempt += 1) {
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+                const updated = await interviewApi.getSession(current.id);
+                practiceSession.value = updated;
+                if (updated.messages.some((message) => message.role === 'assistant' && message.id > lastAssistantId)) {
+                    break;
+                }
+                if (attempt === 14) {
+                    error.value = 'The Interview Agent has not replied yet. The mock session stays open so you can retry and receive feedback.';
+                    return;
+                }
+            }
+        } catch {
+            error.value = 'The Interview Agent is unavailable. The mock session stays open so you can retry feedback later.';
+            return;
+        }
+    }
+    try {
+        practiceSession.value = await interviewApi.completeSession(current.id);
+        await load();
+    }
+    catch { error.value = 'This practice session could not be completed.'; }
+}
+
+async function reopenPractice(sessionId: number) {
+    try { practiceSession.value = await interviewApi.getSession(sessionId); }
+    catch { error.value = 'This practice history could not be opened.'; }
+}
 </script>
 
 <template>
@@ -187,6 +267,44 @@ async function createTopic() {
             <h1 class="text-2xl font-semibold text-fg">Build confidence one answer at a time</h1>
             <p class="text-sm text-muted-foreground">Your questions and preparation profile are private to your account.</p>
         </header>
+
+        <section class="rounded-spa-lg border border-border bg-surface p-4 sm:p-5" aria-label="Interview practice">
+            <template v-if="!practiceSession">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="min-w-0"><h2 class="font-semibold text-fg">Practise with your Interview Agent</h2><p class="text-sm text-muted-foreground">Uses your confirmed profile and the selected question.</p></div>
+                    <div class="flex flex-wrap gap-2">
+                        <label class="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">Focus
+                            <input v-model="practiceFocus" maxlength="120" class="min-h-11 min-w-0 w-32 rounded-spa border border-border bg-surface-alt px-2 text-sm text-fg" placeholder="Optional" />
+                        </label>
+                        <label class="flex items-center gap-2 text-xs text-muted-foreground">Mock questions
+                            <select v-model.number="practiceQuestionCount" class="min-h-11 rounded-spa border border-border bg-surface-alt px-2 text-sm text-fg"><option :value="1">1</option><option :value="3">3</option><option :value="5">5</option></select>
+                        </label>
+                        <button class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg disabled:opacity-50" :disabled="startingPractice" @click="startPractice('coached')">Start coached practice</button>
+                        <button class="min-h-11 rounded-spa bg-primary px-3 text-sm font-semibold text-white disabled:opacity-50" :disabled="startingPractice" @click="startPractice('mock')">Start mock interview</button>
+                    </div>
+                </div>
+            </template>
+            <template v-else>
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div><h2 class="font-semibold text-fg">{{ practiceSession.mode === 'mock' ? 'Mock interview' : 'Coached practice' }}</h2><p class="text-xs text-muted-foreground">{{ practiceSession.status === 'active' ? 'Session saved · replies may take a moment' : 'Session complete' }}</p></div>
+                    <button v-if="practiceSession.status === 'active'" class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" @click="finishPractice">Finish session</button>
+                    <button class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" @click="practiceSession = null">Close</button>
+                </div>
+                <p v-for="question in practiceSession.questions" :key="question.id" class="mt-3 rounded-spa bg-surface-alt p-3 text-sm text-fg">{{ question.promptEn }}</p>
+                <ol class="mt-3 max-h-72 space-y-2 overflow-y-auto" aria-label="Practice conversation">
+                    <li v-for="message in practiceSession.messages" :key="message.id" class="max-w-full rounded-spa p-3 text-sm" :class="message.role === 'user' ? 'ml-6 bg-primary/10 text-fg' : 'mr-6 bg-surface-alt text-fg'">{{ message.content }}</li>
+                </ol>
+                <form v-if="practiceSession.status === 'active'" class="mt-3 space-y-2" @submit.prevent="sendPracticeMessage">
+                    <label class="sr-only" for="interview-practice-message">Your interview answer</label>
+                    <textarea id="interview-practice-message" v-model="practiceMessage" rows="3" maxlength="10000" class="w-full rounded-spa border border-border bg-surface-alt p-3 text-sm text-fg" placeholder="Write your answer or ask for a hint" :disabled="sendingPractice" />
+                    <div class="flex flex-wrap items-center justify-between gap-2"><span class="text-xs text-muted-foreground" role="status">{{ sendingPractice ? 'Waiting for the Interview Agent…' : '' }}</span><button class="min-h-11 rounded-spa bg-primary px-4 text-sm font-semibold text-white disabled:opacity-50" :disabled="sendingPractice || !practiceMessage.trim()">Send answer</button></div>
+                </form>
+            </template>
+            <details v-if="recentSessions.length" class="mt-3 border-t border-border pt-3">
+                <summary class="min-h-11 cursor-pointer py-2 text-sm font-medium text-primary">Past practice sessions</summary>
+                <ul class="space-y-2 pt-2"><li v-for="session in recentSessions" :key="session.id"><button class="min-h-11 w-full rounded-spa bg-surface-alt px-3 text-left text-sm text-fg" @click="reopenPractice(session.id)">{{ session.mode === 'mock' ? 'Mock interview' : 'Coached practice' }} · {{ session.status }} · {{ new Date(session.updatedAt).toLocaleDateString() }}</button></li></ul>
+            </details>
+        </section>
 
         <section class="rounded-spa-lg border border-border bg-surface p-4 sm:p-5" aria-labelledby="goal-heading">
             <div class="flex flex-wrap items-end gap-3">

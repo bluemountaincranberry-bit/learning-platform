@@ -17,4 +17,9 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->prefix('interview')->group
     Route::post('/questions/{question}/answers/{answer}/revisions/{revision}/restore', [InterviewController::class, 'restoreAnswerRevision']);
     Route::get('/profile', [InterviewController::class, 'profile']);
     Route::put('/profile', [InterviewController::class, 'saveProfile']);
+    Route::get('/sessions', [InterviewController::class, 'sessions']);
+    Route::post('/sessions', [InterviewController::class, 'storeSession']);
+    Route::get('/sessions/{session}', [InterviewController::class, 'showSession']);
+    Route::post('/sessions/{session}/complete', [InterviewController::class, 'completeSession']);
+    Route::post('/sessions/{session}/messages', [InterviewController::class, 'sendSessionMessage']);
 });
