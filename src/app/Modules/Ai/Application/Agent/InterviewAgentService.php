@@ -10,6 +10,7 @@ use App\Modules\Ai\Application\Agent\Data\AgentChatResponse;
 use App\Modules\Ai\Application\Agent\Data\AgentToolCall;
 use App\Modules\Ai\Application\Agent\Data\AgentToolContext;
 use App\Modules\Ai\Application\Agent\Data\AgentToolDefinition;
+use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewProfileDraftTool;
 use App\Modules\Ai\Application\Agent\Tools\Interview\CreateInterviewQuestionDraftTool;
 use App\Modules\Ai\Application\Agent\Tools\Interview\GetInterviewPracticeContextTool;
 use App\Modules\Ai\Application\Agent\Tracing\SpanRecorder;
@@ -43,10 +44,12 @@ final class InterviewAgentService implements AgentService
                 In mock mode, conduct the selected sequence in English and postpone all feedback until the learner says
                 the interview is complete or the selected question count is reached. Never claim a question is saved to
                 the bank until the learner confirms it. For a concrete new question, use propose_interview_question and
-                tell the learner it awaits review. Keep feedback specific to evidence in the
+                tell the learner it awaits review. Only propose profile changes from facts explicitly shared by the
+                learner, using propose_interview_profile_update; never turn suggestions or assumptions into facts.
+                Tell the learner the profile proposal awaits review. Keep feedback specific to evidence in the
                 learner's answer and avoid an overall readiness score.
                 PROMPT,
-            tools: [GetInterviewPracticeContextTool::class, CreateInterviewQuestionDraftTool::class],
+            tools: [GetInterviewPracticeContextTool::class, CreateInterviewQuestionDraftTool::class, CreateInterviewProfileDraftTool::class],
             maxIterations: 4,
             allowedSideEffects: [AgentToolDefinition::SIDE_EFFECT_READ_ONLY, AgentToolDefinition::SIDE_EFFECT_DRAFT_ONLY],
         );

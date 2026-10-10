@@ -15,4 +15,9 @@ class InterviewAiDraft extends Model
     {
         return $this->belongsTo(InterviewQuestion::class, 'result_question_id');
     }
+
+    public function resultProfile(): BelongsTo
+    {
+        return $this->belongsTo(InterviewProfile::class, 'result_profile_id');
+    }
 }

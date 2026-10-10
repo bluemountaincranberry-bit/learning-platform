@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { interviewApi } from '../domains/interview/api';
 import type { InterviewPracticeSession, InterviewProfile, InterviewQuestion, InterviewTopic } from '../domains/interview/types';
+import type { InterviewDraft } from '../domains/interview/api';
 
 const questions = ref<InterviewQuestion[]>([]);
 const topics = ref<InterviewTopic[]>([]);
@@ -40,7 +41,7 @@ const practiceMessage = ref('');
 const sendingPractice = ref(false);
 const startingPractice = ref(false);
 const recentSessions = ref<{ id: number; mode: 'coached' | 'mock'; status: 'active' | 'completed'; updatedAt: string }[]>([]);
-const aiDrafts = ref<{ id: number; kind: 'question'; promptEn: string; promptRu: string | null }[]>([]);
+const aiDrafts = ref<InterviewDraft[]>([]);
 const practiceQuestionCount = ref(3);
 const practiceFocus = ref('');
 
@@ -291,9 +292,12 @@ async function reopenPractice(sessionId: number) {
             <section v-if="aiDrafts.length" class="mb-4 rounded-spa border border-primary/30 bg-surface-alt p-3" aria-label="AI proposals for review">
                 <h2 class="font-semibold text-fg">AI proposals · review before adding</h2>
                 <article v-for="draft in aiDrafts" :key="draft.id" class="mt-3 rounded-spa border border-border bg-surface p-3">
-                    <p class="text-sm font-medium text-fg">{{ draft.promptEn }}</p><p v-if="draft.promptRu" class="mt-1 text-sm text-muted-foreground">{{ draft.promptRu }}</p>
-                    <p class="mt-2 text-xs text-muted-foreground">{{ topicName(draft.topicId) ?? 'No topic' }}<span v-if="draft.tags.length"> · {{ draft.tags.join(', ') }}</span></p>
-                    <div class="mt-3 flex gap-2"><button class="min-h-11 rounded-spa bg-primary px-3 text-sm font-semibold text-white" @click="decideAiDraft(draft.id, 'confirm')">Add question</button><button class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" @click="decideAiDraft(draft.id, 'reject')">Discard</button></div>
+                    <template v-if="draft.kind === 'question'">
+                        <p class="text-sm font-medium text-fg">{{ draft.promptEn }}</p><p v-if="draft.promptRu" class="mt-1 text-sm text-muted-foreground">{{ draft.promptRu }}</p>
+                        <p class="mt-2 text-xs text-muted-foreground">{{ topicName(draft.topicId) ?? 'No topic' }}<span v-if="draft.tags.length"> · {{ draft.tags.join(', ') }}</span></p>
+                    </template>
+                    <dl v-else class="space-y-1 text-sm"><div v-for="(change, index) in draft.changes" :key="`${change.label}-${index}`" class="grid grid-cols-[8rem_1fr] gap-2"><dt class="text-muted-foreground">{{ change.label }}</dt><dd class="break-words text-fg">{{ change.value }}</dd></div></dl>
+                    <div class="mt-3 flex gap-2"><button class="min-h-11 rounded-spa bg-primary px-3 text-sm font-semibold text-white" @click="decideAiDraft(draft.id, 'confirm')">{{ draft.kind === 'question' ? 'Add question' : 'Save profile updates' }}</button><button class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" @click="decideAiDraft(draft.id, 'reject')">Discard</button></div>
                 </article>
             </section>
             <template v-if="!practiceSession">

@@ -93,4 +93,22 @@ describe('InterviewPage', () => {
         expect(api.decideDraft).toHaveBeenCalledWith(41, 'confirm');
         expect(wrapper.text()).not.toContain('How do you handle a timeout?');
     });
+
+    it('shows the exact AI profile changes before saving them', async () => {
+        api.drafts.mockResolvedValue([{ id: 42, kind: 'profile', changes: [
+            { label: 'Career goal', value: 'Junior developer' },
+            { label: 'Experience stories', value: 'I built a study project.' },
+        ] }]);
+        api.decideDraft.mockResolvedValue(undefined);
+        const wrapper = mount(InterviewPage);
+        await flushPromises();
+
+        expect(wrapper.text()).toContain('Junior developer');
+        expect(wrapper.text()).toContain('I built a study project.');
+        expect(wrapper.text()).toContain('Save profile updates');
+        await wrapper.findAll('button').find((button) => button.text() === 'Save profile updates')!.trigger('click');
+        await flushPromises();
+
+        expect(api.decideDraft).toHaveBeenCalledWith(42, 'confirm');
+    });
 });

@@ -42,9 +42,12 @@ class InterviewController extends Controller
 
     public function confirmDraft(Request $request, int $draft): JsonResponse
     {
-        $question = $this->drafts->confirm($draft, $request->user()->id);
+        $confirmed = $this->drafts->confirm($draft, $request->user()->id);
+        $result = $confirmed instanceof InterviewQuestion
+            ? $this->questionPayload($confirmed->fresh(['topic', 'tags', 'answers']))
+            : $confirmed->load('milestones');
 
-        return response()->json(['data' => ['status' => 'confirmed', 'result' => $this->questionPayload($question->fresh(['topic', 'tags', 'answers']))]]);
+        return response()->json(['data' => ['status' => 'confirmed', 'result' => $result]]);
     }
 
     public function rejectDraft(Request $request, int $draft): JsonResponse

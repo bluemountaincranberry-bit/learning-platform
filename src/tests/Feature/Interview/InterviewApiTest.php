@@ -76,15 +76,18 @@ test('profile supports a goal and optional milestones', function () {
 
 test('learner reviews an AI question proposal before it enters the question bank', function () {
     interviewLearner();
+    $topic = test()->postJson('/api/interview/topics', ['name' => 'Reliability'])->assertCreated()->json('data');
     $draft = test()->postJson('/api/interview/drafts', [
         'kind' => 'question',
-        'payload' => ['prompt_en' => 'How do you handle a timeout?', 'prompt_ru' => 'Как вы обрабатываете таймаут?'],
+        'payload' => ['prompt_en' => 'How do you handle a timeout?', 'prompt_ru' => 'Как вы обрабатываете таймаут?', 'topic_id' => $topic['id'], 'tags' => ['reliability']],
     ])->assertCreated()->assertJsonPath('data.status', 'pending')->json('data');
 
     test()->getJson('/api/interview/drafts')->assertOk()->assertJsonPath('data.0.id', $draft['id']);
     test()->postJson('/api/interview/drafts/'.$draft['id'].'/confirm')->assertOk()
-        ->assertJsonPath('data.status', 'confirmed')->assertJsonPath('data.result.prompt_en', 'How do you handle a timeout?');
-    test()->getJson('/api/interview/questions')->assertOk()->assertJsonPath('data.0.prompt_en', 'How do you handle a timeout?');
+        ->assertJsonPath('data.status', 'confirmed')->assertJsonPath('data.result.prompt_en', 'How do you handle a timeout?')
+        ->assertJsonPath('data.result.topic.name', 'Reliability')->assertJsonPath('data.result.tags.0', 'reliability');
+    test()->getJson('/api/interview/questions')->assertOk()->assertJsonPath('data.0.prompt_en', 'How do you handle a timeout?')
+        ->assertJsonPath('data.0.answers.short.en', null)->assertJsonPath('data.0.answers.full.en', null);
     test()->postJson('/api/interview/drafts/'.$draft['id'].'/confirm')->assertStatus(409);
     test()->postJson('/api/interview/drafts/'.$draft['id'].'/reject')->assertStatus(409);
 
