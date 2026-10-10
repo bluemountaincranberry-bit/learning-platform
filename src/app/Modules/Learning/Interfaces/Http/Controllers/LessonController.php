@@ -141,7 +141,9 @@ class LessonController extends Controller
         $content = trim((string) $request->validated('content'));
         $attachment = $request->file('attachment');
 
-        if ($content === '' && $attachment === null) {
+        $voiceAudio = $request->file('voice_audio');
+
+        if ($content === '' && $attachment === null && $voiceAudio === null) {
             return response()->json(['message' => 'Message content or an attachment is required.'], 422);
         }
 
@@ -168,7 +170,20 @@ class LessonController extends Controller
             $this->notes->appendNotes($lesson->id, $content);
         }
 
-        $this->assistant->sendMessage($lesson->id, $content, $attachmentPath, $attachmentName);
+        $voice = [];
+        if ($voiceAudio !== null) {
+            $keepForever = $request->boolean('voice_audio_keep_forever');
+            $voice = [
+                'disk' => 'local',
+                'path' => $voiceAudio->store('agent-voice', 'local'),
+                'pinned' => $keepForever,
+                'expires_at' => $keepForever ? null : now()->addDays(30),
+                'provider' => $request->validated('transcription_provider'),
+                'language' => $request->validated('transcription_language'),
+            ];
+        }
+
+        $this->assistant->sendMessage($lesson->id, $content, $attachmentPath, $attachmentName, $voice);
 
         return response()->json(['status' => 'queued'], 202);
     }

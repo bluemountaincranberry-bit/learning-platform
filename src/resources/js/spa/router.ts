@@ -42,7 +42,7 @@ const routes: RouteRecordRaw[] = [
         path: '/reset-password',
         name: 'reset-password',
         component: () => import('./pages/ResetPasswordPage.vue'),
-        meta: { requiresGuest: true, title: 'Reset password' } as RouteMeta,
+        meta: { requiresGuest: true, title: 'Reset password', pageKeyQuery: ['token', 'email'] } as RouteMeta,
     },
     {
         path: '/categories',
@@ -78,7 +78,7 @@ const routes: RouteRecordRaw[] = [
         path: '/grammar/:id/practice',
         name: 'grammar.practice',
         component: () => import('./pages/GrammarPracticePage.vue'),
-        meta: { requiresAuth: true, title: 'Grammar practice', section: 'grammar', focusLayout: true } as RouteMeta,
+        meta: { requiresAuth: true, title: 'Grammar practice', section: 'grammar', focusLayout: true, pageKeyQuery: ['level', 'count', 'ids', 'content', 'from'] } as RouteMeta,
     },
     {
         path: '/add-youtube',
@@ -96,19 +96,25 @@ const routes: RouteRecordRaw[] = [
         path: '/practice/context',
         name: 'context-practice',
         component: () => import('./pages/ContextPracticePage.vue'),
-        meta: { requiresAuth: true, title: 'Context practice', section: 'review', focusLayout: true } as RouteMeta,
+        meta: { requiresAuth: true, title: 'Context practice', section: 'review', focusLayout: true, pageKeyQuery: ['content_id', 'lexeme_ids', 'return_to'] } as RouteMeta,
     },
     {
         path: '/practice/speaking',
         name: 'speaking-practice',
         component: () => import('./pages/SpeakingPracticePage.vue'),
-        meta: { requiresAuth: true, title: 'Sentence practice', section: 'review', focusLayout: true } as RouteMeta,
+        meta: { requiresAuth: true, title: 'Sentence practice', section: 'review', focusLayout: true, pageKeyQuery: ['content_id', 'lexeme_ids', 'sentence_mode', 'return_to'] } as RouteMeta,
+    },
+    {
+        path: '/practice/speaking/mistakes',
+        name: 'speaking-mistakes',
+        component: () => import('./pages/SpeakingMistakesPage.vue'),
+        meta: { requiresAuth: true, title: 'My speaking mistakes', section: 'review', focusLayout: true } as RouteMeta,
     },
     {
         path: '/practice/transcript',
         name: 'transcript-exercise',
         component: () => import('./pages/TranscriptExercisePage.vue'),
-        meta: { requiresAuth: true, title: 'Transcript exercise', section: 'review', focusLayout: true } as RouteMeta,
+        meta: { requiresAuth: true, title: 'Transcript exercise', section: 'review', focusLayout: true, pageKeyQuery: ['content_id', 'mode', 'return_to'] } as RouteMeta,
     },
     {
         path: '/my-words',
@@ -132,7 +138,13 @@ const routes: RouteRecordRaw[] = [
         path: '/lessons/:id',
         name: 'lesson.details',
         component: () => import('./pages/LessonDetailPage.vue'),
-        meta: { requiresAuth: true, title: 'Lesson', section: 'lessons' } as RouteMeta,
+        meta: { requiresAuth: true, title: 'Lesson', section: 'lessons', pageKeyQuery: ['tab'] } as RouteMeta,
+    },
+    {
+        path: '/lessons/:id/chat',
+        name: 'lesson.chat',
+        component: () => import('./pages/LessonDetailPage.vue'),
+        meta: { requiresAuth: true, title: 'Chat', section: 'lessons', focusLayout: true } as RouteMeta,
     },
     {
         path: '/my-progress',
@@ -154,7 +166,7 @@ const routes: RouteRecordRaw[] = [
         path: '/chat',
         name: 'chat',
         component: () => import('./pages/ChatPage.vue'),
-        meta: { requiresAuth: true, title: 'AI chat', section: 'chat' } as RouteMeta,
+        meta: { requiresAuth: true, title: 'AI chat', section: 'chat', pageKeyQuery: ['context_type', 'context_id', 'context_title'] } as RouteMeta,
     },
     {
         path: '/settings',
@@ -172,7 +184,7 @@ const routes: RouteRecordRaw[] = [
         path: '/catalog/:id/study',
         name: 'catalog.study',
         component: () => import('./pages/StudyPage.vue'),
-        meta: { requiresAuth: true, title: 'Study', section: 'learn' } as RouteMeta,
+        meta: { requiresAuth: true, title: 'Study', section: 'learn', pageKeyQuery: ['lexeme_ids'] } as RouteMeta,
     },
     {
         path: '/catalog/:id/exam',

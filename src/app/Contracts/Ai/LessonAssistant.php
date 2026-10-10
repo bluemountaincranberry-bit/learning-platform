@@ -11,7 +11,7 @@ interface LessonAssistant
     /** @return array{messages:array<int, array<string, mixed>>, is_waiting:bool} */
     public function messages(int $lessonId): array;
 
-    public function sendMessage(int $lessonId, string $content, ?string $attachmentPath, ?string $attachmentName): void;
+    public function sendMessage(int $lessonId, string $content, ?string $attachmentPath, ?string $attachmentName, array $voice = []): void;
 
     public function dispatchAnalysis(int $runId): void;
 }

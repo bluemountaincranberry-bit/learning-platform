@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Paperclip, Sparkles, Save, Plus, Undo2, BookPlus, Pencil, Dumbbell } from 'lucide-vue-next';
+import { ArrowLeft, Eraser, MoreHorizontal, Paperclip, Settings2, Sparkles, Save, Plus, Undo2, Dumbbell } from 'lucide-vue-next';
 import { RouterLink } from 'vue-router';
 import PageState from '../components/ui/PageState.vue';
 import { useAuthStore } from '../domains/user';
@@ -15,38 +15,56 @@ import {
     type LessonLexemeCandidate,
     type LessonMessage,
 } from '../domains/learning';
+import { useLessonWordActions } from '../composables/useLessonWordActions';
 import ChatMessage from '../shared/ui/ChatMessage.vue';
-import WordRow from '../shared/ui/WordRow.vue';
+import WordListItem from '../shared/ui/WordListItem.vue';
 import GrammarCard from '../shared/ui/GrammarCard.vue';
 import UiBadge from '../shared/ui/UiBadge.vue';
 import UiButton from '../shared/ui/UiButton.vue';
 import UiCard from '../shared/ui/UiCard.vue';
 import UiInput from '../shared/ui/UiInput.vue';
+import ChatComposerInput from '../shared/ui/ChatComposerInput.vue';
 import UiSectionHeader from '../shared/ui/UiSectionHeader.vue';
 import UiEmptyState from '../shared/ui/UiEmptyState.vue';
 import UiTabs from '../shared/ui/UiTabs.vue';
 import UiSegmentedControl from '../shared/ui/UiSegmentedControl.vue';
+import VoiceDictationControl from '../shared/ui/VoiceDictationControl.vue';
+import type { SpeechLanguage, SpeechProvider } from '../domains/learning';
+import type { LexemeWithLearned } from '../types';
 
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 
 const lessonId = computed(() => Number(route.params.id));
+const isLessonChatRoute = computed(() => route.name === 'lesson.chat');
+let previousBodyOverflow = '';
+let lessonChatLocksBody = false;
 
 const lesson = ref<LessonDetail | null>(null);
+const {
+    lexemes: lessonLexemes,
+    itemSaving,
+    itemError,
+    bulkPending: lessonBulkPending,
+    bulkMessage: lessonBulkMessage,
+    lessonWordById,
+    runAction: runLessonWordAction,
+    bulkAction: bulkLessonWordAction,
+} = useLessonWordActions(lesson, lessonId);
 const messages = ref<LessonMessage[]>([]);
 const loading = ref(true);
 const error = ref('');
 const sending = ref(false);
 const isWaiting = ref(false);
 const chatError = ref('');
-const failedMessage = ref<{ text: string; file: File | null } | null>(null);
+const failedMessage = ref<{ text: string; file: File | null; audio: Blob | null; provider: SpeechProvider; language: SpeechLanguage; keepForever: boolean } | null>(null);
 const analyzing = ref(false);
 const saving = ref(false);
+const headerEditing = ref(false);
+const actionMenu = ref<HTMLDetailsElement | null>(null);
 const archiving = ref(false);
 const tagsDraft = ref('');
-const itemError = ref('');
-const itemSaving = ref(false);
 const undoItem = ref<{ collection: LessonItemCollection; id: number } | null>(null);
 const undoMessage = ref('');
 const editingLexemeId = ref<number | null>(null);
@@ -63,12 +81,21 @@ const correctionDraft = ref<LessonCorrectionInput>({ original_text: '', correcte
 
 const inputText = ref('');
 const attachment = ref<File | null>(null);
+const voiceAudio = ref<Blob | null>(null);
+const voiceProvider = ref<SpeechProvider>('local_whisper');
+const voiceLanguage = ref<SpeechLanguage>('en');
+const keepVoiceForever = ref(false);
+const voiceControl = ref<InstanceType<typeof VoiceDictationControl> | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 const messagesEnd = ref<HTMLElement | null>(null);
 const notesTextarea = ref<HTMLTextAreaElement | null>(null);
 
-const activeTab = ref<'notes' | 'words' | 'grammar' | 'corrections' | 'chat'>('words');
+type LessonTab = 'notes' | 'words' | 'grammar' | 'corrections' | 'chat';
+const lessonTabs: LessonTab[] = ['notes', 'words', 'grammar', 'corrections'];
+const activeTab = ref<LessonTab>(isLessonChatRoute.value ? 'chat' : lessonTabs.includes(route.query.tab as LessonTab) ? route.query.tab as LessonTab : 'words');
 const lessonWordFilter = ref<'all' | 'not-in-practice' | 'in-practice'>('all');
+const selectedLessonWordIds = ref<Set<number>>(new Set());
+const confirmingLessonKnown = ref(false);
 
 const lessonWordStatusSegments = computed(() => {
     const words = lesson.value?.lexemes ?? [];
@@ -86,6 +113,14 @@ const visibleLessonWords = computed(() => {
     return words;
 });
 
+const visibleLessonLexemes = computed(() => {
+    const visibleIds = new Set(visibleLessonWords.value.map((word) => word.id));
+    return lessonLexemes.value.filter((word) => visibleIds.has(word.id));
+});
+
+const allVisibleLessonWordsSelected = computed(() => visibleLessonWords.value.length > 0
+    && visibleLessonWords.value.every((word) => selectedLessonWordIds.value.has(word.id)));
+
 const practiceWordIds = computed(() => {
     const ids = (lesson.value?.lexemes ?? []).flatMap((word) =>
         word.in_review && word.matched_lexeme_id !== null ? [word.matched_lexeme_id] : [],
@@ -94,17 +129,50 @@ const practiceWordIds = computed(() => {
 });
 
 const tabs = [
+    { key: 'chat', label: 'Chat' },
     { key: 'notes', label: 'Notes' },
     { key: 'words', label: 'Words' },
     { key: 'grammar', label: 'Grammar' },
     { key: 'corrections', label: 'Corrections' },
-    { key: 'chat', label: 'Chat' },
 ];
 
-const canSend = computed(() => (inputText.value.trim() !== '' || attachment.value !== null) && !sending.value);
+async function selectLessonTab(value: string) {
+    if (value === 'chat') {
+        await router.push({ name: 'lesson.chat', params: { id: lessonId.value } });
+        return;
+    }
+    if (!lessonTabs.includes(value as LessonTab)) return;
+    const tab = value as LessonTab;
+    activeTab.value = tab;
+    if (isLessonChatRoute.value) {
+        await router.push({ name: 'lesson.details', params: { id: lessonId.value }, query: tab === 'words' ? {} : { tab } });
+        return;
+    }
+    await router.replace({ name: 'lesson.details', params: { id: lessonId.value }, query: tab === 'words' ? {} : { tab } });
+}
+
+const canSend = computed(() => (inputText.value.trim() !== '' || attachment.value !== null || voiceAudio.value !== null) && !sending.value);
+
+function onVoiceReady(text: string, audio: Blob, provider: SpeechProvider, language: SpeechLanguage, keepForever: boolean) {
+    inputText.value = inputText.value.trim() ? `${inputText.value.trim()} ${text}` : text;
+    voiceAudio.value = audio;
+    voiceProvider.value = provider;
+    voiceLanguage.value = language;
+    keepVoiceForever.value = keepForever;
+}
+
+async function toggleVoicePin(message: LessonMessage) {
+    if (!message.voice_audio_url) return;
+    const result = await lessonApi.pinVoiceRecording(message.id, !message.voice_audio_pinned);
+    message.voice_audio_pinned = result.pinned;
+    message.voice_audio_expires_at = result.expires_at;
+}
 
 function setLessonWordFilter(value: string) {
-    if (value === 'all' || value === 'not-in-practice' || value === 'in-practice') lessonWordFilter.value = value;
+    if (value === 'all' || value === 'not-in-practice' || value === 'in-practice') {
+        if (lessonWordFilter.value !== value) clearLessonWordSelection();
+        lessonWordFilter.value = value;
+    }
 }
 
 async function loadLesson() {
@@ -219,25 +287,40 @@ async function addGrammarToMyGrammar(item: LessonGrammarCandidate) {
     }
 }
 
-async function addLexemeToMyWords(item: LessonLexemeCandidate) {
-    if (!lesson.value) return;
-    itemSaving.value = true;
-    itemError.value = '';
-    try {
-        const result = await lessonApi.addLexemeToMyWords(lessonId.value, item.id);
-        const index = lesson.value.lexemes.findIndex((candidate) => candidate.id === item.id);
-        if (index !== -1) lesson.value.lexemes[index] = {
-            ...lesson.value.lexemes[index],
-            matched_lexeme_id: result.lexeme_id,
-            in_my_words: result.in_my_words,
-            in_review: result.in_review,
-            status: result.status,
-        };
-    } catch {
-        itemError.value = 'Failed to add this word to My words. Try again.';
-    } finally {
-        itemSaving.value = false;
-    }
+function toggleLessonWordSelection(word: LexemeWithLearned) {
+    const next = new Set(selectedLessonWordIds.value);
+    if (next.has(word.id)) next.delete(word.id);
+    else next.add(word.id);
+    selectedLessonWordIds.value = next;
+    confirmingLessonKnown.value = false;
+}
+
+function toggleAllVisibleLessonWords() {
+    const next = new Set(selectedLessonWordIds.value);
+    if (allVisibleLessonWordsSelected.value) visibleLessonWords.value.forEach((word) => next.delete(word.id));
+    else visibleLessonWords.value.forEach((word) => next.add(word.id));
+    selectedLessonWordIds.value = next;
+    confirmingLessonKnown.value = false;
+}
+
+function clearLessonWordSelection() {
+    selectedLessonWordIds.value = new Set();
+    confirmingLessonKnown.value = false;
+}
+
+async function bulkStartLessonWords(ids: number[]) {
+    await bulkLessonWordAction(ids, 'start');
+    clearLessonWordSelection();
+}
+
+async function bulkStopLessonWords(ids: number[]) {
+    await bulkLessonWordAction(ids, 'stop');
+    clearLessonWordSelection();
+}
+
+async function bulkMarkLessonWordsKnown(ids: number[]) {
+    await bulkLessonWordAction(ids, 'known');
+    clearLessonWordSelection();
 }
 
 function addCorrection() {
@@ -372,18 +455,25 @@ async function refreshMessages() {
 
 async function send(retry = false) {
     if (sending.value || (!retry && !canSend.value)) return;
+    const previousFailure = retry ? failedMessage.value : null;
     const text = retry ? failedMessage.value?.text ?? '' : inputText.value.trim();
     const file = retry ? failedMessage.value?.file ?? null : attachment.value;
-    if (!text && !file) return;
+    const audio = previousFailure?.audio ?? voiceAudio.value;
+    const selectedProvider = previousFailure?.provider ?? voiceProvider.value;
+    const selectedLanguage = previousFailure?.language ?? voiceLanguage.value;
+    const keepForever = previousFailure?.keepForever ?? keepVoiceForever.value;
+    if (!text && !file && !audio) return;
     sending.value = true;
     chatError.value = '';
     failedMessage.value = null;
     let accepted = false;
     try {
-        await lessonApi.sendMessage(lessonId.value, text, file);
+        await lessonApi.sendMessage(lessonId.value, text, file, audio ? { audio, provider: selectedProvider, language: selectedLanguage, keepForever } : undefined);
         accepted = true;
         inputText.value = '';
         attachment.value = null;
+        voiceAudio.value = null;
+        voiceControl.value?.clearRecording();
         if (fileInput.value) fileInput.value.value = '';
         await loadMessages();
         schedulePoll();
@@ -391,7 +481,7 @@ async function send(retry = false) {
         if (accepted) {
             chatError.value = 'Message sent. Failed to refresh messages; try again to check the reply.';
         } else {
-            failedMessage.value = { text, file };
+            failedMessage.value = { text, file, audio, provider: selectedProvider, language: selectedLanguage, keepForever };
             const err = e as { response?: { data?: { message?: string } } };
             chatError.value = err.response?.data?.message ?? 'Failed to send the message.';
         }
@@ -403,6 +493,17 @@ async function send(retry = false) {
 async function retryChat() {
     if (failedMessage.value) await send(true);
     else await refreshMessages();
+}
+
+function clearChatDraft(): void {
+    if (sending.value) return;
+    if (failedMessage.value) chatError.value = '';
+    inputText.value = '';
+    attachment.value = null;
+    voiceAudio.value = null;
+    failedMessage.value = null;
+    if (fileInput.value) fileInput.value.value = '';
+    voiceControl.value?.clearRecording();
 }
 
 async function analyzeLesson() {
@@ -439,7 +540,7 @@ function autoResizeTextarea(el: { style: { height: string }; scrollHeight: numbe
     el.style.height = `${Math.min(el.scrollHeight, 400)}px`;
 }
 
-async function saveLesson() {
+async function saveLesson(closeDetails = false) {
     if (!lesson.value) return;
     saving.value = true;
     error.value = '';
@@ -455,6 +556,7 @@ async function saveLesson() {
             notes: lesson.value.notes,
             homework: lesson.value.homework,
         });
+        if (closeDetails) headerEditing.value = false;
         lesson.value.tags = tags;
     } catch (e: unknown) {
         const err = e as { response?: { data?: { message?: string } } };
@@ -485,8 +587,13 @@ async function toggleArchive() {
 }
 
 onMounted(async () => {
+    if (isLessonChatRoute.value) {
+        previousBodyOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        lessonChatLocksBody = true;
+    }
     if (!authStore.isAuthenticated) {
-        router.push({ name: 'login', query: { redirect: `/lessons/${lessonId.value}` } });
+        router.push({ name: 'login', query: { redirect: route.fullPath } });
         return;
     }
     loading.value = true;
@@ -504,33 +611,132 @@ onMounted(async () => {
 
 onUnmounted(() => {
     stopPolling();
+    if (lessonChatLocksBody) document.body.style.overflow = previousBodyOverflow;
 });
 </script>
 
 <template>
-    <div class="space-y-6">
-        <PageState :loading="loading" :error="error && !lesson ? error : ''">
+    <div :class="isLessonChatRoute ? 'fixed inset-0 z-40 flex h-[100dvh] flex-col overflow-hidden bg-background' : 'space-y-6'">
+        <PageState :class="isLessonChatRoute ? 'flex min-h-0 flex-1 flex-col' : ''" :loading="loading" :error="error && !lesson ? error : ''">
             <template v-if="lesson">
+                <template v-if="isLessonChatRoute">
+                    <header class="flex shrink-0 items-center gap-3 border-b border-border px-3 py-2.5 pt-[max(env(safe-area-inset-top),0.625rem)] sm:px-6 sm:py-3">
+                        <RouterLink
+                            :to="{ name: 'lesson.details', params: { id: lesson.id } }"
+                            class="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md px-2 text-sm font-medium text-fg-secondary hover:bg-surface-alt hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <ArrowLeft :size="18" aria-hidden="true" />
+                            <span>Lesson</span>
+                        </RouterLink>
+                        <div class="h-7 w-px bg-border" aria-hidden="true"></div>
+                        <div class="min-w-0 flex-1">
+                            <h1 class="text-base font-semibold leading-5 text-fg">Chat</h1>
+                            <p class="truncate text-xs text-muted-foreground">{{ lesson.title || 'Lesson' }}</p>
+                        </div>
+                        <div id="lesson-chat-settings" class="relative flex shrink-0 items-center">
+                            <UiButton variant="ghost" size="icon-touch" aria-label="Voice settings" title="Voice settings" aria-haspopup="dialog" :aria-expanded="voiceControl?.settingsOpen ?? false" @click="voiceControl?.toggleSettings()">
+                                <Settings2 :size="18" aria-hidden="true" />
+                            </UiButton>
+                        </div>
+                    </header>
+                    <div v-if="chatError" class="mx-auto mt-3 w-full max-w-3xl px-3 sm:px-6" role="alert">
+                        <ChatMessage role="assistant" :error="chatError" retryable :loading="sending" @retry="retryChat" />
+                    </div>
+                    <section class="flex min-h-0 flex-1 flex-col" aria-label="Lesson conversation">
+                        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-6 sm:py-6">
+                            <div class="mx-auto flex w-full max-w-3xl flex-col gap-4">
+                                <div v-if="messages.length === 0" class="rounded-spa-lg border border-dashed border-border-strong p-4 text-sm leading-6 text-muted-foreground sm:p-5">
+                                    Ask a question about this lesson, its notes, or the words and grammar you are learning.
+                                </div>
+                                <template v-for="msg in messages" :key="msg.id">
+                                    <ChatMessage
+                                        :role="msg.role"
+                                        :content="msg.content"
+                                        :attachments="msg.attachment_name ? [{ name: msg.attachment_name, status: 'Attached' }] : []"
+                                    />
+                                    <div v-if="msg.voice_audio_url" class="flex flex-wrap items-center justify-end gap-2">
+                                        <audio :src="msg.voice_audio_url" controls class="h-9 max-w-full" aria-label="Voice message recording" />
+                                        <UiButton variant="ghost" size="sm" @click="toggleVoicePin(msg)">
+                                            {{ msg.voice_audio_pinned ? 'Saved forever' : 'Keep forever' }}
+                                        </UiButton>
+                                        <span v-if="!msg.voice_audio_pinned && msg.voice_audio_expires_at" class="text-xs text-muted-foreground">Expires {{ new Date(msg.voice_audio_expires_at).toLocaleDateString() }}</span>
+                                    </div>
+                                </template>
+                                <ChatMessage v-if="isWaiting" role="assistant" loading loading-label="Typing..." />
+                                <div ref="messagesEnd" />
+                            </div>
+                        </div>
+                        <form class="shrink-0 border-t border-border bg-surface px-3 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:px-6 sm:py-4" @submit.prevent="send()">
+                            <div class="mx-auto w-full max-w-3xl space-y-2">
+                                <div v-if="attachment" class="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Paperclip :size="12" /> {{ attachment.name }}
+                                </div>
+                                <ChatComposerInput
+                                    v-model="inputText"
+                                    class="w-full"
+                                    placeholder="Message about this lesson..."
+                                    aria-label="Message about this lesson"
+                                    :disabled="sending"
+                                    @submit="send()"
+                                />
+                                <div class="flex shrink-0 items-center justify-between gap-2">
+                                    <div class="flex items-center gap-1">
+                                        <input ref="fileInput" type="file" accept="application/pdf" class="hidden" @change="onFileChange" />
+                                        <UiButton type="button" variant="secondary" size="icon-touch" :disabled="sending" aria-label="Attach a PDF" @click="fileInput?.click()">
+                                            <Paperclip :size="16" aria-hidden="true" />
+                                        </UiButton>
+                                        <UiButton type="button" variant="ghost" size="touch" :disabled="sending || (!inputText.trim() && !attachment && !voiceAudio && !failedMessage)" @click="clearChatDraft()">
+                                            <Eraser :size="16" aria-hidden="true" />
+                                            Clear all
+                                        </UiButton>
+                                    </div>
+                                    <div class="ml-auto flex items-center gap-2">
+                                        <VoiceDictationControl ref="voiceControl" settings-target="#lesson-chat-settings" @ready="onVoiceReady" @cleared="voiceAudio = null" />
+                                        <UiButton type="submit" variant="primary" size="touch" :disabled="!canSend">Send</UiButton>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </section>
+                </template>
+                <template v-else>
                 <!-- Header -->
-                <UiCard>
-                    <div class="flex flex-wrap items-start justify-between gap-4">
-                        <UiSectionHeader
-                            :title="lesson.title || 'Lesson'"
-                            :subtitle="lesson.teacher ? `Teacher: ${lesson.teacher}` : (lesson.lesson_date ? `Date: ${new Date(lesson.lesson_date).toLocaleDateString()}` : 'Notes from this lesson')"
-                        />
-                        <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-                            <UiButton variant="secondary" :disabled="archiving" @click="toggleArchive">
-                                {{ archiving ? 'Saving...' : lesson.status === 'archived' ? 'Restore lesson' : 'Archive lesson' }}
-                            </UiButton>
-                            <UiButton variant="secondary" :disabled="saving" @click="saveLesson">
-                                <Save :size="16" class="mr-1" /> {{ saving ? 'Saving...' : 'Save' }}
-                            </UiButton>
-                            <UiButton variant="primary" :disabled="analyzing" @click="analyzeLesson">
-                                <Sparkles :size="16" /> {{ analyzing ? 'Analyzing...' : 'Analyze lesson' }}
-                            </UiButton>
+                <UiCard class="!p-3 sm:!p-5">
+                    <div class="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="flex min-w-0 flex-1 items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <h1 class="break-words text-xl font-semibold leading-tight tracking-tight text-fg sm:text-3xl">{{ lesson.title || 'Lesson' }}</h1>
+                                <p v-if="lesson.topic" class="mt-1 line-clamp-1 break-words text-sm text-fg-secondary">{{ lesson.topic }}</p>
+                                <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                                    <span v-if="lesson.lesson_date">{{ new Date(`${lesson.lesson_date}T00:00:00`).toLocaleDateString() }}</span>
+                                    <span v-if="lesson.lesson_date && lesson.teacher" aria-hidden="true">·</span>
+                                    <span v-if="lesson.teacher">{{ lesson.teacher }}</span>
+                                    <span v-if="lesson.language" class="uppercase">{{ lesson.language }}</span>
+                                    <UiBadge v-if="lesson.status === 'archived'" tone="warning">Archived</UiBadge>
+                                </div>
+                            </div>
+                            <details ref="actionMenu" class="relative shrink-0">
+                                <summary class="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-md border border-border text-fg-secondary hover:bg-surface-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="More lesson actions" title="More actions">
+                                    <MoreHorizontal :size="19" aria-hidden="true" />
+                                </summary>
+                                <div class="absolute right-0 top-12 z-30 min-w-48 rounded-spa-lg border border-border bg-card p-1 shadow-lg">
+                                    <button type="button" class="w-full rounded-md px-3 py-2.5 text-left text-sm text-fg hover:bg-surface-alt" @click="headerEditing = !headerEditing; actionMenu?.removeAttribute('open')">
+                                        {{ headerEditing ? 'Close details' : 'Edit details' }}
+                                    </button>
+                                    <button type="button" class="w-full rounded-md px-3 py-2.5 text-left text-sm text-fg hover:bg-surface-alt disabled:opacity-50" :disabled="archiving" @click="toggleArchive(); actionMenu?.removeAttribute('open')">
+                                        {{ archiving ? 'Saving...' : lesson.status === 'archived' ? 'Restore lesson' : 'Archive lesson' }}
+                                    </button>
+                                </div>
+                            </details>
                         </div>
+                        <div class="flex w-full flex-col gap-1 sm:w-auto sm:min-w-52">
+                            <UiButton variant="primary" size="touch" class="w-full" :disabled="analyzing" @click="analyzeLesson">
+                                <Sparkles :size="16" aria-hidden="true" /> {{ analyzing ? 'Analyzing...' : 'Analyze lesson' }}
+                            </UiButton>
+                            <p class="px-1 text-xs text-muted-foreground sm:text-right">Find words and grammar in your notes</p>
                         </div>
-                    <div class="mt-5 grid min-w-0 grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
+                    </div>
+                    <div v-if="headerEditing" class="grid min-w-0 grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
                         <label class="block min-w-0 space-y-2">
                             <span class="text-sm font-medium text-fg-secondary">Title</span>
                             <UiInput id="lesson-title" :model-value="lesson.title ?? ''" placeholder="Lesson title" @update:model-value="lesson.title = $event" />
@@ -555,6 +761,10 @@ onUnmounted(() => {
                             <span class="text-sm font-medium text-fg-secondary">Tags</span>
                             <UiInput id="lesson-tags" v-model="tagsDraft" placeholder="Comma-separated tags" />
                         </label>
+                        <div class="flex flex-wrap gap-2 sm:col-span-2">
+                            <UiButton variant="primary" size="touch" :disabled="saving" @click="saveLesson(true)"><Save :size="16" /> {{ saving ? 'Saving...' : 'Save details' }}</UiButton>
+                            <UiButton variant="secondary" size="touch" @click="headerEditing = false">Close details</UiButton>
+                        </div>
                     </div>
                 </UiCard>
 
@@ -563,7 +773,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Tabs -->
-                <UiTabs v-model="activeTab" :tabs="tabs" class="mb-4" />
+                <UiTabs :model-value="activeTab" :tabs="tabs" class="mb-4" @update:model-value="selectLessonTab" />
 
                 <div v-if="undoMessage" class="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-spa-lg border border-border bg-surface p-3 text-sm" role="status">
                     <span>{{ undoMessage }}</span>
@@ -588,7 +798,7 @@ onUnmounted(() => {
                                     class="w-full min-h-[180px] max-h-[500px] resize-none rounded-spa border border-border bg-surface p-4 text-base font-mono text-fg placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     placeholder="Write your lesson notes here…"
                                     @input="autoResizeTextarea(notesTextarea)"
-                                    @blur="saveLesson"
+                                    @blur="() => saveLesson()"
                                     @keydown.ctrl.enter.exact.prevent="saveLesson()"
                                     @keydown.meta.enter.exact.prevent="saveLesson()"
                                 ></textarea>
@@ -615,13 +825,30 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Words Tab -->
-                <div v-if="activeTab === 'words'" class="space-y-4">
-                    <UiCard class="space-y-3">
+                <section v-if="activeTab === 'words'" class="-mx-4 min-w-0 sm:mx-0 sm:rounded-xl sm:border sm:border-border sm:bg-card sm:p-5">
+                    <div class="mx-4 space-y-3 sm:mx-0">
                         <div class="flex min-w-0 flex-wrap items-center justify-between gap-3">
                             <UiSectionHeader title="Words" :subtitle="`${lesson.lexemes.length} from this lesson`" />
-                            <UiButton variant="primary" size="touch" @click="addLexeme"><Plus :size="16" /> Add word</UiButton>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <RouterLink
+                                    v-if="practiceWordIds.length > 0"
+                                    :to="{ name: 'repetitions', query: { lesson_id: String(lesson.id), return_to: 'lessons' } }"
+                                    class="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-medium text-fg transition-colors hover:border-primary hover:text-primary"
+                                >
+                                    <Dumbbell :size="16" aria-hidden="true" /> Practice {{ practiceWordIds.length }}
+                                </RouterLink>
+                                <UiButton variant="primary" size="touch" @click="addLexeme"><Plus :size="16" /> Add word</UiButton>
+                            </div>
                         </div>
-                        <form v-if="showLexemeForm" class="grid min-w-0 gap-3 rounded-spa-lg border border-border bg-black/5 p-3" @submit.prevent="saveLexeme">
+                        <UiSegmentedControl :model-value="lessonWordFilter" :segments="lessonWordStatusSegments" :ariaLabel="'Lesson word status'" @update:model-value="setLessonWordFilter" />
+                        <div class="flex min-h-11 items-center justify-between gap-3">
+                            <label v-if="visibleLessonWords.length > 0" class="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                                <input type="checkbox" class="h-5 w-5 rounded border-border accent-primary" :checked="allVisibleLessonWordsSelected" aria-label="Select all words in this view" @change="toggleAllVisibleLessonWords" />
+                                Select all {{ visibleLessonWords.length }}
+                            </label>
+                            <p v-if="lessonBulkMessage" class="text-sm text-muted-foreground" role="status">{{ lessonBulkMessage }}</p>
+                        </div>
+                        <form v-if="showLexemeForm" class="grid min-w-0 gap-3 rounded-spa-lg border border-border bg-surface-alt/45 p-3" @submit.prevent="saveLexeme">
                             <p class="text-sm font-medium">{{ editingLexemeId === null ? 'Add a word or phrase' : 'Edit word or phrase' }}</p>
                             <div class="grid min-w-0 gap-3 sm:grid-cols-2">
                                 <label class="min-w-0 space-y-1 text-sm">Word or phrase
@@ -654,32 +881,51 @@ onUnmounted(() => {
                     <UiEmptyState v-if="lesson.lexemes.length === 0" class="mx-4 mt-3 sm:mx-0" title="Nothing yet" description="Add a word here, or analyze this lesson to find words." />
                     <UiEmptyState v-else-if="visibleLessonWords.length === 0" class="mx-4 mt-3 sm:mx-0" title="No words in this view" description="Try another status or add a word to this lesson." />
                     <div v-else class="mt-3 divide-y divide-border border-y border-border sm:overflow-hidden sm:rounded-lg sm:border">
-                        <WordRow
-                            v-for="w in visibleLessonWords"
+                        <WordListItem
+                            v-for="w in visibleLessonLexemes"
                             :key="w.id"
-                            :text="w.text"
-                            :language="w.language"
-                            :translation="w.translation"
-                            :level="w.level"
-                            level-in-details
-                            :lexeme-id="w.matched_lexeme_id"
-                            :example="w.example"
-                            :examples="w.example ? [{ example: w.example, translation: w.example_translation, is_primary: true }] : []"
-                            :status-label="w.in_review ? 'In practice' : w.in_my_words ? 'Saved to My words' : (w.status === 'matched' ? 'Dictionary match' : 'New from lesson')"
-                            :status-tone="w.in_review ? 'success' : 'neutral'"
+                            :lexeme="w"
+                            :language="lesson.language"
+                            :selectable="true"
+                            :selected="selectedLessonWordIds.has(w.id)"
+                            :marking="itemSaving"
+                            :starting-review="itemSaving"
+                            @toggle-select="toggleLessonWordSelection"
+                            @start-review="(word) => { const candidate = lessonWordById(word.id); if (candidate) void runLessonWordAction(candidate, 'start'); }"
+                            @stop-review="(word) => { const candidate = lessonWordById(word.id); if (candidate) void runLessonWordAction(candidate, 'stop'); }"
+                            @mark-learned="(word) => { const candidate = lessonWordById(word.id); if (candidate) void runLessonWordAction(candidate, 'known'); }"
+                            @unmark-learned="(word) => { const candidate = lessonWordById(word.id); if (candidate) void runLessonWordAction(candidate, 'unknown'); }"
                         >
-                            <span class="text-xs text-muted-foreground">{{ w.type.replaceAll('_', ' ') }}</span>
                             <template #row-actions>
-                                <RouterLink v-if="w.in_review && w.matched_lexeme_id" :to="{ name: 'repetitions', query: { lexeme_ids: String(w.matched_lexeme_id), return_to: 'lessons' } }" class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" :aria-label="`Practice ${w.text}`" title="Practice word"><Dumbbell :size="18" /></RouterLink>
-                                <UiButton v-else variant="secondary" size="icon-touch" class="shrink-0" :disabled="itemSaving" :aria-label="w.in_my_words ? `Add ${w.text} to practice` : `Add ${w.text} to My words and practice`" :title="w.in_my_words ? 'Add to practice' : 'Add to My words and practice'" @click="addLexemeToMyWords(w)"><BookPlus :size="18" /></UiButton>
+                                <RouterLink v-if="w.in_review && w.lexeme_id" :to="{ name: 'repetitions', query: { lesson_id: String(lesson.id), lesson_lexeme_ids: String(w.lexeme_id), return_to: 'lessons' } }" class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" :aria-label="`Practice ${w.text}`" title="Practice word"><Dumbbell :size="18" /></RouterLink>
                             </template>
                             <template #actions>
                                 <div class="flex flex-wrap gap-2">
-                                    <UiButton variant="secondary" size="touch" :disabled="itemSaving" @click="editLexeme(w)">Edit</UiButton>
+                                    <UiButton variant="secondary" size="touch" :disabled="itemSaving" @click="lessonWordById(w.id) && editLexeme(lessonWordById(w.id)!)">Edit</UiButton>
                                     <UiButton variant="danger" size="touch" :disabled="itemSaving" @click="deleteLessonItem('lexemes', w.id)">Remove</UiButton>
                                 </div>
                             </template>
-                        </WordRow>
+                        </WordListItem>
+                    </div>
+                    <div v-if="selectedLessonWordIds.size > 0" class="sticky bottom-[var(--spa-mobile-nav-height)] z-20 mt-2 space-y-2 border-y border-border bg-card/95 p-3 shadow-[0_-8px_28px_rgba(15,23,42,0.08)] backdrop-blur sm:rounded-xl sm:border lg:bottom-4">
+                        <div class="flex min-h-11 items-center gap-2 text-sm">
+                            <label class="flex min-h-11 cursor-pointer items-center gap-2 text-muted-foreground">
+                                <input type="checkbox" class="h-5 w-5 rounded border-border accent-primary" :checked="allVisibleLessonWordsSelected" aria-label="Select all words in this view" @change="toggleAllVisibleLessonWords" />
+                                Select all {{ visibleLessonWords.length }}
+                            </label>
+                            <span class="ml-auto font-medium text-fg">{{ selectedLessonWordIds.size }} selected</span>
+                            <UiButton variant="ghost" size="icon-touch" aria-label="Clear selection" @click="clearLessonWordSelection">×</UiButton>
+                        </div>
+                        <div v-if="confirmingLessonKnown" class="flex flex-wrap items-center gap-2">
+                            <span class="flex-1 text-sm text-warning">Mark {{ selectedLessonWordIds.size }} words as known?</span>
+                            <UiButton variant="primary" size="touch" :disabled="lessonBulkPending" @click="bulkMarkLessonWordsKnown([...selectedLessonWordIds])">Confirm</UiButton>
+                            <UiButton variant="ghost" size="touch" :disabled="lessonBulkPending" @click="confirmingLessonKnown = false">Cancel</UiButton>
+                        </div>
+                        <div v-else class="flex flex-wrap gap-2">
+                            <UiButton variant="primary" size="touch" class="flex-1" :disabled="lessonBulkPending" @click="bulkStartLessonWords([...selectedLessonWordIds])">Add to practice</UiButton>
+                            <UiButton variant="secondary" size="touch" :disabled="lessonBulkPending" @click="bulkStopLessonWords([...selectedLessonWordIds])">Remove from practice</UiButton>
+                            <UiButton variant="secondary" size="touch" :disabled="lessonBulkPending" @click="confirmingLessonKnown = true">Mark as known</UiButton>
+                        </div>
                     </div>
                 </section>
 
@@ -777,51 +1023,7 @@ onUnmounted(() => {
                     </UiCard>
                 </div>
 
-                <!-- Chat Tab (moved from main screen) -->
-                <div v-if="activeTab === 'chat'" class="space-y-4">
-                    <UiCard class="overflow-hidden p-0">
-                        <div class="flex h-[min(60vh,640px)] flex-col">
-                            <div class="flex-1 overflow-y-auto p-4 space-y-3 bg-black/10">
-                                <template v-if="messages.length === 0">
-                                    <div class="rounded-spa-lg border border-dashed border-border-strong p-5 text-sm text-muted-foreground">
-                                        Write what you covered in the lesson or attach a file with notes, then tap
-                                        “Analyze lesson” to pull out the words and grammar.
-                                    </div>
-                                </template>
-                                <ChatMessage
-                                    v-for="msg in messages"
-                                    :key="msg.id"
-                                    :role="msg.role"
-                                    :content="msg.content"
-                                    :attachments="msg.attachment_name ? [{ name: msg.attachment_name, status: 'Attached' }] : []"
-                                />
-                                <ChatMessage v-if="isWaiting" role="assistant" loading loading-label="Typing..." />
-                                <ChatMessage v-if="chatError" role="assistant" :error="chatError" retryable :loading="sending" @retry="retryChat" />
-                                <div ref="messagesEnd" />
-                            </div>
-
-                            <div class="border-t border-border bg-black/20 p-3 space-y-2">
-                                <div v-if="attachment" class="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <Paperclip :size="12" /> {{ attachment.name }}
-                                </div>
-                                <div class="flex gap-2">
-                                    <input ref="fileInput" type="file" accept="application/pdf" class="hidden" @change="onFileChange" />
-                                    <UiButton variant="secondary" :disabled="sending" @click="fileInput?.click()">
-                                        <Paperclip :size="16" />
-                                    </UiButton>
-                                    <UiInput
-                                        v-model="inputText"
-                                        type="text"
-                                        placeholder="What did you learn today?"
-                                        :disabled="sending"
-                                        @keydown.enter.prevent="send()"
-                                    />
-                                    <UiButton variant="primary" :disabled="!canSend" @click="send()">Send</UiButton>
-                                </div>
-                            </div>
-                        </div>
-                    </UiCard>
-                </div>
+                </template>
             </template>
         </PageState>
     </div>

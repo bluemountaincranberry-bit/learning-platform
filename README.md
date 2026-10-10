@@ -45,4 +45,12 @@ docker compose --env-file config/docker.env up -d
 
 3. Run migrations and frontend/build commands as needed.
 
-If you want, this README can be expanded later with exact day-to-day local commands for this project specifically.
+### Use the app from a phone
+
+For microphone access and Vite hot reload over the local network, run:
+
+```bash
+make mobile-https
+```
+
+Then follow [the phone setup guide](docs/operations/mobile-https.md) to trust the local development certificate on each phone. Keep the phone and computer on the same Wi-Fi. The app URL and certificate path are printed by the command.

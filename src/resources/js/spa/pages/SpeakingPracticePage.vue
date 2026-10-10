@@ -11,6 +11,7 @@ import UiEmptyState from '../shared/ui/UiEmptyState.vue';
 import UiSectionHeader from '../shared/ui/UiSectionHeader.vue';
 import UiSwitch from '../shared/ui/UiSwitch.vue';
 import SpeakingPracticeCard from '../widgets/trainer/SpeakingPracticeCard.vue';
+import VoiceDictationControl from '../shared/ui/VoiceDictationControl.vue';
 import type { SentencePracticeCheckMode, SentencePracticeCheckResponse, SentencePracticeDirection } from '../domains/ai';
 
 type SentenceMode = 'read' | 'write-flexible' | 'write-exact' | 'reorder';
@@ -28,8 +29,14 @@ const contentId = computed(() => {
     return raw && !Number.isNaN(id) ? id : undefined;
 });
 
+const mistakeIds = computed(() => {
+    const raw = route.query.mistake_ids;
+    const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+    return values.map(Number).filter((id) => Number.isInteger(id) && id > 0);
+});
+
 const { phase, error, note, busy, currentCard, currentIndex, sessionTotal, correctCount, startSession, checkAnswer, advance, restart } =
-    useSentencePracticeSession(contentId.value);
+    useSentencePracticeSession(contentId.value, mistakeIds.value);
 
 const cardNumber = computed(() => currentIndex.value + 1);
 const currentResult = ref<SentencePracticeCheckResponse | null>(null);
@@ -61,6 +68,14 @@ watch(currentCard, resetSentenceMode);
 
 async function submitAnswer(answer: string) {
     currentResult.value = await checkAnswer(answer, checkMode.value);
+}
+
+function submitSpokenAnswer(text: string) {
+    void submitAnswer(text);
+}
+
+function retryAnswer() {
+    currentResult.value = null;
 }
 
 function next() {
@@ -104,6 +119,10 @@ function checkReorderedSentence() {
 }
 
 function backFromPractice() {
+    if (route.query.return_to === 'dashboard') {
+        router.push({ name: 'dashboard' });
+        return;
+    }
     if (route.query.return_to === 'repetitions') {
         router.push({ name: 'repetitions', query: { content_id: route.query.content_id, lexeme_ids: route.query.lexeme_ids } });
         return;
@@ -155,7 +174,7 @@ onMounted(() => {
             <p v-if="error" class="mt-4 text-sm text-warning" role="alert">{{ error }}</p>
 
             <UiCard v-if="phase === 'idle'" class="mt-6 space-y-5 p-4 sm:p-6">
-                <div><h2 class="text-lg font-semibold text-fg">Choose how to practice</h2><p class="mt-1 text-sm text-muted-foreground">Use the same studied words in complete sentences.</p></div>
+                <div><h2 class="text-lg font-semibold text-fg">Choose how to practice</h2><p class="mt-1 text-sm text-muted-foreground">Translate a short prompt, or practise an error from your speaking report.</p></div>
                 <div class="grid gap-2 sm:grid-cols-2">
                     <button type="button" class="rounded-spa-lg border border-border bg-surface p-4 text-left transition hover:border-primary/50 hover:bg-primary/5" @click="choose('read')"><span class="block text-sm font-semibold text-fg">Read & reveal</span><span class="mt-1 block text-xs leading-5 text-muted-foreground">Read a sentence, then reveal its translation.</span></button>
                     <button type="button" class="rounded-spa-lg border border-border bg-surface p-4 text-left transition hover:border-primary/50 hover:bg-primary/5" @click="choose('write-flexible')"><span class="block text-sm font-semibold text-fg">Write · flexible</span><span class="mt-1 block text-xs leading-5 text-muted-foreground">Write a natural translation. AI checks the meaning.</span></button>
@@ -186,7 +205,7 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <div class="mt-4 flex flex-1 items-center">
+                <div class="mt-4 flex flex-1 flex-col items-center gap-3">
                     <UiCard v-if="isReadMode" class="w-full space-y-5 p-4 sm:p-7">
                         <div><div class="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">Read & reveal</div><p class="mt-1 text-sm text-muted-foreground">Read the sentence, then reveal its translation.</p></div>
                         <button type="button" class="w-full rounded-spa-lg border border-border bg-surface-alt/50 px-4 py-7 text-center text-xl leading-relaxed text-fg transition hover:border-primary/40" @click="toggleTranslation">{{ currentCard.prompt_sentence }}</button>
@@ -213,7 +232,8 @@ onMounted(() => {
                             <UiButton variant="primary" @click="next">Continue</UiButton>
                         </div>
                     </UiCard>
-                    <SpeakingPracticeCard v-else class="w-full" :card="currentCard" :busy="busy" :result="currentResult" @submit="submitAnswer" @next="next" />
+                    <SpeakingPracticeCard v-else class="w-full" :card="currentCard" :busy="busy" :result="currentResult" @submit="submitAnswer" @next="next" @retry="retryAnswer" />
+                    <VoiceDictationControl v-if="!isReadMode && !isReorderMode && !currentResult" class="w-full max-w-2xl" @ready="submitSpokenAnswer" />
                 </div>
             </template>
 
@@ -225,9 +245,9 @@ onMounted(() => {
                         <UiButton variant="primary" @click="restart">Practice again</UiButton>
                         <UiButton
                             variant="secondary"
-                            @click="contentId ? router.push({ name: 'catalog.details', params: { id: contentId } }) : router.push({ name: 'repetitions' })"
+                            @click="contentId ? router.push({ name: 'catalog.details', params: { id: contentId } }) : backFromPractice()"
                         >
-                            {{ contentId ? 'Back to content' : 'Back to practice' }}
+                            {{ contentId ? 'Back to content' : route.query.return_to === 'dashboard' ? 'Back to Today' : 'Back to practice' }}
                         </UiButton>
                     </div>
                 </UiCard>

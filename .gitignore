@@ -16,6 +16,7 @@ Basic Excise File
 
 # Local YouTube browser session; contains authentication cookies.
 /runtime/youtube/*.json
+/runtime/mobile-https/
 
 # Local AWS configuration and generated TypeScript build cache.
 /.aws

@@ -18,7 +18,7 @@ const SESSION_SIZE = 5;
  * learner's global recent-study pool; omitted, this is the general
  * `/practice/speaking` entry.
  */
-export function useSentencePracticeSession(contentId?: number) {
+export function useSentencePracticeSession(contentId?: number, mistakeIds?: number[]) {
     const phase = ref<Phase>('idle');
     const error = ref('');
     const note = ref('');
@@ -39,7 +39,7 @@ export function useSentencePracticeSession(contentId?: number) {
         error.value = '';
         note.value = '';
         try {
-            const data = await sentencePracticeApi.start(newDirection, SESSION_SIZE, contentId);
+            const data = await sentencePracticeApi.start(newDirection, SESSION_SIZE, contentId, mistakeIds);
             queue.value = data.cards;
             currentIndex.value = 0;
             correctCount.value = 0;
@@ -66,6 +66,7 @@ export function useSentencePracticeSession(contentId?: number) {
                 answer_language: card.answer_language,
                 answer,
                 check_mode: checkMode,
+                ...(card.mistake_id ? { mistake_id: card.mistake_id } : {}),
             });
             if (result.correct) correctCount.value += 1;
             return result;

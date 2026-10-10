@@ -29,6 +29,10 @@ export default defineConfig({
         cors: true,
         // Containerized Playwright reaches Vite through the compose DNS name.
         // Keep the allow-list explicit instead of enabling all hosts.
-        allowedHosts: ['localhost', 'node'],
+        allowedHosts: [
+            'localhost',
+            'node',
+            ...(process.env.VITE_DEV_SERVER_ORIGIN ? [new URL(process.env.VITE_DEV_SERVER_ORIGIN).hostname] : []),
+        ],
     },
 });

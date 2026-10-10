@@ -5,5 +5,5 @@ namespace App\Modules\Learning\Application\Contracts;
 interface SpeechToTextProviderInterface
 {
     /** @return array{text: string, confidence: ?float, provider: string} */
-    public function transcribe(string $audioPath, string $language): array;
+    public function transcribe(string $audioPath, string $language, ?string $filename = null): array;
 }

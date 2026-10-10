@@ -23,6 +23,10 @@ class SendLessonMessageRequest extends FormRequest
             // cleanly onto a single field's rule list.
             'content' => ['nullable', 'string', 'max:16000'],
             'attachment' => ['nullable', 'file', 'mimes:pdf', 'max:'.(int) config('ai.agent.max_upload_kb', 10240)],
+            'voice_audio' => ['nullable', 'file', 'mimes:webm,mp4,m4a,ogg,wav,mpeg,mpga', 'max:10240'],
+            'transcription_provider' => ['nullable', 'in:openai,local_whisper'],
+            'transcription_language' => ['nullable', 'in:en,ru'],
+            'voice_audio_keep_forever' => ['nullable', 'boolean'],
         ];
     }
 }

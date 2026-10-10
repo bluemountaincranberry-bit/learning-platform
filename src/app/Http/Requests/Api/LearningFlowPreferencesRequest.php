@@ -21,6 +21,8 @@ class LearningFlowPreferencesRequest extends FormRequest
             'speaking_weight' => ['sometimes', 'nullable', 'integer', 'between:0,50'],
             'hint_mode' => ['sometimes', 'nullable', 'in:guided,balanced,challenge'],
             'difficulty_preference' => ['sometimes', 'nullable', 'in:easier,balanced,harder'],
+            'speech_transcription_provider' => ['sometimes', 'nullable', 'in:openai,local_whisper'],
+            'speech_audio_retention' => ['sometimes', 'nullable', 'in:30_days,forever'],
         ];
     }
 }

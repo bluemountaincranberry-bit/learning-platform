@@ -54,6 +54,18 @@ services:
       context: ./docker/transcript-python
     restart: unless-stopped
 
+  whisper:
+    image: ghcr.io/speaches-ai/speaches:latest-cpu
+    restart: unless-stopped
+    volumes:
+      - whisper-model-cache:/home/ubuntu/.cache/huggingface/hub
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
   web:
     image: nginx:1.27-alpine
     ports:
@@ -69,6 +81,22 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  mobile-https:
+    image: caddy:2-alpine
+    profiles: ["mobile-https"]
+    restart: unless-stopped
+    ports:
+      - "${MOBILE_HTTPS_PORT:-8443}:443"
+      - "${MOBILE_VITE_HTTPS_PORT:-5443}:5177"
+    environment:
+      MOBILE_HTTPS_HOST: ${MOBILE_HTTPS_HOST:-localhost}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./runtime/mobile-https:/certs:ro
+    depends_on:
+      - web
+      - node
 
   db:
     image: postgres:16-alpine
@@ -148,3 +176,4 @@ volumes:
   redis-data:
   elasticsearch-data:
   kafka-data:
+  whisper-model-cache:

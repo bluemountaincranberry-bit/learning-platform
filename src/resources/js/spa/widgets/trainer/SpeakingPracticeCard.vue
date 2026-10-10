@@ -16,18 +16,23 @@ const props = withDefaults(defineProps<{ card: SentencePracticeCard; busy?: bool
 const emit = defineEmits<{
     (e: 'submit', answer: string): void;
     (e: 'next'): void;
+    (e: 'retry'): void;
 }>();
 
 const answer = ref('');
 const listeningOnly = ref(false);
 const listening = ref(false);
 const micError = ref('');
+const hintRevealed = ref(false);
+const exampleRevealed = ref(false);
 
 watch(
     () => props.card,
     () => {
         answer.value = '';
         micError.value = '';
+        hintRevealed.value = false;
+        exampleRevealed.value = false;
     },
 );
 
@@ -68,7 +73,6 @@ function replay() {
                 <SpeakButton :text="card.prompt_sentence" :language="card.prompt_language" />
                 <UiButton v-if="listeningOnly" variant="ghost" size="sm" @click="replay">Play again</UiButton>
             </div>
-            <p v-if="card.hint_words.length" class="text-xs text-muted-foreground">Hint: uses “{{ card.hint_words.join('”, “') }}”</p>
         </div>
 
         <div v-if="!result" class="space-y-3">
@@ -109,7 +113,7 @@ function replay() {
                 <p v-if="result.feedback" class="mt-1 text-fg-secondary">{{ result.feedback }}</p>
             </div>
 
-            <div v-if="result.model_answer" class="space-y-1">
+            <div v-if="result.correct && result.model_answer" class="space-y-1">
                 <div class="flex items-center justify-center gap-2">
                     <span class="text-xs uppercase tracking-[0.14em] text-muted-foreground">Example</span>
                     <SpeakButton :text="result.model_answer" :language="card.answer_language" />
@@ -117,7 +121,20 @@ function replay() {
                 <p class="text-lg text-fg">{{ result.model_answer }}</p>
             </div>
 
-            <div class="flex justify-center">
+            <div v-if="!result.correct" class="space-y-3 text-center">
+                <UiButton v-if="card.hint_words.length && !hintRevealed" variant="secondary" size="sm" @click="hintRevealed = true">Need a word hint?</UiButton>
+                <p v-else-if="hintRevealed" class="text-sm text-muted-foreground">Words to try: “{{ card.hint_words.join('”, “') }}”</p>
+                <div class="flex flex-wrap justify-center gap-2">
+                    <UiButton variant="secondary" @click="emit('retry')">Try again</UiButton>
+                    <UiButton v-if="result.model_answer && !exampleRevealed" variant="ghost" @click="exampleRevealed = true">Show example answer</UiButton>
+                </div>
+                <div v-if="exampleRevealed && result.model_answer" class="space-y-1">
+                    <div class="flex items-center justify-center gap-2"><span class="text-xs uppercase tracking-[0.14em] text-muted-foreground">Example</span><SpeakButton :text="result.model_answer" :language="card.answer_language" /></div>
+                    <p class="text-lg text-fg">{{ result.model_answer }}</p>
+                </div>
+            </div>
+
+            <div v-if="result.correct || exampleRevealed" class="flex justify-center">
                 <UiButton class="w-full sm:w-auto" variant="primary" @click="emit('next')">Next sentence</UiButton>
             </div>
         </div>

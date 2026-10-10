@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { ChevronDown } from 'lucide-vue-next';
 import UiBadge from './UiBadge.vue';
 import WordCard from './WordCard.vue';
+import SpeakButton from './SpeakButton.vue';
 import type { LexemeExampleItem } from '../../types/lexeme';
 
 const props = withDefaults(defineProps<{ text: string; translation?: string | null; level?: string | null; levelInDetails?: boolean; lexemeId?: number | null; language?: string | null; examples?: LexemeExampleItem[]; example?: string | null; selectable?: boolean; selected?: boolean; defaultExpanded?: boolean; statusLabel?: string | null; statusTone?: 'neutral' | 'primary' | 'success' | 'warning' }>(), { statusTone: 'neutral', levelInDetails: false });
@@ -16,6 +17,7 @@ const expanded = ref(Boolean(props.defaultExpanded));
             <label v-if="selectable" class="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
                 <input type="checkbox" class="h-5 w-5 rounded border-border accent-primary" :checked="selected" :aria-label="`Select ${text}`" @change="emit('toggleSelect')" />
             </label>
+            <SpeakButton :text="text" :language="language" />
             <button type="button" class="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" :class="selectable ? '' : 'pl-3'" :aria-expanded="expanded" :aria-label="`${text}${translation ? ` — ${translation}` : ''}. ${expanded ? 'Hide' : 'Show'} details`" @click="expanded = !expanded">
                 <span class="min-w-0 flex-1"><span class="block truncate font-medium text-fg">{{ text }}</span><span v-if="translation" class="block truncate text-sm text-fg-secondary">{{ translation }}</span></span>
                 <UiBadge v-if="level && !levelInDetails" tone="primary" class="shrink-0" title="CEFR level">{{ level }}</UiBadge>

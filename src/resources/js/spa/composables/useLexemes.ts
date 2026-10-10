@@ -159,6 +159,27 @@ export function useLexemes() {
         }
     }
 
+    async function bulkStopLearning(ids: number[]): Promise<BulkLexemeActionResponse | null> {
+        if (ids.length === 0) return null;
+        bulkActionPending.value = true;
+        const results = await Promise.all(ids.map(async (id) => {
+            try {
+                await contentApi.stopLexemeLearning(id);
+                const lexeme = lexemes.value.find((item) => item.id === id);
+                if (lexeme) lexeme.in_review = false;
+                return { id, ok: true };
+            } catch {
+                return { id, ok: false };
+            }
+        }));
+        bulkActionPending.value = false;
+        return {
+            results,
+            succeeded: results.filter((result) => result.ok).length,
+            failed: results.filter((result) => !result.ok).length,
+        };
+    }
+
     /**
      * Request AI explanation for a lexeme. Returns payload for modal or null on error.
      * Sets explainError and aiUnavailable on 503/403.
@@ -230,6 +251,7 @@ export function useLexemes() {
         unskip,
         bulkMarkLearned,
         bulkStartLearning,
+        bulkStopLearning,
         explainLexeme,
         fetchMoreExamples,
     };

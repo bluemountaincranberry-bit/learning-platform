@@ -1,14 +1,16 @@
 # Mobile shell navigation
 
-VIK-19 replaces the scrolling phone bar with five fixed columns:
-Today (Dashboard), Lessons, Words (My words), Practice and More.
-More opens the shared sheet with Catalog, Grammar, My grammar, Progress,
-AI chat and Settings. The existing AI chat role restriction still applies.
-Desktop sidebar labels and destinations are unchanged.
+The mobile bar has five fixed columns: Catalog, Lessons, Words (My words),
+Practice and More. Catalog is the first entry point for discovering learning
+content. Today (Dashboard) is the first destination in the More sheet, keeping
+the daily overview one tap away without displacing Catalog from the primary
+bar. The sheet also contains Grammar, My grammar, Progress, AI chat and
+Settings. The existing AI chat role restriction still applies. Desktop
+sidebar labels and destinations are unchanged.
 
-Lessons and word detail pages highlight their primary tab. Catalog details,
-study, categories and source submission highlight More; grammar details do
-as well. The corresponding destination inside the sheet is highlighted.
+Catalog pages highlight Catalog. Lessons and word detail pages highlight their
+primary tab. Dashboard pages highlight Today in More; grammar details highlight
+Grammar there.
 The existing focused practice/exam layouts remain free of shell navigation.
 
 The sheet closes on selection, route change, Escape, close button or backdrop.

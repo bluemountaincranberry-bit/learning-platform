@@ -24,6 +24,10 @@ class SendChatMessageRequest extends FormRequest
             'context_type' => ['nullable', 'string', 'in:content,grammar,lexeme'],
             'context_ref_id' => ['nullable', 'integer'],
             'context_label' => ['nullable', 'string', 'max:255'],
+            'voice_audio' => ['nullable', 'file', 'mimes:webm,mp4,m4a,ogg,wav,mpeg,mpga', 'max:10240'],
+            'transcription_provider' => ['nullable', 'in:openai,local_whisper'],
+            'transcription_language' => ['nullable', 'in:en,ru'],
+            'voice_audio_keep_forever' => ['nullable', 'boolean'],
         ];
     }
 }

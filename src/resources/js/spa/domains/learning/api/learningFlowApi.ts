@@ -8,6 +8,8 @@ export interface LearningFlowPreferences {
     speaking_weight: number | null;
     hint_mode: 'guided' | 'balanced' | 'challenge' | null;
     difficulty_preference: 'easier' | 'balanced' | 'harder' | null;
+    speech_transcription_provider: 'openai' | 'local_whisper' | null;
+    speech_audio_retention: '30_days' | 'forever' | null;
 }
 
 export interface LearningFlowResponse {

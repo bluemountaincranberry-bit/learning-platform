@@ -7,6 +7,10 @@ export { selfCheckApi } from './api/selfCheckApi';
 export type { SelfCheckItem, SelfCheckAnswer } from './api/selfCheckApi';
 export { exerciseAttemptsApi } from './api/exerciseAttemptsApi';
 export { learningFlowApi } from './api/learningFlowApi';
+export { speechApi } from './api/speechApi';
+export { speakingMistakesApi } from './api/speakingMistakesApi';
+export type { SpeakingMistake, SpeakingMistakesReport } from './api/speakingMistakesApi';
+export type { SpeechProvider, SpeechLanguage, SpeechProviderOption } from './api/speechApi';
 export type { LearningFlowPreferences, LearningFlowResponse } from './api/learningFlowApi';
 export { srsApi } from '../srs';
 export { trainingApi } from './api/trainingApi';
@@ -28,6 +32,8 @@ export type {
     TrainingReviewQueueResponse,
     TrainingSelectedLexemeItem,
     TrainingSelectedLexemesResponse,
+    TrainingSelectedCanonicalLexemeItem,
+    TrainingSelectedCanonicalLexemesResponse,
 } from '../../types/api/TrainingReviewQueueResponse';
 
 export { lessonApi } from './api/lessonApi';

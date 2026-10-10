@@ -11,10 +11,9 @@ import type { LexemeWithLearned } from '../../types';
  * One word in a content's word list (ContentDetailsPage.vue, StudyPage.vue).
  *
  * VIK-38: a compact, full-width row so ~8+ words fit on a phone screen —
- * checkbox · word + translation · level · add · known. Everything else
- * (speak, badges, confidence, associations, examples, skip/explain/more
- * examples, word page link) opens on tap of the word, so scanning and
- * picking words never needs scrolling past details.
+ * checkbox · pronunciation · word + translation · practice · known. Level,
+ * confidence, associations, examples and secondary actions open with the
+ * word details, so scanning and picking words stays compact.
  */
 defineProps<{
     lexeme: LexemeWithLearned;
@@ -47,12 +46,12 @@ const emit = defineEmits<{
 </script>
 
 <template>
-    <WordRow :text="lexeme.text" :translation="lexeme.translation" :level="lexeme.level" :lexeme-id="lexeme.lexeme_id" :language="language" :examples="lexeme.examples" :example="lexeme.example" :selectable="selectable" :selected="selected" :default-expanded="defaultExpanded" @toggle-select="emit('toggleSelect', lexeme)">
+    <WordRow :text="lexeme.text" :translation="lexeme.translation" :level="lexeme.level" level-in-details :lexeme-id="lexeme.lexeme_id" :language="language" :examples="lexeme.examples" :example="lexeme.example" :selectable="selectable" :selected="selected" :default-expanded="defaultExpanded" @toggle-select="emit('toggleSelect', lexeme)">
         <template #row-actions>
             <UiBadge v-if="lexeme.learned" tone="success" class="shrink-0" title="You've marked this word as learned">Learned</UiBadge>
             <!-- 44px tap target, lighter 32px visual so a long list doesn't read as a wall of buttons. -->
             <UiButton
-                v-else-if="lexeme.in_review"
+                v-if="lexeme.in_review"
                 variant="ghost"
                 size="icon-touch"
                 class="shrink-0"

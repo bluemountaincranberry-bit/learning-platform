@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withCommands([__DIR__.'/../app/Console/Commands'])
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('learning:cleanup-exercise-audio')->hourly();
+        $schedule->command('ai:cleanup-voice-recordings')->hourly();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();

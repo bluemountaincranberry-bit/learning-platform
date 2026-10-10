@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { Plus, Filter, ChevronDown } from 'lucide-vue-next';
+import { Plus, CalendarDays, ChevronRight } from 'lucide-vue-next';
 import PageState from '../components/ui/PageState.vue';
 import { useAuthStore } from '../domains/user';
 import { lessonApi, type LessonSummary } from '../domains/learning';
@@ -10,7 +10,7 @@ import UiButton from '../shared/ui/UiButton.vue';
 import UiCard from '../shared/ui/UiCard.vue';
 import UiEmptyState from '../shared/ui/UiEmptyState.vue';
 import UiSectionHeader from '../shared/ui/UiSectionHeader.vue';
-import SelectField from '../shared/ui/SelectField.vue';
+import UiSegmentedControl from '../shared/ui/UiSegmentedControl.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -79,6 +79,12 @@ function goToPage(page: number) {
     fetchLessons();
 }
 
+const lessonStatusSegments = [
+    { value: 'active', label: 'Active' },
+    { value: 'archived', label: 'Archived' },
+    { value: 'all', label: 'All' },
+];
+
 watch(statusFilter, () => {
     meta.value = { ...meta.value, current_page: 1 };
     fetchLessons();
@@ -95,29 +101,18 @@ onMounted(async () => {
 
 <template>
     <div class="space-y-6">
-        <UiCard>
+        <section class="space-y-4">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <UiSectionHeader
                     title="My lessons"
-                    subtitle="Notes from your tutor lessons — the words and grammar pulled out of them"
+                    subtitle="Your lesson notes, words and grammar in one place"
                 />
-                <UiButton variant="primary" :disabled="creating" @click="startNewLesson">
-                    <Plus :size="16" /> New lesson
+                <UiButton variant="primary" size="touch" :disabled="creating" @click="startNewLesson">
+                    <Plus :size="16" /> {{ creating ? 'Starting...' : 'New lesson' }}
                 </UiButton>
             </div>
-            <div class="mt-4 max-w-xs">
-                <SelectField
-                    v-model="statusFilter"
-                    label="Status"
-                    placeholder="Choose status"
-                    :options="[
-                        { value: 'all', label: 'All' },
-                        { value: 'active', label: 'Active' },
-                        { value: 'archived', label: 'Archived' },
-                    ]"
-                />
-            </div>
-        </UiCard>
+            <UiSegmentedControl v-model="statusFilter" :segments="lessonStatusSegments" :ariaLabel="'Lesson status'" />
+        </section>
 
         <PageState :loading="loading" :error="error">
             <template #retry>
@@ -133,31 +128,38 @@ onMounted(async () => {
             </template>
 
             <template v-else>
-                <UiCard class="space-y-2">
+                <div class="space-y-3" aria-label="Lessons">
                     <RouterLink
                         v-for="lesson in lessons"
                         :key="lesson.id"
                         :to="{ name: 'lesson.details', params: { id: lesson.id } }"
-                        class="flex flex-col gap-2 rounded-spa border border-border bg-black/10 p-3 transition-colors hover:border-primary sm:flex-row sm:items-center sm:justify-between"
+                        class="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                        <div class="min-w-0 space-y-1">
-                            <div class="break-words font-medium text-fg">
-                                {{ lesson.title || (lesson.lesson_date ? `Lesson on ${formatDate(lesson.lesson_date)}` : `Lesson updated ${formatDate(lesson.updated_at)}`) }}
+                        <UiCard class="flex min-w-0 flex-col gap-4 transition-all group-hover:-translate-y-0.5 group-hover:border-primary group-hover:shadow-md sm:flex-row sm:items-center sm:justify-between">
+                            <div class="min-w-0 space-y-2">
+                                <div class="flex min-w-0 items-start gap-2">
+                                    <h2 class="min-w-0 break-words text-base font-semibold text-fg group-hover:text-primary">
+                                        {{ lesson.title || 'Untitled lesson' }}
+                                    </h2>
+                                    <UiBadge v-if="lesson.status === 'archived'" tone="neutral" class="shrink-0">Archived</UiBadge>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                                    <span class="inline-flex items-center gap-1.5"><CalendarDays :size="14" aria-hidden="true" />{{ formatDate(lesson.lesson_date ?? lesson.updated_at) }}</span>
+                                    <span v-if="lesson.teacher">{{ lesson.teacher }}</span>
+                                    <span v-if="lesson.topic" class="text-fg-secondary">{{ lesson.topic }}</span>
+                                </div>
                             </div>
-                            <div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                <span v-if="lesson.lesson_date">{{ formatDate(lesson.lesson_date) }}</span>
-                                <UiBadge v-if="lesson.teacher" tone="neutral">{{ lesson.teacher }}</UiBadge>
-                                <UiBadge v-if="lesson.topic" tone="primary">{{ lesson.topic }}</UiBadge>
-                                <UiBadge v-if="lesson.status === 'archived'" tone="neutral">Archived</UiBadge>
+                            <div class="flex min-w-0 items-center justify-between gap-3 sm:shrink-0 sm:justify-end">
+                                <div class="flex min-w-0 flex-wrap gap-1.5">
+                                    <UiBadge tone="neutral">{{ lesson.lexeme_count }} {{ lesson.lexeme_count === 1 ? 'word' : 'words' }}</UiBadge>
+                                    <UiBadge tone="neutral">{{ lesson.grammar_count }} {{ lesson.grammar_count === 1 ? 'rule' : 'rules' }}</UiBadge>
+                                    <UiBadge tone="neutral">{{ lesson.correction_count }} {{ lesson.correction_count === 1 ? 'correction' : 'corrections' }}</UiBadge>
+                                </div>
+                                <ChevronRight :size="18" class="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
                             </div>
-                        </div>
-                        <div class="flex shrink-0 items-center gap-2">
-                            <UiBadge v-if="lesson.lexeme_count > 0" tone="primary">{{ lesson.lexeme_count }} {{ lesson.lexeme_count === 1 ? 'word' : 'words' }}</UiBadge>
-                            <UiBadge v-if="lesson.grammar_count > 0" tone="primary">{{ lesson.grammar_count }} grammar {{ lesson.grammar_count === 1 ? 'rule' : 'rules' }}</UiBadge>
-                            <UiBadge v-if="lesson.correction_count > 0" tone="primary">{{ lesson.correction_count }} {{ lesson.correction_count === 1 ? 'correction' : 'corrections' }}</UiBadge>
-                        </div>
+                        </UiCard>
                     </RouterLink>
-                </UiCard>
+                </div>
 
                 <div class="flex flex-wrap items-center gap-4">
                     <span class="text-sm text-muted-foreground">Page {{ meta.current_page }} of {{ totalPages }} ({{ meta.total }} total)</span>

@@ -24,4 +24,11 @@ describe('WordRow', () => {
         const wrapper = mount(WordRow, { props: { text: 'new phrase', defaultExpanded: true }, global: { plugins: [router] } });
         expect(wrapper.find('a').exists()).toBe(false);
     });
+
+    it('shows lesson status in the shared row with catalog geometry', () => {
+        const wrapper = mount(WordRow, { props: { text: 'run', statusLabel: 'In My words', statusTone: 'success' }, global: { plugins: [router] } });
+        expect(wrapper.text()).toContain('In My words');
+        expect(wrapper.get('div.min-w-0.bg-surface').exists()).toBe(true);
+        expect(wrapper.get('button[aria-expanded]').classes()).toContain('min-h-11');
+    });
 });

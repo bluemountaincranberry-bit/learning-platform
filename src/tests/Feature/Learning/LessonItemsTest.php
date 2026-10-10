@@ -58,7 +58,7 @@ test('lesson words can be added idempotently to My words with a practice link an
     $first = test()->postJson("/api/lessons/{$lesson->id}/lexemes/{$candidate->id}/add-to-my-words")
         ->assertOk()
         ->assertJsonPath('in_my_words', true)
-        ->assertJsonPath('in_review', true)
+        ->assertJsonPath('in_review', false)
         ->assertJsonPath('lemma', 'look after');
     $lexemeId = $first->json('lexeme_id');
 
@@ -67,7 +67,7 @@ test('lesson words can be added idempotently to My words with a practice link an
 
     expect($candidate->fresh()->matched_lexeme_id)->toBe($lexemeId)
         ->and(DB::table('user_lexeme_sources')->where('user_id', $user->id)->where('lesson_lexeme_candidate_id', $candidate->id)->count())->toBe(1)
-        ->and(DB::table('srs_cards')->where('user_id', $user->id)->where('lexeme_id', $lexemeId)->whereNull('deactivated_at')->count())->toBe(1);
+        ->and(DB::table('srs_cards')->where('user_id', $user->id)->where('lexeme_id', $lexemeId)->whereNull('deactivated_at')->count())->toBe(0);
 
     test()->getJson("/api/lessons/{$lesson->id}")->assertOk()
         ->assertJsonPath('lexemes.0.in_my_words', true)

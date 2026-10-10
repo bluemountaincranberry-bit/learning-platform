@@ -21,6 +21,15 @@ return [
         'api_key' => env('OPENAI_API_KEY'),
     ],
 
+    'transcription' => [
+        'openai_model' => env('OPENAI_TRANSCRIPTION_MODEL', 'gpt-4o-mini-transcribe'),
+        'local_whisper' => [
+            'enabled' => (bool) env('LOCAL_WHISPER_ENABLED', true),
+            'base_url' => env('LOCAL_WHISPER_BASE_URL', 'http://whisper:8000/v1'),
+            'model' => env('LOCAL_WHISPER_MODEL', 'Systran/faster-whisper-small'),
+        ],
+    ],
+
     'azure_speech' => [
         'enabled' => (bool) env('AZURE_SPEECH_ENABLED', false),
         'key' => env('AZURE_SPEECH_KEY'),

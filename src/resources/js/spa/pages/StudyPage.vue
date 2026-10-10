@@ -42,6 +42,7 @@ const {
     bulkActionPending,
     bulkMarkLearned,
     bulkStartLearning,
+    bulkStopLearning,
     explainLexeme,
     fetchMoreExamples,
 } = useLexemes();
@@ -228,6 +229,7 @@ onMounted(async () => {
                     v-model:selected-ids="selectedIds"
                     :bulk-mark-learned="bulkMarkLearned"
                     :bulk-start-learning="bulkStartLearning"
+                    :bulk-stop-learning="bulkStopLearning"
                     :bulk-action-pending="bulkActionPending"
                     @update:filtered="filteredLexemes = $event"
                     @practice-selected="practiceSelected"

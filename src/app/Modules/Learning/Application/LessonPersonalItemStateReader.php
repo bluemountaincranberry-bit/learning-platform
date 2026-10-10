@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 /** Reads the learner-specific selection and practice state for lesson items. */
 final class LessonPersonalItemStateReader
 {
-    /** @return array{lexemes: array<int, array{in_my_words: bool, in_review: bool}>, grammar: array<int, bool>} */
+    /** @return array{lexemes: array<int, array{in_my_words: bool, in_review: bool, learned: bool}>, grammar: array<int, bool>} */
     public function forItems(Collection $lexemes, Collection $grammar, int $userId): array
     {
         return [
@@ -21,7 +21,7 @@ final class LessonPersonalItemStateReader
         ];
     }
 
-    /** @return array<int, array{in_my_words: bool, in_review: bool}> */
+    /** @return array<int, array{in_my_words: bool, in_review: bool, learned: bool}> */
     private function lexemeStatesFor(Collection $lexemes, int $userId): array
     {
         $sources = UserLexemeSource::query()->where('user_id', $userId)
@@ -30,11 +30,15 @@ final class LessonPersonalItemStateReader
         $activeLexemes = DB::table('srs_cards')->where('user_id', $userId)
             ->whereIn('lexeme_id', $lexemes->pluck('matched_lexeme_id')->filter()->unique())
             ->whereNull('deactivated_at')->pluck('lexeme_id')->flip();
+        $learnedLexemes = DB::table('user_lexeme_progress')->where('user_id', $userId)
+            ->whereIn('lexeme_id', $lexemes->pluck('matched_lexeme_id')->filter()->unique())
+            ->whereNotNull('learned_at')->pluck('lexeme_id')->flip();
 
         return $lexemes->mapWithKeys(fn (LessonLexemeCandidate $candidate) => [
             $candidate->id => [
                 'in_my_words' => $sources->has($candidate->id),
                 'in_review' => $candidate->matched_lexeme_id !== null && $activeLexemes->has($candidate->matched_lexeme_id),
+                'learned' => $candidate->matched_lexeme_id !== null && $learnedLexemes->has($candidate->matched_lexeme_id),
             ],
         ])->all();
     }
@@ -56,7 +60,7 @@ final class LessonPersonalItemStateReader
         })->all();
     }
 
-    /** @return array{in_my_words: bool, in_review: bool} */
+    /** @return array{in_my_words: bool, in_review: bool, learned: bool} */
     public function forLexeme(LessonLexemeCandidate $candidate, int $userId): array
     {
         return $this->lexemeStatesFor(collect([$candidate]), $userId)[$candidate->id];

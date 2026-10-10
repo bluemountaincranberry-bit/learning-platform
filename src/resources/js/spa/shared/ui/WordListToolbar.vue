@@ -5,6 +5,7 @@ import { MoreHorizontal, SlidersHorizontal, X } from 'lucide-vue-next';
 import UiButton from './UiButton.vue';
 import UiDialog from './UiDialog.vue';
 import UiInput from './UiInput.vue';
+import UiSegmentedControl from './UiSegmentedControl.vue';
 import SelectField from './SelectField.vue';
 import type { LexemeWithLearned, BulkLexemeActionResponse } from '../../types';
 
@@ -33,6 +34,8 @@ const props = withDefaults(
         bulkMarkLearned: (ids: number[]) => Promise<BulkLexemeActionResponse | null>;
         /** Bulk add-to-learning action from the host page's own useLexemes() instance. */
         bulkStartLearning: (ids: number[]) => Promise<BulkLexemeActionResponse | null>;
+        /** Bulk removal from the repetition queue. */
+        bulkStopLearning?: (ids: number[]) => Promise<BulkLexemeActionResponse | null>;
         bulkActionPending?: boolean;
     }>(),
     { bulkActionPending: false },
@@ -266,6 +269,15 @@ async function bulkStart() {
     clearSelection();
 }
 
+async function bulkStop() {
+    if (!props.bulkStopLearning) return;
+    const ids = [...props.selectedIds];
+    const result = await props.bulkStopLearning(ids);
+    if (!result) return;
+    bulkResultMessage.value = `Removed ${result.succeeded} of ${ids.length} from learning${result.failed > 0 ? ` (${result.failed} failed)` : ''}.`;
+    clearSelection();
+}
+
 const menuItemClass =
     'flex min-h-11 cursor-default select-none items-center gap-2 rounded-md px-3 text-sm text-foreground outline-none transition-colors data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-40';
 </script>
@@ -273,20 +285,12 @@ const menuItemClass =
 <template>
     <div>
         <div class="space-y-2 px-4 sm:px-0">
-            <div role="group" aria-label="Word status" class="flex rounded-lg bg-muted p-0.5">
-                <button
-                    v-for="segment in statusSegments"
-                    :key="segment.key"
-                    type="button"
-                    :aria-pressed="filterStatus === segment.key"
-                    class="flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center rounded-md px-1 text-xs font-medium leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    :class="filterStatus === segment.key ? 'bg-background text-fg shadow-sm' : 'text-muted-foreground'"
-                    @click="setStatus(segment.key)"
-                >
-                    <span class="w-full truncate">{{ segment.label }}</span>
-                    <span class="tabular-nums" :class="filterStatus === segment.key ? 'text-primary' : ''">{{ segment.count }}</span>
-                </button>
-            </div>
+            <UiSegmentedControl
+                :model-value="filterStatus"
+                :segments="statusSegments.map((segment) => ({ value: segment.key, label: segment.label, count: segment.count }))"
+                :ariaLabel="'Word status'"
+                @update:model-value="setStatus($event as StatusFilter)"
+            />
 
             <div class="flex min-h-11 items-center gap-2">
                 <UiButton variant="secondary" size="touch" class="shrink-0" :aria-label="`Filter words${activeChips.length ? ` (${activeChips.length} active)` : ''}`" @click="filterSheetOpen = true">
@@ -370,6 +374,7 @@ const menuItemClass =
                             :side-offset="6"
                         >
                             <DropdownMenuItem :class="menuItemClass" @select="practiceContext">Practice in sentences</DropdownMenuItem>
+                            <DropdownMenuItem v-if="bulkStopLearning" :class="menuItemClass" @select="bulkStop">Remove from learning</DropdownMenuItem>
                             <DropdownMenuItem :class="menuItemClass" @select="confirmingBulkMark = true">Mark as known</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenuPortal>

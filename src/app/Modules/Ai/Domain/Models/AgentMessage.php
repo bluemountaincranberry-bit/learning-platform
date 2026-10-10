@@ -17,7 +17,12 @@ class AgentMessage extends Model
 
     protected function casts(): array
     {
-        return ['tool_args' => 'array', 'tool_result' => 'array'];
+        return [
+            'tool_args' => 'array',
+            'tool_result' => 'array',
+            'voice_audio_pinned' => 'boolean',
+            'voice_audio_expires_at' => 'datetime',
+        ];
     }
 
     public function conversation(): BelongsTo

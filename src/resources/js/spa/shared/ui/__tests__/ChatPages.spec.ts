@@ -6,7 +6,7 @@ import LessonDetailPage from '../../../pages/LessonDetailPage.vue';
 const api = vi.hoisted(() => ({
     createConversation: vi.fn(), streamMessage: vi.fn(), get: vi.fn(), listMessages: vi.fn(), sendMessage: vi.fn(), update: vi.fn(),
     destroy: vi.fn(), restore: vi.fn(), speak: vi.fn(), createLexeme: vi.fn(), updateLexeme: vi.fn(), deleteLexeme: vi.fn(), restoreLexeme: vi.fn(),
-    createGrammar: vi.fn(), updateGrammar: vi.fn(), deleteGrammar: vi.fn(), restoreGrammar: vi.fn(), addGrammarToMyGrammar: vi.fn(),
+    createGrammar: vi.fn(), updateGrammar: vi.fn(), deleteGrammar: vi.fn(), restoreGrammar: vi.fn(), addGrammarToMyGrammar: vi.fn(), addLexemeToMyWords: vi.fn(),
     createCorrection: vi.fn(), updateCorrection: vi.fn(), deleteCorrection: vi.fn(), restoreCorrection: vi.fn(),
 }));
 vi.mock('../../../shared/lib/speech', () => ({ isSpeechSupported: () => true, speak: api.speak }));
@@ -14,7 +14,7 @@ vi.mock('../../../domains/ai', () => ({ tutorApi: api }));
 vi.mock('../../../domains/user', () => ({ useAuthStore: () => ({ isAuthenticated: true, canAccessTutorAgent: true }) }));
 vi.mock('../../../domains/learning', () => ({ lessonApi: api }));
 async function renderPage(component: typeof ChatPage | typeof LessonDetailPage, path: string) {
-    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/chat', component: ChatPage }, { path: '/lessons/:id', component: LessonDetailPage }, { path: '/grammar/:id', name: 'grammar.details', component: { template: '<div />' } }] });
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/chat', component: ChatPage }, { path: '/lessons/:id', component: LessonDetailPage }, { path: '/grammar/:id', name: 'grammar.details', component: { template: '<div />' } }, { path: '/grammar/:id/practice', name: 'grammar.practice', component: { template: '<div />' } }, { path: '/repetitions', name: 'repetitions', component: { template: '<div />' } }, { path: '/word/:id', name: 'word.details', component: { template: '<div />' } }] });
     await router.push(path);
     return mount(component, { global: { plugins: [router], stubs: { QuizCard: true } } });
 }
@@ -106,6 +106,8 @@ describe('chat page retry seams', () => {
         const wrapper = await renderPage(LessonDetailPage, '/lessons/3');
         await flushPromises();
 
+        await wrapper.findAll('button[role="tab"]').find((node) => node.text() === 'Notes')!.trigger('click');
+        await button(wrapper, 'Edit details').trigger('click');
         await wrapper.get('#lesson-title').setValue('French class');
         await wrapper.get('#lesson-date').setValue('2026-10-12');
         await wrapper.get('#lesson-teacher').setValue('Marie');
@@ -113,7 +115,7 @@ describe('chat page retry seams', () => {
         await wrapper.get('#lesson-language').setValue('ja');
         await wrapper.get('#lesson-tags').setValue('travel, review');
         await wrapper.get('textarea').setValue('Updated notes');
-        await button(wrapper, 'Save').trigger('click');
+        await button(wrapper, 'Save details').trigger('click');
         await flushPromises();
 
         expect(api.update).toHaveBeenCalledWith(3, {
@@ -252,6 +254,27 @@ describe('chat page retry seams', () => {
         expect(api.addGrammarToMyGrammar).toHaveBeenCalledWith(3, 10);
         expect(wrapper.text()).toContain('In My grammar');
         expect(wrapper.text()).not.toContain('Add to My grammar');
+    });
+
+    it('shows dictionary status and a compact add action on lesson word rows', async () => {
+        api.get.mockResolvedValue({ id: 3, title: 'Lesson', status: 'active', language: 'en', tags: [], notes: '', homework: '', grammar: [], corrections: [], lexemes: [{ id: 4, text: 'look after', type: 'phrasal_verb', language: 'en', translation: 'заботиться', status: 'matched', matched_lexeme_id: 42, in_my_words: false, in_review: false }] });
+        api.listMessages.mockResolvedValue({ messages: [], is_waiting: false });
+        api.addLexemeToMyWords.mockResolvedValue({ lexeme_id: 42, matched_lexeme_id: 42, lemma: 'look after', language: 'en', is_personal: false, in_my_words: true, in_review: true, status: 'matched' });
+        const wrapper = await renderPage(LessonDetailPage, '/lessons/3');
+        await flushPromises();
+        expect(wrapper.findAll('button[role="tab"]').find((node) => node.text() === 'Words')!.attributes('aria-selected')).toBe('true');
+        expect(wrapper.get('button[aria-label="look after — заботиться. Show details"]').classes()).toContain('min-h-11');
+        expect(wrapper.find('section.-mx-4').classes()).toContain('sm:rounded-xl');
+        expect(wrapper.text()).toContain('Match');
+        await wrapper.get('button[aria-label="Add look after to My words and practice"]').trigger('click');
+        await flushPromises();
+        expect(api.addLexemeToMyWords).toHaveBeenCalledWith(3, 4);
+        expect(wrapper.text()).toContain('In practice');
+        expect(wrapper.get('a[aria-label="Practice look after"]').attributes('href')).toContain('lexeme_ids=42');
+        expect(wrapper.get('a[href*="lexeme_ids=42"]').text()).toContain('Practice 1');
+        await wrapper.get('[role="group"][aria-label="Lesson word status"]').findAll('button')[2].trigger('click');
+        await flushPromises();
+        expect(wrapper.text()).toContain('look after');
     });
 
 });

@@ -58,7 +58,7 @@ test('shadowing attempt uses speech and pronunciation provider contracts', funct
     $lexeme = $content->lexemes()->create(['type' => 'word', 'text' => 'hello']);
     app()->instance(SpeechToTextProviderInterface::class, new class implements SpeechToTextProviderInterface
     {
-        public function transcribe(string $audioPath, string $language): array
+        public function transcribe(string $audioPath, string $language, ?string $filename = null): array
         {
             return ['text' => 'hello', 'confidence' => 0.95, 'provider' => 'fake'];
         }
@@ -121,7 +121,7 @@ test('failed processing is persisted for the learner and can be inspected', func
     $content = Content::factory()->create(['language' => 'en']);
     app()->instance(SpeechToTextProviderInterface::class, new class implements SpeechToTextProviderInterface
     {
-        public function transcribe(string $audioPath, string $language): array
+        public function transcribe(string $audioPath, string $language, ?string $filename = null): array
         {
             throw new \RuntimeException('speech provider unavailable');
         }

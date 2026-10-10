@@ -43,7 +43,7 @@ const savingAiThoroughness = ref(false);
 const aiThoroughnessMessage = ref('');
 
 const flow = ref<LearningFlowResponse | null>(null);
-const flowPreferences = ref<LearningFlowPreferences>({ learning_flow_profile_id: null, session_minutes: null, daily_new_words: null, listening_weight: null, speaking_weight: null, hint_mode: null, difficulty_preference: null });
+const flowPreferences = ref<LearningFlowPreferences>({ learning_flow_profile_id: null, session_minutes: null, daily_new_words: null, listening_weight: null, speaking_weight: null, hint_mode: null, difficulty_preference: null, speech_transcription_provider: null, speech_audio_retention: null });
 const flowProfileInput = ref('');
 const flowSessionMinutesInput = ref('');
 const flowDailyNewWordsInput = ref('');
@@ -51,6 +51,8 @@ const flowListeningWeightInput = ref('');
 const flowSpeakingWeightInput = ref('');
 const flowHintModeInput = ref('');
 const flowDifficultyInput = ref('');
+const speechProviderInput = ref('local_whisper');
+const speechAudioRetentionInput = ref('30_days');
 const savingFlow = ref(false);
 const flowMessage = ref('');
 
@@ -85,6 +87,8 @@ onMounted(async () => {
             flowSpeakingWeightInput.value = response.preferences.speaking_weight !== null ? String(response.preferences.speaking_weight) : '';
             flowHintModeInput.value = response.preferences.hint_mode ?? '';
             flowDifficultyInput.value = response.preferences.difficulty_preference ?? '';
+            speechProviderInput.value = response.preferences.speech_transcription_provider ?? 'local_whisper';
+            speechAudioRetentionInput.value = response.preferences.speech_audio_retention ?? '30_days';
         }
     } catch {
         flowMessage.value = 'Failed to load adaptive practice settings.';
@@ -103,6 +107,8 @@ async function saveFlowPreferences() {
             speaking_weight: flowSpeakingWeightInput.value ? Number(flowSpeakingWeightInput.value) : null,
             hint_mode: (flowHintModeInput.value || null) as LearningFlowPreferences['hint_mode'],
             difficulty_preference: (flowDifficultyInput.value || null) as LearningFlowPreferences['difficulty_preference'],
+            speech_transcription_provider: speechProviderInput.value as LearningFlowPreferences['speech_transcription_provider'],
+            speech_audio_retention: speechAudioRetentionInput.value as LearningFlowPreferences['speech_audio_retention'],
         });
         flowMessage.value = 'Saved.';
     } catch {
@@ -268,6 +274,11 @@ async function saveAiThoroughness() {
                 </UiButton>
 
                 <div class="mt-6 border-t border-border pt-6 space-y-4">
+                    <UiSectionHeader title="Voice input" subtitle="Dictation in tutor and lesson chats" />
+                    <SelectField v-model="speechProviderInput" label="Default transcription provider" :options="[{ value: 'local_whisper', label: 'Local Whisper' }, { value: 'openai', label: 'OpenAI transcription' }]" />
+                    <SelectField v-model="speechAudioRetentionInput" label="Default recording retention" :options="[{ value: '30_days', label: 'Delete after 30 days' }, { value: 'forever', label: 'Keep recordings forever' }]" />
+                    <p class="text-sm text-muted-foreground">You can change the provider for each recording, compare both on the same audio, and keep individual recordings forever. OpenAI requests may incur usage charges.</p>
+
                     <UiSectionHeader
                         title="Adaptive practice"
                         :subtitle="flow ? `Active flow: ${flow.profile.name} v${flow.profile.version}` : 'Personal learning flow settings'"

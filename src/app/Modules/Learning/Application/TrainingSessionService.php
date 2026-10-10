@@ -50,4 +50,41 @@ final class TrainingSessionService
             $orderedIds,
         )));
     }
+
+    /** @param list<int> $lexemeIds @return list<array<string, mixed>> */
+    public function getSelectedCanonicalLexemes(int $userId, string $translationLanguage, array $lexemeIds): array
+    {
+        $orderedIds = array_slice(array_values(array_unique($lexemeIds)), 0, 30);
+        $cards = $this->reviewSchedule->selectedCards($userId, $orderedIds);
+        $presentations = $this->lexemeCatalog->canonicalPresentations(
+            array_column($cards, 'lexeme_id'),
+            $translationLanguage,
+            $userId,
+        );
+
+        return array_values(array_filter(array_map(function (array $card) use ($presentations): ?array {
+            $presentation = $presentations[$card['lexeme_id']] ?? null;
+            if ($presentation === null) {
+                return null;
+            }
+
+            return [
+                'card_id' => $card['id'],
+                'lexeme_id' => $card['lexeme_id'],
+                'content_id' => null,
+                'content_lexeme_id' => null,
+                'item_key' => $card['item_key'],
+                'lexeme_display' => $presentation['lexeme_display'] ?? $card['lexeme_display'],
+                'language' => $presentation['language'] ?? null,
+                'state' => $card['state'],
+                'next_review_at' => $card['next_review_at'],
+                'part_of_speech' => $presentation['part_of_speech'] ?? null,
+                'level' => $presentation['level'] ?? null,
+                'translation' => $presentation['translation'] ?? null,
+                'example' => $presentation['example'] ?? null,
+                'examples' => $presentation['examples'] ?? [],
+                'associations' => $presentation['associations'] ?? [],
+            ];
+        }, $cards)));
+    }
 }

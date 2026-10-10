@@ -4,6 +4,8 @@ namespace App\Modules\Learning;
 
 use App\Contracts\Ai\LessonAnalysisStoreInterface;
 use App\Contracts\Ai\LessonNotesWriterInterface;
+use App\Contracts\Ai\SpeakingMistakeRecorderInterface;
+use App\Contracts\Ai\SpeakingMistakePracticeReaderInterface;
 use App\Modules\Content\Application\Contracts\GrammarProgressStoreInterface;
 use App\Modules\Content\Application\Contracts\PersonalLexemeReconcilerInterface;
 use App\Modules\Content\Application\Contracts\GrammarRuleMergeParticipant;
@@ -12,6 +14,9 @@ use App\Modules\Learning\Application\Contracts\SpeechToTextProviderInterface;
 use App\Modules\Learning\Application\GrammarProgressMergeParticipant;
 use App\Modules\Learning\Application\GrammarProgressStore;
 use App\Modules\Learning\Application\LearningStatsService;
+use App\Modules\Learning\Application\SpeechToTextProviderFactory;
+use App\Modules\Learning\Application\SpeakingMistakeRecorder;
+use App\Modules\Learning\Application\SpeakingMistakePracticeReader;
 use App\Modules\Learning\Application\LessonStore;
 use App\Modules\Learning\Application\ReviewOutcomeHandler;
 use App\Modules\Learning\Application\PersonalLexemeReconciler;
@@ -21,7 +26,6 @@ use App\Modules\Content\Contracts\Events\LexemeLearningStarted;
 use App\Modules\Learning\Domain\Events\GrammarPracticeCompleted;
 use App\Modules\Learning\Infrastructure\AzurePronunciationAssessmentProvider;
 use App\Modules\Learning\Infrastructure\DemoPronunciationAssessmentProvider;
-use App\Modules\Learning\Infrastructure\OpenAiSpeechToTextProvider;
 use App\Modules\Learning\Infrastructure\StubPronunciationAssessmentProvider;
 use App\Modules\Learning\Infrastructure\StubSpeechToTextProvider;
 use App\Modules\Learning\Interfaces\Listeners\AddPracticedRuleToMyGrammar;
@@ -41,15 +45,20 @@ class LearningServiceProvider extends ServiceProvider
     {
         $this->app->bind(LessonAnalysisStoreInterface::class, LessonStore::class);
         $this->app->bind(LessonNotesWriterInterface::class, LessonStore::class);
+        $this->app->bind(SpeakingMistakeRecorderInterface::class, SpeakingMistakeRecorder::class);
+        $this->app->bind(SpeakingMistakePracticeReaderInterface::class, SpeakingMistakePracticeReader::class);
         $this->app->bind(GrammarProgressStoreInterface::class, GrammarProgressStore::class);
         $this->app->tag([GrammarProgressMergeParticipant::class], GrammarRuleMergeParticipant::TAG);
         $this->app->bind(LearningStatsReaderInterface::class, LearningStatsService::class);
         $this->app->bind(ReviewOutcomeHandlerInterface::class, ReviewOutcomeHandler::class);
         $this->app->bind(PersonalLexemeReconcilerInterface::class, PersonalLexemeReconciler::class);
         $this->app->bind(SpeechToTextProviderInterface::class, function (): SpeechToTextProviderInterface {
-            $key = (string) config('ai.openai.api_key', '');
+            $provider = (string) config('ai.speech_to_text_provider', 'local_whisper');
+            if ($provider === 'openai' && (string) config('ai.openai.api_key', '') === '') {
+                return new StubSpeechToTextProvider;
+            }
 
-            return $key === '' ? new StubSpeechToTextProvider : new OpenAiSpeechToTextProvider($key, (int) config('ai.timeout', 60));
+            return app(SpeechToTextProviderFactory::class)->make($provider);
         });
         $this->app->bind(PronunciationAssessmentProviderInterface::class, function (): PronunciationAssessmentProviderInterface {
             if (config('ai.azure_speech.enabled') && config('ai.azure_speech.key') && config('ai.azure_speech.region')) {

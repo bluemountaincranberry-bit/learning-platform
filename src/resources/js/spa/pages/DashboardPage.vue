@@ -94,6 +94,13 @@ onMounted(async () => {
                         <UiStatTile label="Streak" :value="`${stats.data.overview.streak}d`" />
                         <UiStatTile label="Goal" :value="stats.data.overview.daily_goal ?? '—'" />
                     </div>
+                    <UiButton
+                        class="w-full"
+                        variant="secondary"
+                        @click="router.push({ name: 'speaking-practice', query: { sentence_mode: 'write-flexible', return_to: 'dashboard' } })"
+                    >
+                        Translate a sentence
+                    </UiButton>
                     <RouterLink
                         v-if="dueCount"
                         :to="{ name: 'repetitions' }"

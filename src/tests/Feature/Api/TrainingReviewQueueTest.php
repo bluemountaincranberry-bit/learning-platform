@@ -175,3 +175,37 @@ test('selected lexemes endpoint returns focused words across contents', function
     expect($response->json('items.1.content_lexeme_id'))->toBe($first->id);
     expect($response->json('items.1.lexeme_display'))->toBe('alpha');
 });
+
+test('selected canonical lexemes endpoint returns lesson words without catalog occurrence ids', function () {
+    $user = User::factory()->create(['translation_language' => 'ru']);
+    $user->assignRole('user');
+    $lexeme = Lexeme::query()->create([
+        'slug' => 'lesson-word-'.uniqid(), 'language' => 'en', 'lemma' => 'look after',
+        'normalized_lemma' => 'look after', 'owner_user_id' => $user->id,
+    ]);
+    $lexeme->translations()->create(['language' => 'ru', 'translation' => 'заботиться', 'is_primary' => true, 'sort_order' => 1]);
+    $lexeme->examples()->create(['content_id' => null, 'language' => 'en', 'example' => 'I look after my sister.', 'translation' => null, 'is_primary' => true, 'sort_order' => 1]);
+    SrsCard::query()->create([
+        'user_id' => $user->id, 'lexeme_id' => $lexeme->id, 'content_id' => null,
+        'item_key' => null, 'state' => 'new', 'interval_days' => 1, 'ease_factor' => 2.5,
+        'next_review_at' => now(),
+    ]);
+    $content = Content::query()->create([
+        'type' => 'youtube', 'title' => 'Unrelated content', 'language' => 'en', 'origin' => 'curated', 'status' => 'ready',
+    ]);
+    $content->lexemes()->create(['id' => $lexeme->id, 'type' => 'word', 'text' => 'wrong catalog word', 'sort_order' => 1]);
+
+    $response = $this->actingAs($user)
+        ->getJson("/api/training/selected-canonical-lexemes?lexeme_ids={$lexeme->id}")
+        ->assertOk()->assertJsonCount(1, 'items');
+
+    expect($response->json('items.0'))
+        ->toMatchArray([
+            'lexeme_id' => $lexeme->id,
+            'lexeme_display' => 'look after',
+            'content_id' => null,
+            'content_lexeme_id' => null,
+            'translation' => 'заботиться',
+            'example' => 'I look after my sister.',
+        ]);
+});

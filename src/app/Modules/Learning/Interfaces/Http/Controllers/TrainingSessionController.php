@@ -39,4 +39,17 @@ class TrainingSessionController extends Controller
             ),
         ]);
     }
+
+    public function selectedCanonicalLexemes(TrainingSelectedLexemesRequest $request): JsonResponse
+    {
+        $user = $request->user();
+
+        return response()->json([
+            'items' => $this->trainingSessionService->getSelectedCanonicalLexemes(
+                (int) $user->id,
+                $user->translation_language ?? config('ai.analysis.translation_language', 'ru'),
+                $request->lexemeIds(),
+            ),
+        ]);
+    }
 }

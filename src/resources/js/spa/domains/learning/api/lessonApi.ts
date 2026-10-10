@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { SpeechLanguage, SpeechProvider } from './speechApi';
 
 /**
  * "Мои занятия" — backed by LessonController/LessonAgentService. Unlike
@@ -29,6 +30,9 @@ export interface LessonMessage {
     content: string | null;
     attachment_name: string | null;
     created_at: string;
+    voice_audio_url?: string | null;
+    voice_audio_pinned?: boolean;
+    voice_audio_expires_at?: string | null;
 }
 
 export interface LessonLexemeCandidate {
@@ -44,6 +48,7 @@ export interface LessonLexemeCandidate {
     matched_lexeme_id: number | null;
     in_my_words: boolean;
     in_review: boolean;
+    learned: boolean;
     source: 'ai' | 'manual';
 }
 
@@ -118,12 +123,28 @@ export const lessonApi = {
         return axios.get(`/api/lessons/${lessonId}/messages`).then((r) => r.data);
     },
 
-    sendMessage(lessonId: number, content: string, attachment?: File | null): Promise<void> {
+    sendMessage(
+        lessonId: number,
+        content: string,
+        attachment?: File | null,
+        voice?: { audio: Blob; provider: SpeechProvider; language: SpeechLanguage; keepForever: boolean },
+    ): Promise<void> {
         const form = new FormData();
         if (content) form.append('content', content);
         if (attachment) form.append('attachment', attachment);
+        if (voice) {
+            const extension = voice.audio.type.includes('mp4') ? 'mp4' : voice.audio.type.includes('ogg') ? 'ogg' : voice.audio.type.includes('wav') ? 'wav' : 'webm';
+            form.append('voice_audio', voice.audio, `voice-message.${extension}`);
+            form.append('transcription_provider', voice.provider);
+            form.append('transcription_language', voice.language);
+            form.append('voice_audio_keep_forever', voice.keepForever ? '1' : '0');
+        }
 
         return axios.post(`/api/lessons/${lessonId}/messages`, form).then(() => undefined);
+    },
+
+    pinVoiceRecording(messageId: number, pinned: boolean): Promise<{ pinned: boolean; expires_at: string | null }> {
+        return axios.post(`/api/ai/voice-recordings/${messageId}/pin`, { pinned }).then((response) => response.data);
     },
 
     analyze(lessonId: number): Promise<{ run_id: number; status: string }> {
@@ -164,7 +185,7 @@ export const lessonApi = {
         language: string;
         is_personal: boolean;
         in_my_words: true;
-        in_review: true;
+        in_review: boolean;
         matched_lexeme_id: number;
         status: 'matched';
     }> {

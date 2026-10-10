@@ -32,6 +32,23 @@ export interface SessionCard {
     retryId?: number;
 }
 
+export interface TrainingSourceScope {
+    contentIds: number[];
+    canonicalLexemeIds: number[];
+    lessonWords: TrainingLessonWord[];
+    label?: string;
+}
+
+export interface TrainingLessonWord {
+    lexemeId: number;
+    text: string;
+    language: string;
+    translation: string | null;
+    level: string | null;
+    example: string | null;
+    exampleTranslation: string | null;
+}
+
 const LEARN_SESSION_SIZE = 8;
 const REINFORCE_SESSION_SIZE = 6;
 // Cap for an explicit word selection (e.g. "Practice these" from a word
@@ -68,7 +85,9 @@ export function useTrainingSession() {
     const currentIndex = ref(0);
 
     const scopeContentId = ref<number | undefined>(undefined);
+    const explicitScopeLabel = ref('');
     const scopeLabel = computed(() => {
+        if (explicitScopeLabel.value) return explicitScopeLabel.value;
         if (scopeContentId.value === undefined) return 'Practice today';
         return catalogContents.value.find((c) => c.id === scopeContentId.value)?.title ?? 'This content';
     });
@@ -92,8 +111,16 @@ export function useTrainingSession() {
 
     async function ensureCatalogLoaded() {
         if (catalogContents.value.length === 0) {
-            const catalog = await contentApi.getList({});
-            catalogContents.value = catalog.data ?? [];
+            const firstPage = await contentApi.getList({ page: 1, per_page: 100 });
+            const lastPage = Number((firstPage.meta as { last_page?: number } | undefined)?.last_page ?? 1);
+            const remainingPages = await Promise.all(Array.from(
+                { length: Math.max(0, lastPage - 1) },
+                (_, index) => contentApi.getList({ page: index + 2, per_page: 100 }),
+            ));
+            catalogContents.value = [
+                ...(firstPage.data ?? []),
+                ...remainingPages.flatMap((page) => page.data ?? []),
+            ];
         }
     }
 
@@ -102,12 +129,13 @@ export function useTrainingSession() {
             activity: 'review' as const,
             cardId: item.card_id,
             contentLexemeId: item.content_lexeme_id ?? undefined,
-            contentId: item.content_id,
+            contentId: item.content_id ?? undefined,
             word: {
                 lexeme_display: item.lexeme_display,
+                lexeme_id: item.lexeme_id,
                 part_of_speech: item.part_of_speech,
                 level: item.level,
-                language: languageOfContent(item.content_id),
+                language: languageOfContent(item.content_id ?? undefined),
                 translation: item.translation,
                 example: item.example,
                 examples: item.examples,
@@ -123,6 +151,7 @@ export function useTrainingSession() {
             contentId: item.content_id,
             word: {
                 lexeme_display: item.lexeme_display,
+                lexeme_id: item.lexeme_id,
                 part_of_speech: item.part_of_speech,
                 level: item.level,
                 language: languageOfContent(item.content_id),
@@ -281,16 +310,71 @@ export function useTrainingSession() {
         });
     }
 
-    async function startSession(contentId?: string | number, lexemeIds?: number[], mode: FocusedPracticeMode = 'adaptive') {
+    async function startSession(contentId?: string | number | TrainingSourceScope, lexemeIds?: number[], mode: FocusedPracticeMode = 'adaptive') {
         loading.value = true;
         error.value = '';
         phase.value = 'loading';
         try {
             await ensureCatalogLoaded();
-            const cid = contentId !== undefined && contentId !== '' ? Number(contentId) : undefined;
-            scopeContentId.value = cid;
-
             let cards: SessionCard[];
+
+            if (typeof contentId === 'object' && contentId !== null) {
+                const contentIds = [...new Set(contentId.contentIds.filter((id) => Number.isInteger(id) && id > 0))];
+                const selectedCards: SessionCard[] = [];
+                let remainingNewSlots = LEARN_SESSION_SIZE;
+                let remainingReinforceSlots = REINFORCE_SESSION_SIZE;
+                for (const selectedContentId of contentIds) {
+                    const reviewData = await trainingApi.getReviewQueue(selectedContentId);
+                    const [learned, reinforce] = await Promise.all([
+                        remainingNewSlots > 0 ? learnCards(selectedContentId, new Set()) : Promise.resolve([]),
+                        remainingReinforceSlots > 0 ? reinforceCards(selectedContentId, new Set()) : Promise.resolve([]),
+                    ]);
+                    selectedCards.push(...reviewCards(reviewData.items ?? []));
+                    const selectedNew = learned.slice(0, remainingNewSlots);
+                    remainingNewSlots -= selectedNew.length;
+                    selectedCards.push(...selectedNew);
+                    const selectedReinforce = reinforce.slice(0, remainingReinforceSlots);
+                    remainingReinforceSlots -= selectedReinforce.length;
+                    selectedCards.push(...selectedReinforce);
+                }
+                const canonicalIds = [...new Set(contentId.canonicalLexemeIds.filter((id) => Number.isInteger(id) && id > 0))];
+                if (canonicalIds.length > 0) {
+                    const canonicalLexemes = await trainingApi.getSelectedCanonicalLexemes(canonicalIds);
+                    const lessonWords = new Map(contentId.lessonWords.map((word) => [word.lexemeId, word]));
+                    selectedCards.push(...(canonicalLexemes.items ?? []).map((item) => ({
+                        activity: 'review' as const,
+                        cardId: item.card_id,
+                        contentLexemeId: undefined,
+                        contentId: undefined,
+                        word: {
+                            lexeme_display: lessonWords.get(item.lexeme_id)?.text ?? item.lexeme_display,
+                            lexeme_id: item.lexeme_id,
+                            language: lessonWords.get(item.lexeme_id)?.language ?? item.language,
+                            part_of_speech: item.part_of_speech,
+                            level: lessonWords.get(item.lexeme_id)?.level ?? item.level,
+                            translation: lessonWords.get(item.lexeme_id)?.translation ?? item.translation,
+                            example: lessonWords.get(item.lexeme_id)?.example ?? item.example,
+                            examples: lessonWords.get(item.lexeme_id)?.example
+                                ? [{ example: lessonWords.get(item.lexeme_id)!.example!, translation: lessonWords.get(item.lexeme_id)!.exampleTranslation, is_primary: true }]
+                                : item.examples,
+                            associations: item.associations,
+                        },
+                    })));
+                }
+                const seenLexemes = new Set<number>();
+                cards = selectedCards.filter((card) => {
+                    const identity = card.word.lexeme_id ?? card.contentLexemeId;
+                    if (identity === undefined) return true;
+                    if (seenLexemes.has(identity)) return false;
+                    seenLexemes.add(identity);
+                    return true;
+                });
+                scopeContentId.value = undefined;
+                explicitScopeLabel.value = contentId.label ?? 'Selected sources';
+            } else {
+                const cid = contentId !== undefined && contentId !== '' ? Number(contentId) : undefined;
+                scopeContentId.value = cid;
+                explicitScopeLabel.value = '';
 
             if (lexemeIds && lexemeIds.length > 0 && cid === undefined) {
                 const data = await trainingApi.getSelectedLexemes(lexemeIds);
@@ -316,6 +400,7 @@ export function useTrainingSession() {
                         cards = [...cards, ...(await learnCards(candidate.id, dueLexemeIds))];
                     }
                 }
+            }
             }
 
             queue.value = applyFocusedMode(cards, mode);

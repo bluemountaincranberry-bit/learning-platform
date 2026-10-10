@@ -1,7 +1,7 @@
 ENV_FILE = config/docker.env
 COMPOSE = docker compose --env-file $(ENV_FILE)
 
-.PHONY: up down build restart ps logs app bash composer artisan migrate fresh seed node npm install e2e fistall skills-update skills-restore wt-test wt-build workers-restart
+.PHONY: up down build restart ps logs app bash composer artisan migrate fresh seed node npm install e2e fistall skills-update skills-restore wt-test wt-build workers-restart mobile-https
 
 up:
 	$(COMPOSE) up -d
@@ -82,3 +82,6 @@ wt-build:
 
 workers-restart:
 	$(COMPOSE) restart horizon
+
+mobile-https:
+	./scripts/setup-mobile-https.sh

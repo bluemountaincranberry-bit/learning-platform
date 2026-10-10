@@ -1,0 +1,13 @@
+{
+	default_sni {$MOBILE_HTTPS_HOST}
+}
+
+https://{$MOBILE_HTTPS_HOST}:443 {
+	tls /certs/server.crt /certs/server.key
+	reverse_proxy web:80
+}
+
+https://{$MOBILE_HTTPS_HOST}:5177 {
+	tls /certs/server.crt /certs/server.key
+	reverse_proxy node:5177
+}

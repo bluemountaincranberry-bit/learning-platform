@@ -135,4 +135,26 @@ final class ReviewScheduleReader implements ContentReviewScheduleReaderInterface
                 'next_review_at' => $card->next_review_at?->toIso8601String(),
             ])->all();
     }
+
+    public function selectedCards(int $userId, array $lexemeIds): array
+    {
+        return SrsCard::query()
+            ->leftJoin('lexemes as canonical_lexemes', 'canonical_lexemes.id', '=', 'srs_cards.lexeme_id')
+            ->where('srs_cards.user_id', $userId)
+            ->whereIn('srs_cards.lexeme_id', array_values(array_unique($lexemeIds)))
+            ->whereNull('srs_cards.deactivated_at')
+            ->orderByRaw('srs_cards.next_review_at IS NULL, srs_cards.next_review_at')
+            ->select('srs_cards.*', 'canonical_lexemes.lemma as canonical_lemma')
+            ->get()
+            ->map(fn (SrsCard $card): array => [
+                'id' => (int) $card->id,
+                'lexeme_id' => (int) $card->lexeme_id,
+                'content_id' => $card->content_id === null ? null : (int) $card->content_id,
+                'content_lexeme_id' => null,
+                'item_key' => $card->item_key,
+                'lexeme_display' => (string) ($card->canonical_lemma ?? ''),
+                'state' => $card->state,
+                'next_review_at' => $card->next_review_at?->toIso8601String(),
+            ])->all();
+    }
 }

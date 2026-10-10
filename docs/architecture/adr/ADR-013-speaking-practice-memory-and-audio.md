@@ -1,0 +1,3 @@
+# Speaking practice memory and recordings
+
+Dictation offers a local Whisper-compatible provider and OpenAI transcription behind one provider interface, so the learner can choose a provider per recording and compare both against the same audio. Voice recordings belong to the learner's chat messages, expire after 30 days by default, and can be pinned indefinitely per recording; transcription text remains editable before sending. Clear, objective English errors can be saved as private, reversible speaking mistakes, while uncertain corrections require learner confirmation. A dedicated report supports practice, hiding, restoring, and mastery tracking without deleting a learner's history.

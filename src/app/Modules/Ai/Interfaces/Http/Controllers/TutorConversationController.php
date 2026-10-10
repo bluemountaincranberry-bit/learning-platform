@@ -96,6 +96,7 @@ class TutorConversationController extends Controller
             'context_type' => $request->validated('context_type'),
             'context_ref_id' => $request->validated('context_ref_id'),
             'context_label' => $request->validated('context_label'),
+            ...$this->voiceAttributes($request),
         ]);
 
         return response()->stream(
@@ -220,5 +221,25 @@ class TutorConversationController extends Controller
         Cache::put($key, $count + 1, now()->endOfDay()->addSecond());
 
         return true;
+    }
+
+    /** @return array<string, mixed> */
+    private function voiceAttributes(SendChatMessageRequest $request): array
+    {
+        $audio = $request->file('voice_audio');
+        if ($audio === null) {
+            return [];
+        }
+
+        $keepForever = $request->boolean('voice_audio_keep_forever');
+
+        return [
+            'voice_audio_disk' => 'local',
+            'voice_audio_path' => $audio->store('agent-voice', 'local'),
+            'voice_audio_pinned' => $keepForever,
+            'voice_audio_expires_at' => $keepForever ? null : now()->addDays(30),
+            'transcription_provider' => $request->validated('transcription_provider'),
+            'transcription_language' => $request->validated('transcription_language'),
+        ];
     }
 }

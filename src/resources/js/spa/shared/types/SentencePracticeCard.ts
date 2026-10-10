@@ -4,4 +4,5 @@ export interface SentencePracticeCard {
     prompt_language: string;
     answer_language: string;
     hint_words: string[];
+    mistake_id?: number;
 }

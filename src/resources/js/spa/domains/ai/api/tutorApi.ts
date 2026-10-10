@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { QuizQuestion } from '../../../shared/types/QuizQuestion';
+import type { SpeechLanguage, SpeechProvider } from '../../learning';
 export type { QuizQuestion } from '../../../shared/types/QuizQuestion';
 
 /**
@@ -53,6 +54,7 @@ const TOOL_LABELS: Record<string, string> = {
     explain_grammar: 'Looking up grammar',
     find_examples: 'Finding examples',
     generate_quiz: 'Putting together a quiz',
+    record_speaking_mistake: 'Saving a speaking mistake',
     handoff_to_grammar_specialist: 'Bringing in the grammar specialist',
     handoff_to_review_planner: 'Bringing in the review planner',
 };
@@ -97,19 +99,35 @@ export const tutorApi = {
         content: string,
         onDelta: (chunk: string) => void,
         context?: { context_type: string; context_ref_id: number; context_label: string },
-        onToolEvent?: (event: TutorToolEvent) => void
+        onToolEvent?: (event: TutorToolEvent) => void,
+        voice?: { audio: Blob; provider: SpeechProvider; language: SpeechLanguage; keepForever: boolean }
     ): Promise<{ message_id: number | null; quiz: QuizQuestion[] }> {
         const token = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+
+        const body = voice ? new FormData() : null;
+        if (body) {
+            body.append('content', content);
+            const extension = voice.audio.type.includes('mp4') ? 'mp4' : voice.audio.type.includes('ogg') ? 'ogg' : voice.audio.type.includes('wav') ? 'wav' : 'webm';
+            body.append('voice_audio', voice.audio, `voice-message.${extension}`);
+            body.append('transcription_provider', voice.provider);
+            body.append('transcription_language', voice.language);
+            body.append('voice_audio_keep_forever', voice.keepForever ? '1' : '0');
+            if (context) {
+                body.append('context_type', context.context_type);
+                body.append('context_ref_id', String(context.context_ref_id));
+                body.append('context_label', context.context_label);
+            }
+        }
 
         const response = await fetch(`/api/tutor/conversations/${conversationId}/messages`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                ...(!body ? { 'Content-Type': 'application/json' } : {}),
                 Accept: 'text/event-stream',
                 'X-Requested-With': 'XMLHttpRequest',
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
-            body: JSON.stringify({ content, ...context }),
+            body: body ?? JSON.stringify({ content, ...context }),
         });
 
         if (!response.ok || !response.body) {

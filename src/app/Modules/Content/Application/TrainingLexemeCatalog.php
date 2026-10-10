@@ -39,4 +39,33 @@ final class TrainingLexemeCatalog implements TrainingLexemeCatalogInterface
                 ]];
             })->all();
     }
+
+    public function canonicalPresentations(array $lexemeIds, string $translationLanguage, int $userId): array
+    {
+        return Lexeme::query()
+            ->visibleTo($userId)
+            ->with(['examples', 'translations', 'associations.relatedLexeme'])
+            ->whereIn('id', $lexemeIds)
+            ->get()
+            ->mapWithKeys(function (Lexeme $lexeme) use ($translationLanguage): array {
+                $translation = Lexeme::pickPrimaryTranslation($lexeme->translations, null, $translationLanguage);
+                $example = Lexeme::pickPrimaryExample($lexeme->examples, null);
+                $examples = Lexeme::pickExamples($lexeme->examples, null);
+
+                return [$lexeme->id => [
+                    'language' => $lexeme->language,
+                    'lexeme_display' => $lexeme->lemma,
+                    'part_of_speech' => $lexeme->part_of_speech,
+                    'level' => $lexeme->level,
+                    'translation' => $translation?->translation,
+                    'example' => $example?->example,
+                    'examples' => $examples->map(fn ($item): array => [
+                        'example' => $item->example,
+                        'translation' => $item->translation,
+                        'is_primary' => (bool) $item->is_primary,
+                    ])->values()->all(),
+                    'associations' => Lexeme::mapAssociations($lexeme->associations),
+                ]];
+            })->all();
+    }
 }

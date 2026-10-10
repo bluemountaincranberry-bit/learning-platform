@@ -11,9 +11,12 @@ use App\Modules\Ai\Interfaces\Http\Controllers\RecommendedController;
 use App\Modules\Ai\Interfaces\Http\Controllers\SentencePracticeController;
 use App\Modules\Ai\Interfaces\Http\Controllers\TranslateController;
 use App\Modules\Ai\Interfaces\Http\Controllers\TutorConversationController;
+use App\Modules\Ai\Interfaces\Http\Controllers\VoiceRecordingController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function (): void {
+    Route::get('/ai/voice-recordings/{message}/audio', [VoiceRecordingController::class, 'stream'])->name('api.ai.voice-recordings.audio');
+    Route::post('/ai/voice-recordings/{message}/pin', [VoiceRecordingController::class, 'pin'])->name('api.ai.voice-recordings.pin');
     Route::get('/ai/recommended/contents', [RecommendedController::class, 'contents'])->name('api.ai.recommended.contents');
     Route::get('/ai/recommended/lexemes', [RecommendedController::class, 'lexemes'])->name('api.ai.recommended.lexemes');
     Route::post('/ai/translate', TranslateController::class)

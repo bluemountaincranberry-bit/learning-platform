@@ -24,12 +24,16 @@ final class AgentToolDefinition
     /** Writes, but only drafts/pending rows a human must still review (never the live catalog). */
     public const SIDE_EFFECT_DRAFT_ONLY = 'draft_only';
 
+    /** Writes a learner-owned, reversible learning record; never changes shared content. */
+    public const SIDE_EFFECT_LEARNER_MEMORY = 'learner_memory';
+
     /** Writes to the live, user-facing catalog. Must never be wired to an agent without explicit, reviewed opt-in. */
     public const SIDE_EFFECT_PUBLISH = 'publish';
 
     public const SIDE_EFFECTS = [
         self::SIDE_EFFECT_READ_ONLY,
         self::SIDE_EFFECT_DRAFT_ONLY,
+        self::SIDE_EFFECT_LEARNER_MEMORY,
         self::SIDE_EFFECT_PUBLISH,
     ];
 
@@ -69,7 +73,7 @@ final class AgentToolDefinition
 
     /**
      * Severity ranking of a sideEffect level, in the same order as
-     * SIDE_EFFECTS (read_only=0 ... publish=2). Used by `HandoffTool` (task
+     * SIDE_EFFECTS. Used by `HandoffTool` (task
      * 4.3) to check that a handoff's own declared sideEffect is never
      * *weaker* than the widest sideEffect the target agent is allowed to
      * use — see that class's docblock and ADR-006.

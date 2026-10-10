@@ -61,7 +61,6 @@ final class PersonalWordService
             /** @var LessonLexemeCandidate $candidate */
             $candidate = $lesson->lexemeCandidates()->lockForUpdate()->findOrFail($candidateId);
             $lexeme = $this->lexemes->resolveOrCreate($userId, (string) $lesson->language, (string) $candidate->text);
-            $this->startLearning($userId, $lexeme['id']);
 
             UserLexemeSource::query()->updateOrCreate(
                 ['user_id' => $userId, 'lesson_lexeme_candidate_id' => $candidate->id],
@@ -80,7 +79,7 @@ final class PersonalWordService
                 'status' => LessonLexemeCandidate::STATUS_MATCHED,
             ])->save();
 
-            return [...$lexeme, 'in_review' => true];
+            return [...$lexeme, 'in_review' => $this->cards->getInReviewLexemeIds($userId)->contains($lexeme['id'])];
         });
     }
 

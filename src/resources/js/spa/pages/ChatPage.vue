@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { ref, reactive, computed, nextTick, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { ref, reactive, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { Eraser, Maximize2, Minimize2, Plus, Settings2, Sparkles } from 'lucide-vue-next';
 import ChatMessageView from '../shared/ui/ChatMessage.vue';
 import UiButton from '../shared/ui/UiButton.vue';
 import UiCard from '../shared/ui/UiCard.vue';
-import UiInput from '../shared/ui/UiInput.vue';
-import UiSectionHeader from '../shared/ui/UiSectionHeader.vue';
+import ChatComposerInput from '../shared/ui/ChatComposerInput.vue';
 import { tutorApi } from '../domains/ai';
 import type { QuizQuestion, TutorToolEvent } from '../domains/ai';
 import QuizCard from '../shared/ui/QuizCard.vue';
 import UiEmptyState from '../shared/ui/UiEmptyState.vue';
+import VoiceDictationControl from '../shared/ui/VoiceDictationControl.vue';
+import type { SpeechLanguage, SpeechProvider } from '../domains/learning';
 import { useAuthStore } from '../domains/user';
 
 interface ChatMessage {
@@ -19,6 +21,7 @@ interface ChatMessage {
     // draft questions — rendered as an interactive QuizCard instead of the
     // model's plain-text summary of the same quiz.
     quiz?: QuizQuestion[];
+    audioUrl?: string;
 }
 
 const VALID_CONTEXT_TYPES = ['content', 'grammar', 'lexeme'] as const;
@@ -31,15 +34,23 @@ interface EntryContext {
 }
 
 const route = useRoute();
+const router = useRouter();
 const authStore = useAuthStore();
 
 const conversationId = ref<number | null>(null);
 const messages = ref<ChatMessage[]>([]);
 const inputText = ref('');
+const voiceAudio = ref<Blob | null>(null);
+const voiceProvider = ref<SpeechProvider>('local_whisper');
+const voiceLanguage = ref<SpeechLanguage>('en');
+const keepVoiceForever = ref(false);
+const voiceControl = ref<InstanceType<typeof VoiceDictationControl> | null>(null);
 const sending = ref(false);
 const error = ref('');
 const aiDisabled = ref(false);
 const messagesEnd = ref<HTMLElement | null>(null);
+const fullScreen = ref(true);
+let previousBodyOverflow = '';
 
 // Task 6.5: known upfront from authStore.roles for a staff account — shown
 // instead of the whole chat UI so there's no flash-then-error. accessDenied
@@ -71,9 +82,12 @@ function handleToolEvent(event: TutorToolEvent): void {
 // context_type/context_ref_id/context_label fields on the request.
 const discussingLabel = ref<string | null>(null);
 const contextToInject = ref<EntryContext | null>(null);
-const failedTurn = ref<{ text: string; context: EntryContext | null } | null>(null);
+const failedTurn = ref<{ text: string; context: EntryContext | null; audio: Blob | null; provider: SpeechProvider; language: SpeechLanguage; keepForever: boolean } | null>(null);
 
 onMounted(() => {
+    window.addEventListener('keydown', handleGlobalKeydown);
+    previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     const type = route.query.context_type;
     const id = route.query.context_id;
     const title = route.query.context_title;
@@ -91,6 +105,24 @@ onMounted(() => {
         discussingLabel.value = title;
     }
 });
+
+onUnmounted(() => {
+    window.removeEventListener('keydown', handleGlobalKeydown);
+    if (fullScreen.value) document.body.style.overflow = previousBodyOverflow;
+});
+
+watch(fullScreen, (isFullScreen) => {
+    if (isFullScreen) {
+        previousBodyOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.style.overflow = previousBodyOverflow;
+    }
+});
+
+function handleGlobalKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && fullScreen.value) fullScreen.value = false;
+}
 
 function contextTypeLabel(type: ContextType): string {
     switch (type) {
@@ -115,6 +147,14 @@ const quickPrompts = [
     'Plan today\'s study',
 ];
 
+function onVoiceReady(text: string, audio: Blob, provider: SpeechProvider, language: SpeechLanguage, keepForever: boolean) {
+    inputText.value = inputText.value.trim() ? `${inputText.value.trim()} ${text}` : text;
+    voiceAudio.value = audio;
+    voiceProvider.value = provider;
+    voiceLanguage.value = language;
+    keepVoiceForever.value = keepForever;
+}
+
 async function ensureConversation(): Promise<number> {
     if (conversationId.value != null) return conversationId.value;
     try {
@@ -136,18 +176,34 @@ async function ensureConversation(): Promise<number> {
 }
 
 async function send(textOverride?: string, retry = false) {
+    if (!retry && ['/practice', '/practice translate'].includes(inputText.value.trim().toLowerCase())) {
+        await router.push({ name: 'speaking-practice', query: { return_to: 'chat' } });
+        inputText.value = '';
+        return;
+    }
+    if (!retry && ['/mistakes', '/report'].includes(inputText.value.trim().toLowerCase())) {
+        await router.push({ name: 'speaking-mistakes' });
+        inputText.value = '';
+        return;
+    }
     const text = (textOverride ?? inputText.value)?.trim();
     if (!text || sending.value) return;
 
     sending.value = true;
     error.value = '';
     let assistantMessage: ChatMessage | null = null;
-    const context = retry ? failedTurn.value?.context ?? null : contextToInject.value;
+    const previousFailure = retry ? failedTurn.value : null;
+    const context = previousFailure?.context ?? contextToInject.value;
     failedTurn.value = null;
     try {
         const cid = await ensureConversation();
-        messages.value.push({ role: 'user', content: text });
+        const audio = previousFailure?.audio ?? voiceAudio.value;
+        const selectedProvider = previousFailure?.provider ?? voiceProvider.value;
+        const selectedLanguage = previousFailure?.language ?? voiceLanguage.value;
+        const keepForever = previousFailure?.keepForever ?? keepVoiceForever.value;
+        messages.value.push({ role: 'user', content: text, ...(audio ? { audioUrl: URL.createObjectURL(audio) } : {}) });
         inputText.value = '';
+        voiceAudio.value = null;
         sending.value = true;
 
         // Task 6.1: the chat bubble shows exactly what the user typed; the
@@ -182,7 +238,8 @@ async function send(textOverride?: string, retry = false) {
                       context_label: context.title,
                   }
                 : undefined,
-            handleToolEvent
+            handleToolEvent,
+            audio ? { audio, provider: selectedProvider, language: selectedLanguage, keepForever } : undefined,
         );
 
         if (result.quiz.length > 0) {
@@ -190,6 +247,7 @@ async function send(textOverride?: string, retry = false) {
         }
 
         contextToInject.value = null;
+        voiceControl.value?.clearRecording();
         await scrollToBottom();
     } catch (e: unknown) {
         const err = e as { response?: { status?: number; data?: { message?: string } } };
@@ -201,10 +259,18 @@ async function send(textOverride?: string, retry = false) {
         } else {
             error.value = err.response?.data?.message ?? 'Failed to send message.';
         }
-        failedTurn.value = { text, context };
+        failedTurn.value = {
+            text,
+            context,
+            audio: previousFailure?.audio ?? voiceAudio.value,
+            provider: previousFailure?.provider ?? voiceProvider.value,
+            language: previousFailure?.language ?? voiceLanguage.value,
+            keepForever: previousFailure?.keepForever ?? keepVoiceForever.value,
+        };
         if (assistantMessage) messages.value = messages.value.filter((message) => message !== assistantMessage);
         if (messages.value.at(-1)?.role === 'user' && messages.value.at(-1)?.content === text) messages.value.pop();
         inputText.value = text;
+        if (failedTurn.value.audio) voiceAudio.value = failedTurn.value.audio;
     } finally {
         sending.value = false;
         toolStatus.value = null;
@@ -228,25 +294,62 @@ function startNewChat() {
     discussingLabel.value = null;
     contextToInject.value = null;
 }
+
+function clearDraft(): void {
+    if (sending.value) return;
+    if (failedTurn.value) error.value = '';
+    inputText.value = '';
+    voiceAudio.value = null;
+    failedTurn.value = null;
+    voiceControl.value?.clearRecording();
+}
+
+function toggleFullScreen(): void {
+    fullScreen.value = !fullScreen.value;
+}
 </script>
 
 <template>
-    <div class="space-y-6">
-        <UiCard>
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <div class="space-y-2">
-                    <div class="text-xs uppercase tracking-[0.18em] text-muted-foreground">AI surface</div>
-                    <h2 class="text-2xl font-semibold text-fg">Tutor chat</h2>
-                    <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
-                        Ask about your own words, mistakes, grammar or review schedule — answers are grounded in your
-                        real progress, not guesses.
-                    </p>
+    <div
+        class="mx-auto flex w-full max-w-5xl flex-col gap-4"
+        :class="fullScreen ? 'fixed inset-0 z-[100] h-[100dvh] max-w-none gap-0 overflow-hidden bg-background p-0' : ''"
+        :role="fullScreen ? 'dialog' : undefined"
+        :aria-modal="fullScreen ? 'true' : undefined"
+        :aria-label="fullScreen ? 'AI tutor conversation' : undefined"
+    >
+        <div class="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-4 py-3 sm:px-5" :class="fullScreen ? 'pt-[max(env(safe-area-inset-top),0.75rem)]' : 'rounded-spa-lg border'">
+            <div class="flex min-w-0 items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Sparkles :size="19" aria-hidden="true" />
                 </div>
-                <UiButton variant="secondary" :disabled="sending" @click="startNewChat">New chat</UiButton>
+                <div class="min-w-0">
+                    <h1 class="font-semibold leading-5 text-fg">AI tutor</h1>
+                    <p class="truncate text-xs text-muted-foreground">Your words, grammar and learning progress</p>
+                </div>
             </div>
-        </UiCard>
+            <div class="flex shrink-0 items-center gap-1">
+                <div id="tutor-chat-settings" class="relative flex items-center">
+                    <UiButton variant="ghost" size="icon-touch" aria-label="Voice settings" title="Voice settings" aria-haspopup="dialog" :aria-expanded="voiceControl?.settingsOpen ?? false" @click="voiceControl?.toggleSettings()">
+                        <Settings2 :size="18" aria-hidden="true" />
+                    </UiButton>
+                </div>
+                <UiButton variant="ghost" :disabled="sending" aria-label="Start a new chat" title="New chat" @click="startNewChat">
+                    <Plus :size="17" aria-hidden="true" /><span class="hidden sm:inline">New chat</span>
+                </UiButton>
+                <UiButton
+                    variant="secondary"
+                    size="icon-touch"
+                    :aria-label="fullScreen ? 'Exit full screen' : 'Full screen'"
+                    :title="fullScreen ? 'Exit full screen' : 'Full screen'"
+                    @click="toggleFullScreen"
+                >
+                    <Minimize2 v-if="fullScreen" :size="17" aria-hidden="true" />
+                    <Maximize2 v-else :size="17" aria-hidden="true" />
+                </UiButton>
+            </div>
+        </div>
 
-        <UiCard v-if="accessDenied">
+        <UiCard v-if="accessDenied" class="flex-1">
             <UiEmptyState
                 title="Not available for your account"
                 description="The tutor chat is a student-facing feature — it isn't available for admin, editor, or moderator accounts."
@@ -258,59 +361,66 @@ function startNewChat() {
         </div>
 
         <template v-else>
-            <UiCard class="space-y-4">
-                <UiSectionHeader title="Quick prompts" subtitle="Shortcuts for the most common learning questions" />
-                <div class="flex flex-wrap gap-2">
-                    <UiButton v-for="prompt in quickPrompts" :key="prompt" variant="ghost" @click="send(prompt)">
-                        {{ prompt }}
-                    </UiButton>
-                </div>
-            </UiCard>
-
-            <UiCard class="overflow-hidden p-0">
-                <div class="flex h-[min(68vh,760px)] flex-col">
-                    <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-black/10">
-                        <template v-if="messages.length === 0 && !sending">
-                            <div class="rounded-spa-lg border border-dashed border-border-strong p-5 text-sm text-muted-foreground">
-                                <template v-if="discussingLabel">
-                                    Send a message and it'll go straight into the conversation about "{{ discussingLabel }}".
-                                </template>
-                                <template v-else>
-                                    Send a prompt, or open chat from content/grammar/a word to bring its context along.
-                                </template>
+            <section class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-spa-lg border border-border bg-surface" :class="fullScreen ? 'rounded-none border-x-0 border-b-0' : 'h-[min(72dvh,780px)] min-h-[440px]'" aria-label="Conversation">
+                <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-background/70 px-3 py-4 sm:px-6 sm:py-6">
+                    <div class="mx-auto flex w-full max-w-3xl flex-col gap-5">
+                        <div v-if="messages.length === 0 && !sending" class="py-6 sm:py-10">
+                            <div class="mx-auto max-w-xl text-center">
+                                <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                    <Sparkles :size="22" aria-hidden="true" />
+                                </div>
+                                <h2 class="text-lg font-semibold text-fg">What would you like to learn?</h2>
+                                <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                                    <template v-if="discussingLabel">Ask anything about “{{ discussingLabel }}”.</template>
+                                    <template v-else>Ask about a word, grammar point, mistake or your learning progress.</template>
+                                </p>
+                                <div class="mt-6 grid grid-cols-1 gap-2 text-left sm:grid-cols-2">
+                                    <UiButton v-for="prompt in quickPrompts" :key="prompt" variant="secondary" class="!h-auto min-h-11 justify-start whitespace-normal px-3 py-2.5 text-left leading-5" @click="send(prompt)">
+                                        {{ prompt }}
+                                    </UiButton>
+                                </div>
                             </div>
-                        </template>
+                        </div>
                         <div v-for="(msg, i) in messages" :key="i" class="space-y-2">
                             <ChatMessageView :role="msg.role" :content="msg.content" :loading="msg.role === 'assistant' && msg.content === '' && sending" :loading-label="toolStatus ? `${toolStatus}...` : null" />
+                        <audio v-if="msg.audioUrl" :src="msg.audioUrl" controls class="ml-auto h-9 max-w-full" aria-label="Your saved voice message" />
                             <QuizCard v-if="msg.quiz && msg.quiz.length > 0" :questions="msg.quiz" />
                         </div>
                         <div ref="messagesEnd" />
                     </div>
+                </div>
 
-                    <ChatMessageView v-if="error" role="assistant" :error="error" :retryable="Boolean(failedTurn) && !sending" :loading="sending" @retry="send(failedTurn?.text, true)" />
+                <ChatMessageView v-if="error" role="assistant" :error="error" :retryable="Boolean(failedTurn) && !sending" :loading="sending" @retry="send(failedTurn?.text, true)" />
 
-                    <div
-                        v-if="discussingLabel"
-                        class="flex items-center gap-2 border-t border-border bg-primary/10 px-4 py-2 text-sm text-fg"
-                    >
-                        <span class="text-xs uppercase tracking-[0.14em] text-primary">Discussing</span>
-                        <span class="truncate font-medium">{{ discussingLabel }}</span>
-                    </div>
+                <div v-if="discussingLabel" class="flex shrink-0 items-center gap-2 border-t border-border bg-primary/5 px-4 py-2.5 text-sm text-fg sm:px-6">
+                    <span class="text-xs font-medium text-primary">Discussing</span>
+                    <span class="truncate font-medium">{{ discussingLabel }}</span>
+                </div>
 
-                    <div class="border-t border-border bg-black/20 p-3">
-                        <div class="flex gap-2">
-                            <UiInput
-                                v-model="inputText"
-                                type="text"
-                                placeholder="Type a message..."
-                                :disabled="sending || aiDisabled"
-                                @keydown.enter.prevent="send()"
-                            />
-                            <UiButton variant="primary" :disabled="!canSend" @click="send()">Send</UiButton>
+                <form class="shrink-0 border-t border-border bg-surface px-3 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:px-6 sm:py-4" @submit.prevent="send()">
+                    <div class="mx-auto flex w-full max-w-3xl flex-col gap-2">
+                        <ChatComposerInput
+                            v-model="inputText"
+                            class="w-full"
+                            placeholder="Type a message..."
+                            aria-label="Message the AI tutor"
+                            :disabled="sending || aiDisabled"
+                            @submit="send()"
+                        />
+                        <div class="flex shrink-0 items-center justify-between gap-2">
+                            <UiButton variant="ghost" size="touch" :disabled="sending || (!inputText.trim() && !voiceAudio && !failedTurn)" type="button" @click="clearDraft()">
+                                <Eraser :size="16" aria-hidden="true" />
+                                Clear all
+                            </UiButton>
+                            <div class="flex items-center gap-2">
+                            <VoiceDictationControl ref="voiceControl" settings-target="#tutor-chat-settings" @ready="onVoiceReady" @cleared="voiceAudio = null" />
+                            <UiButton variant="primary" size="touch" :disabled="!canSend" type="submit">Send</UiButton>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </UiCard>
+                    <p class="mx-auto mt-2 hidden max-w-3xl text-xs text-muted-foreground sm:block">Answers are grounded in your learning activity.</p>
+                </form>
+            </section>
         </template>
     </div>
 </template>

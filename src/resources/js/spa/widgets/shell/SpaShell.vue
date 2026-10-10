@@ -20,6 +20,7 @@ import { useProfileStore } from '../../domains/user';
 import UiBadge from '../../shared/ui/UiBadge.vue';
 import UiButton from '../../shared/ui/UiButton.vue';
 import UiDialog from '../../shared/ui/UiDialog.vue';
+import { routeViewKey } from './routeViewKey';
 
 const route = useRoute();
 const router = useRouter();
@@ -81,16 +82,19 @@ const navItems = computed(() =>
 const moreOpen = ref(false);
 const moreMenu = ref<HTMLElement | null>(null);
 const mobileNavItems = [
-    { name: 'dashboard', label: 'Today', icon: LayoutDashboard },
+    { name: 'catalog', label: 'Catalog', icon: BookOpen },
     { name: 'lessons', label: 'Lessons', icon: NotebookText },
     { name: 'my-words', label: 'Words', icon: BookMarked },
     { name: 'repetitions', label: 'Practice', icon: Dumbbell },
 ];
-const moreDestinations = ['catalog', 'grammar', 'my-grammar', 'my-progress', 'chat', 'settings'];
-const moreNavItems = computed(() => navItems.value.filter((item) => moreDestinations.includes(item.name)));
+const moreDestinations = ['dashboard', 'grammar', 'my-grammar', 'my-progress', 'chat', 'settings'];
+const moreNavItems = computed(() => navItems.value
+    .filter((item) => moreDestinations.includes(item.name))
+    .map((item) => item.name === 'dashboard' ? { ...item, label: 'Today' } : item));
 
 function isMobileDestinationActive(name: string): boolean {
     if (route.name === name) return true;
+    if (name === 'dashboard') return route.name === 'dashboard';
     if (name === 'lessons') return section.value === 'lessons';
     if (name === 'my-words') return route.name === 'word.details';
     if (name === 'repetitions') return section.value === 'review';
@@ -113,7 +117,7 @@ watch(moreOpen, async (open) => {
     <main v-if="focusLayout" class="min-h-screen bg-background text-fg">
         <RouterView v-slot="{ Component, route: viewRoute }">
             <Transition name="page" mode="out-in">
-                <component :is="Component" :key="viewRoute.fullPath" />
+                <component :is="Component" :key="routeViewKey(viewRoute)" />
             </Transition>
         </RouterView>
     </main>
@@ -183,7 +187,7 @@ watch(moreOpen, async (open) => {
                 <main class="flex-1 px-4 py-6 lg:px-8">
                     <RouterView v-slot="{ Component, route: viewRoute }">
                         <Transition name="page" mode="out-in">
-                            <component :is="Component" :key="viewRoute.fullPath" />
+                            <component :is="Component" :key="routeViewKey(viewRoute)" />
                         </Transition>
                     </RouterView>
                 </main>
