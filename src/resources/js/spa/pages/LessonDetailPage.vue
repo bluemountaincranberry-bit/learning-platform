@@ -171,6 +171,11 @@ function onVoiceReady(text: string, audio: Blob, provider: SpeechProvider, langu
     keepVoiceForever.value = keepForever;
 }
 
+function onVoiceRetentionChanged(keepForever: boolean) {
+    keepVoiceForever.value = keepForever;
+    if (failedMessage.value?.audio) failedMessage.value = { ...failedMessage.value, keepForever };
+}
+
 async function toggleVoicePin(message: LessonMessage) {
     if (!message.voice_audio_url) return;
     const result = await lessonApi.pinVoiceRecording(message.id, !message.voice_audio_pinned);
@@ -744,7 +749,7 @@ onUnmounted(() => {
                                         </UiButton>
                                     </div>
                                     <div class="ml-auto flex items-center gap-2">
-                                        <VoiceDictationControl ref="voiceControl" settings-target="#lesson-chat-settings" @ready="onVoiceReady" @cleared="voiceAudio = null" />
+                                        <VoiceDictationControl ref="voiceControl" settings-target="#lesson-chat-settings" @ready="onVoiceReady" @retention="onVoiceRetentionChanged" @cleared="voiceAudio = null" />
                                         <UiButton type="submit" variant="primary" size="touch" :disabled="!canSend">Send</UiButton>
                                     </div>
                                 </div>

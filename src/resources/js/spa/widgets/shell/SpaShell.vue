@@ -14,6 +14,7 @@ import {
     NotebookText,
     Settings as SettingsIcon,
     TrendingUp,
+    BriefcaseBusiness,
 } from 'lucide-vue-next';
 import { useAuth } from '../../domains/user';
 import { useProfileStore } from '../../domains/user';
@@ -62,6 +63,7 @@ const allNavItems = [
     { name: 'my-words', label: 'My words', section: 'learn', icon: BookMarked },
     { name: 'my-grammar', label: 'My grammar', section: 'learn', icon: NotebookPen },
     { name: 'lessons', label: 'My lessons', section: 'lessons', icon: NotebookText },
+    { name: 'interview', label: 'Interview prep', section: 'interview', icon: BriefcaseBusiness },
     { name: 'my-progress', label: 'Progress', section: 'home', icon: TrendingUp },
     { name: 'chat', label: 'AI chat', section: 'chat', icon: MessageCircle },
     { name: 'settings', label: 'Settings', section: 'settings', icon: SettingsIcon },
@@ -87,7 +89,7 @@ const mobileNavItems = [
     { name: 'my-words', label: 'Words', icon: BookMarked },
     { name: 'repetitions', label: 'Practice', icon: Dumbbell },
 ];
-const moreDestinations = ['dashboard', 'grammar', 'my-grammar', 'my-progress', 'chat', 'settings'];
+const moreDestinations = ['dashboard', 'grammar', 'my-grammar', 'my-progress', 'interview', 'chat', 'settings'];
 const moreNavItems = computed(() => navItems.value
     .filter((item) => moreDestinations.includes(item.name))
     .map((item) => item.name === 'dashboard' ? { ...item, label: 'Today' } : item));

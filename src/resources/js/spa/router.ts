@@ -135,6 +135,12 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, title: 'My lessons', section: 'lessons' } as RouteMeta,
     },
     {
+        path: '/interview',
+        name: 'interview',
+        component: () => import('./pages/InterviewPage.vue'),
+        meta: { requiresAuth: true, title: 'Interview preparation', section: 'interview' } as RouteMeta,
+    },
+    {
         path: '/lessons/:id',
         name: 'lesson.details',
         component: () => import('./pages/LessonDetailPage.vue'),

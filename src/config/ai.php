@@ -263,6 +263,7 @@ return [
             \App\Modules\Ai\Application\Agent\ContentAgentService::AGENT_TYPE => \App\Modules\Ai\Application\Agent\ContentAgentService::class,
             \App\Modules\Ai\Application\Agent\StudentTutorAgentService::AGENT_TYPE => \App\Modules\Ai\Application\Agent\StudentTutorAgentService::class,
             \App\Modules\Ai\Application\Agent\LessonAgentService::AGENT_TYPE => \App\Modules\Ai\Application\Agent\LessonAgentService::class,
+            \App\Modules\Ai\Application\Agent\InterviewAgentService::AGENT_TYPE => \App\Modules\Ai\Application\Agent\InterviewAgentService::class,
         ],
 
         /*

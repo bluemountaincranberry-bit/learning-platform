@@ -82,3 +82,43 @@ _Avoid_: Card, word (when counting session length).
 Practice modes reachable on demand but not used by the default daily session,
 such as transcript exercises, sentence writing and the content ready check.
 _Avoid_: Hidden modes, extra modes.
+
+## Interview preparation
+
+Interview preparation organizes a learner's interview goal, question bank,
+answer practice and coaching evidence for a target role.
+
+**Interview question**:
+A bilingual prompt in a learner's private question bank, optionally organized
+under a topic and tagged with skills or formats.
+_Avoid_: Interview card, shared question.
+
+**Answer variant**:
+A learner-authored short or full response to an interview question, with
+English and Russian text kept as independently editable representations.
+_Avoid_: Answer version (when referring to length), translation pair.
+
+**Preparation profile**:
+The learner's confirmed career goal, milestones, level, skills, projects and
+experience stories used to ground interview practice.
+_Avoid_: Resume, interview score.
+
+**Preparation state**:
+The learner-visible label that a question is unpracticed, needs practice or
+feels confident, based on practice evidence and subject to learner override.
+_Avoid_: Readiness score, proficiency score.
+
+**Coached practice**:
+An interview session that discusses and improves one answer before moving to
+the next question.
+_Avoid_: Mock interview.
+
+**Mock interview**:
+A practice session that asks a sequence of questions and delays feedback until
+the session ends.
+_Avoid_: Coached practice.
+
+**Interview practice session**:
+A saved coached-practice or mock-interview conversation with its selected
+questions and confirmed profile context, reopenable by its learner.
+_Avoid_: Interview chat (when meaning the saved practice record).

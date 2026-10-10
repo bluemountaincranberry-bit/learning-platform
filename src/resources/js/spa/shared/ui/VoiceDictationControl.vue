@@ -11,6 +11,7 @@ const props = defineProps<{ settingsTarget?: string }>();
 const emit = defineEmits<{
     ready: [text: string, audio: Blob, provider: SpeechProvider, language: SpeechLanguage, keepForever: boolean];
     cleared: [];
+    retention: [keepForever: boolean];
 }>();
 
 const { isRecording, elapsedSeconds, audioBlob, error: recorderError, start, stop, reset } = useAudioRecorder();
@@ -138,7 +139,7 @@ defineExpose({ clearRecording, toggleSettings, settingsOpen });
                 <SelectField v-model="provider" label="Transcription provider" :options="providerOptions" />
                 <SelectField v-model="language" label="Spoken language" :options="[{ value: 'en', label: 'English' }, { value: 'ru', label: 'Russian' }]" />
                 <label v-if="transcript" class="flex items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
-                    <input v-model="keepForever" type="checkbox" class="rounded border-input" /> Keep this recording forever
+                    <input v-model="keepForever" type="checkbox" class="rounded border-input" @change="emit('retention', keepForever)" /> Keep this recording forever
                 </label>
                 <p v-if="transcript" class="text-xs leading-5 text-muted-foreground">
                     <span v-if="uploadedAudioName" class="block truncate font-medium text-fg-secondary">{{ uploadedAudioName }}</span>
@@ -209,7 +210,7 @@ defineExpose({ clearRecording, toggleSettings, settingsOpen });
         <p v-if="transcript" class="text-xs text-muted-foreground">Transcript added to the message. Review or edit it before sending.</p>
         <div v-if="transcript" class="flex flex-wrap items-center justify-between gap-2">
             <label class="flex items-center gap-2 text-xs text-muted-foreground">
-                <input v-model="keepForever" type="checkbox" class="rounded border-input" /> Keep this recording forever
+                <input v-model="keepForever" type="checkbox" class="rounded border-input" @change="emit('retention', keepForever)" /> Keep this recording forever
             </label>
             <div class="flex gap-1">
                 <UiButton v-if="otherProvider" variant="ghost" size="sm" :disabled="comparing || busy" @click="compareWithOtherProvider">
