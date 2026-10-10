@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { Check, Dumbbell, Plus, Undo2 } from 'lucide-vue-next';
+import { Check, Dumbbell, Plus } from 'lucide-vue-next';
 import PageState from '../components/ui/PageState.vue';
 import { useAuthStore } from '../domains/user';
 import { contentApi } from '../domains/content';
@@ -14,6 +14,7 @@ import UiCard from '../shared/ui/UiCard.vue';
 import UiEmptyState from '../shared/ui/UiEmptyState.vue';
 import SelectField from '../shared/ui/SelectField.vue';
 import WordRow from '../shared/ui/WordRow.vue';
+import PracticeQueueToggle from '../shared/ui/PracticeQueueToggle.vue';
 import UiInput from '../shared/ui/UiInput.vue';
 import { groupAssociationsByType } from '../shared/lexemeAssociations';
 
@@ -42,10 +43,9 @@ const search = ref('');
 const selectedIds = ref<number[]>([]);
 
 const startingReviewId = ref<number | null>(null);
-const markingKnownId = ref<number | null>(null);
-const unmarkingId = ref<number | null>(null);
 const explainingId = ref<number | null>(null);
 const bulkPending = ref(false);
+const confirmingMyWordsKnown = ref(false);
 const explainError = ref('');
 const aiUnavailable = ref(false);
 const explanationModal = ref<{
@@ -63,7 +63,10 @@ const totalPages = computed(() => meta.value.last_page ?? Math.max(1, Math.ceil(
 const canPrev = computed(() => meta.value.current_page > 1);
 const canNext = computed(() => meta.value.current_page < totalPages.value);
 const selectedRows = computed(() => items.value.filter((row) => selectedIds.value.includes(row.id)));
-const selectedContentLexemeIds = computed(() => selectedRows.value.map((row) => row.content_lexeme_id).filter((id): id is number => id !== null));
+const selectedCanonicalLexemeIds = computed(() => selectedRows.value.map((row) => row.lexeme_id));
+const selectedNotInPractice = computed(() => selectedRows.value.filter((row) => !row.in_review));
+const selectedInPractice = computed(() => selectedRows.value.filter((row) => row.in_review));
+const selectedUnknown = computed(() => selectedRows.value.filter((row) => row.status !== 'known'));
 const allVisibleSelected = computed(() => items.value.length > 0 && items.value.every((row) => selectedIds.value.includes(row.id)));
 
 const queryParams = computed<MyWordsParams>(() => {
@@ -119,22 +122,26 @@ async function fetchWords() {
 
 function goToPage(page: number) {
     if (page < 1 || page > totalPages.value) return;
+    selectedIds.value = [];
     meta.value = { ...meta.value, current_page: page };
     fetchWords();
 }
 
 function setPerPage(perPage: number) {
+    selectedIds.value = [];
     meta.value = { ...meta.value, per_page: perPage, current_page: 1 };
     fetchWords();
 }
 
 function toggleSelected(row: MyWordItem) {
+    confirmingMyWordsKnown.value = false;
     selectedIds.value = selectedIds.value.includes(row.id)
         ? selectedIds.value.filter((id) => id !== row.id)
         : [...selectedIds.value, row.id];
 }
 
 function toggleAllVisible() {
+    confirmingMyWordsKnown.value = false;
     selectedIds.value = allVisibleSelected.value ? [] : items.value.map((row) => row.id);
 }
 
@@ -187,64 +194,24 @@ async function addPersonalWord() {
     }
 }
 
-async function markKnown(row: MyWordItem) {
-    if (row.status === 'known') return;
-    markingKnownId.value = row.id;
-    try {
-        if (row.content_lexeme_id === null) await myWordsApi.markKnown(row.lexeme_id);
-        else await contentApi.markLexemeLearned(row.content_lexeme_id);
-        await fetchWords();
-    } catch {
-        error.value = 'Failed to mark as known.';
-    } finally {
-        markingKnownId.value = null;
-    }
-}
-
-async function unmarkKnown(row: MyWordItem) {
-    unmarkingId.value = row.id;
-    try {
-        if (row.content_lexeme_id === null) await myWordsApi.unmarkKnown(row.lexeme_id);
-        else await contentApi.unmarkLexemeLearned(row.content_lexeme_id);
-        await fetchWords();
-    } catch {
-        error.value = 'Failed to remove from known words.';
-    } finally {
-        unmarkingId.value = null;
-    }
-}
-
 function practiceSelected() {
-    if (selectedContentLexemeIds.value.length === 0) return;
-    router.push({ name: 'repetitions', query: { lexeme_ids: selectedContentLexemeIds.value.join(','), return_to: 'my-words' } });
+    if (selectedCanonicalLexemeIds.value.length === 0) return;
+    router.push({ name: 'repetitions', query: { lexeme_ids: selectedCanonicalLexemeIds.value.join(','), return_to: 'my-words' } });
 }
 
-async function addSelectedToLearning() {
-    if (selectedContentLexemeIds.value.length === 0) return;
+async function bulkQueueAction(rows: MyWordItem[], action: 'start' | 'stop' | 'known') {
+    if (rows.length === 0) return;
     bulkPending.value = true;
-    try {
-        await contentApi.bulkStartLexemesLearning(selectedContentLexemeIds.value);
-        selectedIds.value = [];
-        await fetchWords();
-    } catch {
-        error.value = 'Failed to add selected words to learning.';
-    } finally {
-        bulkPending.value = false;
-    }
-}
-
-async function markSelectedKnown() {
-    if (selectedContentLexemeIds.value.length === 0) return;
-    bulkPending.value = true;
-    try {
-        await contentApi.bulkMarkLexemesLearned(selectedContentLexemeIds.value);
-        selectedIds.value = [];
-        await fetchWords();
-    } catch {
-        error.value = 'Failed to mark selected words as known.';
-    } finally {
-        bulkPending.value = false;
-    }
+    error.value = '';
+    const settled = await Promise.allSettled(rows.map((row) => action === 'start'
+        ? myWordsApi.startLearning(row.lexeme_id)
+        : action === 'stop' ? myWordsApi.stopLearning(row.lexeme_id) : myWordsApi.markKnown(row.lexeme_id)));
+    const failed = settled.filter((result) => result.status === 'rejected').length;
+    await fetchWords();
+        if (failed === 0) selectedIds.value = [];
+    else error.value = `${failed} selected word${failed === 1 ? '' : 's'} could not be updated. Review the selection and try again.`;
+        confirmingMyWordsKnown.value = false;
+    bulkPending.value = false;
 }
 
 async function explain(row: MyWordItem, refresh = false) {
@@ -320,6 +287,7 @@ watch([activeStatus, filterLevel, search], () => {
         meta.value = { ...meta.value, current_page: 1 };
     }
     selectedIds.value = [];
+    confirmingMyWordsKnown.value = false;
     fetchWords();
 });
 </script>
@@ -347,17 +315,27 @@ watch([activeStatus, filterLevel, search], () => {
             v-model:level="filterLevel"
         />
 
-        <UiCard v-if="selectedIds.length > 0" class="flex flex-wrap items-center justify-between gap-3">
+        <UiCard v-if="selectedIds.length > 0 && confirmingMyWordsKnown" class="flex flex-wrap items-center justify-between gap-3 bg-warning-bg">
+            <span class="text-sm text-warning-fg">Mark {{ selectedUnknown.length }} selected {{ selectedUnknown.length === 1 ? 'word' : 'words' }} as known?</span>
+            <div class="flex gap-2">
+                <UiButton variant="success" size="sm" :disabled="bulkPending || selectedUnknown.length === 0" @click="bulkQueueAction(selectedUnknown, 'known')">Confirm</UiButton>
+                <UiButton variant="ghost" size="sm" :disabled="bulkPending" @click="confirmingMyWordsKnown = false">Cancel</UiButton>
+            </div>
+        </UiCard>
+        <UiCard v-else-if="selectedIds.length > 0" class="space-y-2 p-3">
             <span class="text-sm font-medium text-fg">{{ selectedIds.length }} selected</span>
-            <div class="flex flex-wrap gap-2">
-                <UiButton variant="primary" size="sm" :disabled="bulkPending || selectedContentLexemeIds.length === 0" @click="practiceSelected">
-                    <Dumbbell :size="14" /> Practice selected
+            <div class="grid grid-cols-4 gap-1.5">
+                <UiButton variant="primary" size="touch" class="min-w-0 gap-0.5 px-0.5 text-xs" :disabled="bulkPending || selectedCanonicalLexemeIds.length === 0" aria-label="Practice selected words" @click="practiceSelected">
+                    <Dumbbell :size="14" class="hidden shrink-0 sm:block" /> <span class="truncate">Practice</span>
                 </UiButton>
-                <UiButton variant="secondary" size="sm" :disabled="bulkPending || selectedContentLexemeIds.length === 0" @click="addSelectedToLearning">
-                    <Plus :size="14" /> Add to learning
+                <UiButton variant="secondary" size="touch" class="min-w-0 gap-0.5 px-0.5 text-xs" :disabled="bulkPending || selectedNotInPractice.length === 0" aria-label="Add selected words to practice" @click="bulkQueueAction(selectedNotInPractice, 'start')">
+                    <Plus :size="14" class="hidden shrink-0 sm:block" /> <span class="truncate">Add</span>
                 </UiButton>
-                <UiButton variant="secondary" size="sm" :disabled="bulkPending || selectedContentLexemeIds.length === 0" @click="markSelectedKnown">
-                    <Check :size="14" /> Mark known
+                <UiButton variant="secondary" size="touch" class="min-w-0 gap-0.5 px-0.5 text-xs" :disabled="bulkPending || selectedInPractice.length === 0" aria-label="Remove selected words from practice" @click="bulkQueueAction(selectedInPractice, 'stop')">
+                    <Minus :size="14" class="hidden shrink-0 sm:block" /> <span class="truncate">Remove</span>
+                </UiButton>
+                <UiButton variant="success" size="touch" class="min-w-0 gap-0.5 px-0.5 text-xs" :disabled="bulkPending || selectedUnknown.length === 0" aria-label="Mark selected words as known" @click="confirmingMyWordsKnown = true">
+                    <Check :size="14" class="hidden shrink-0 sm:block" /> <span class="truncate">Known</span>
                 </UiButton>
             </div>
         </UiCard>
@@ -390,7 +368,10 @@ watch([activeStatus, filterLevel, search], () => {
                     </div>
 
                     <WordRow v-for="row in items" :key="row.id" :text="row.lexeme" :translation="row.translation" :level="row.level" :lexeme-id="row.lexeme_id" :language="row.language" :examples="row.examples" :example="row.example" selectable :selected="selectedIds.includes(row.id)" @toggle-select="toggleSelected(row)">
-                        <template #row-actions><UiBadge :tone="statusTone(row)">{{ statusLabel(row) }}</UiBadge></template>
+                        <template #row-actions>
+                            <UiBadge :tone="statusTone(row)">{{ statusLabel(row) }}</UiBadge>
+                            <PracticeQueueToggle :word="row.lexeme" :queued="row.in_review" :disabled="startingReviewId === row.id" @toggle="row.in_review ? stopReview(row) : startReview(row)" />
+                        </template>
                             <div
                                 v-for="group in associationGroupsOf(row)"
                                 :key="group.type"
@@ -427,46 +408,6 @@ watch([activeStatus, filterLevel, search], () => {
                                 @click="explain(row)"
                             >
                                 {{ explainingId === row.id ? '...' : 'Explain' }}
-                            </UiButton>
-                            <UiButton
-                                v-if="!row.in_review"
-                                variant="secondary"
-                                size="touch"
-                                :disabled="startingReviewId === row.id"
-                                title="Add to spaced-repetition learning"
-                                @click="startReview(row)"
-                            >
-                                <Plus :size="14" /> Add
-                            </UiButton>
-                            <UiButton
-                                v-if="row.in_review"
-                                variant="ghost"
-                                size="touch"
-                                :disabled="startingReviewId === row.id"
-                                title="Stop spaced-repetition learning while keeping review history"
-                                @click="stopReview(row)"
-                            >
-                                Stop
-                            </UiButton>
-                            <UiButton
-                                v-if="row.status !== 'known'"
-                                variant="secondary"
-                                size="touch"
-                                :disabled="markingKnownId === row.id"
-                                title="Mark this word as already known"
-                                @click="markKnown(row)"
-                            >
-                                <Check :size="14" /> Known
-                            </UiButton>
-                            <UiButton
-                                v-if="row.status === 'known'"
-                                variant="ghost"
-                                size="touch"
-                                :disabled="unmarkingId === row.id"
-                                title="Remove from known words"
-                                @click="unmarkKnown(row)"
-                            >
-                                <Undo2 :size="14" /> Unlearn
                             </UiButton>
                         </template>
                     </WordRow>

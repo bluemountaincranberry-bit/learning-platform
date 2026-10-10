@@ -8,24 +8,32 @@ const api = vi.hoisted(() => ({
     destroy: vi.fn(), restore: vi.fn(), speak: vi.fn(), createLexeme: vi.fn(), updateLexeme: vi.fn(), deleteLexeme: vi.fn(), restoreLexeme: vi.fn(),
     createGrammar: vi.fn(), updateGrammar: vi.fn(), deleteGrammar: vi.fn(), restoreGrammar: vi.fn(), addGrammarToMyGrammar: vi.fn(), addLexemeToMyWords: vi.fn(),
     createCorrection: vi.fn(), updateCorrection: vi.fn(), deleteCorrection: vi.fn(), restoreCorrection: vi.fn(),
+    permanentlyDeleteLexeme: vi.fn(), permanentlyDeleteLexemes: vi.fn(),
+    speechApi: { providers: vi.fn().mockResolvedValue({ providers: [] }), transcribe: vi.fn(), pin: vi.fn() },
+    learningFlowApi: { get: vi.fn().mockResolvedValue({ preferences: null }) },
 }));
 vi.mock('../../../shared/lib/speech', () => ({ isSpeechSupported: () => true, speak: api.speak }));
 vi.mock('../../../domains/ai', () => ({ tutorApi: api }));
 vi.mock('../../../domains/user', () => ({ useAuthStore: () => ({ isAuthenticated: true, canAccessTutorAgent: true }) }));
-vi.mock('../../../domains/learning', () => ({ lessonApi: api }));
+vi.mock('../../../domains/learning', () => ({ lessonApi: api, speechApi: api.speechApi, learningFlowApi: api.learningFlowApi }));
 async function renderPage(component: typeof ChatPage | typeof LessonDetailPage, path: string) {
-    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/chat', component: ChatPage }, { path: '/lessons/:id', component: LessonDetailPage }, { path: '/grammar/:id', name: 'grammar.details', component: { template: '<div />' } }, { path: '/grammar/:id/practice', name: 'grammar.practice', component: { template: '<div />' } }, { path: '/repetitions', name: 'repetitions', component: { template: '<div />' } }, { path: '/word/:id', name: 'word.details', component: { template: '<div />' } }] });
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/chat', component: ChatPage }, { path: '/lessons/:id', name: 'lesson.details', component: LessonDetailPage }, { path: '/lessons/:id/chat', name: 'lesson.chat', component: LessonDetailPage }, { path: '/grammar/:id', name: 'grammar.details', component: { template: '<div />' } }, { path: '/grammar/:id/practice', name: 'grammar.practice', component: { template: '<div />' } }, { path: '/repetitions', name: 'repetitions', component: { template: '<div />' } }, { path: '/word/:id', name: 'word.details', component: { template: '<div />' } }] });
     await router.push(path);
     return mount(component, { global: { plugins: [router], stubs: { QuizCard: true } } });
 }
 function button(wrapper: ReturnType<typeof mount>, text: string) { return wrapper.findAll('button').find((node) => node.text() === text)!; }
 describe('chat page retry seams', () => {
-    beforeEach(() => { vi.resetAllMocks(); Element.prototype.scrollIntoView = vi.fn(); });
+    beforeEach(() => {
+        vi.resetAllMocks();
+        api.speechApi.providers.mockResolvedValue({ providers: [] });
+        api.learningFlowApi.get.mockResolvedValue({ preferences: null });
+        Element.prototype.scrollIntoView = vi.fn();
+    });
     it('retries tutor text with its original entry context and prevents concurrent sends', async () => {
         api.createConversation.mockResolvedValue({ conversation_id: 9 });
         api.streamMessage.mockRejectedValueOnce(new Error('offline')).mockImplementationOnce(async (_id, _text, chunk) => { chunk('**Ready** [run](/word/42)'); return { quiz: [] }; });
         const wrapper = await renderPage(ChatPage, '/chat?context_type=lexeme&context_id=42&context_title=run');
-        await wrapper.get('input').setValue('Explain this');
+        await wrapper.get('textarea').setValue('Explain this');
         await button(wrapper, 'Send').trigger('click');
         await button(wrapper, 'Send').trigger('click');
         await flushPromises();
@@ -47,7 +55,7 @@ describe('chat page retry seams', () => {
         const chatTab = wrapper.findAll('button[role="tab"]').find((node) => node.text() === 'Chat');
         if (chatTab) await chatTab.trigger('click');
         await flushPromises();
-        await wrapper.get('input[placeholder="What did you learn today?"]').setValue('Notes');
+        await wrapper.get('textarea[placeholder="Message about this lesson..."]').setValue('Notes');
         await button(wrapper, 'Send').trigger('click');
         await flushPromises();
         await button(wrapper, 'Try again').trigger('click');
@@ -69,11 +77,11 @@ describe('chat page retry seams', () => {
         const file = new File(['notes'], 'notes.pdf', { type: 'application/pdf' });
         Object.defineProperty(wrapper.get('input[type="file"]').element, 'files', { value: [file] });
         await wrapper.get('input[type="file"]').trigger('change');
-        await wrapper.get('input[placeholder="What did you learn today?"]').setValue('Original notes');
+        await wrapper.get('textarea[placeholder="Message about this lesson..."]').setValue('Original notes');
         await button(wrapper, 'Send').trigger('click');
         await flushPromises();
         expect(wrapper.text()).toContain('notes.pdf');
-        await wrapper.get('input[placeholder="What did you learn today?"]').setValue('Edited draft');
+        await wrapper.get('textarea[placeholder="Message about this lesson..."]').setValue('Edited draft');
         await button(wrapper, 'Try again').trigger('click');
         await flushPromises();
         expect(api.sendMessage.mock.calls[1]).toEqual([3, 'Original notes', file]);
@@ -140,13 +148,12 @@ describe('chat page retry seams', () => {
         expect(api.restore).toHaveBeenCalledWith(3);
     });
 
-    it('adds, edits and removes lesson words with an undo action', async () => {
+    it('adds, edits and permanently removes a lesson word with confirmation', async () => {
         api.get.mockResolvedValue({ id: 3, title: 'Lesson', status: 'active', language: 'en', tags: [], notes: '', homework: '', grammar: [], lexemes: [], corrections: [] });
         api.listMessages.mockResolvedValue({ messages: [], is_waiting: false });
         api.createLexeme.mockResolvedValue({ id: 4, text: 'look after', type: 'phrasal_verb', language: 'en', translation: 'заботиться', level: 'B1', status: 'new', matched_lexeme_id: null, example: null, example_translation: null, source: 'manual' });
         api.updateLexeme.mockResolvedValue({ id: 4, text: 'look after', type: 'phrasal_verb', language: 'en', translation: 'присматривать', level: 'B1', status: 'new', matched_lexeme_id: null, example: null, example_translation: null, source: 'manual' });
-        api.deleteLexeme.mockResolvedValue(undefined);
-        api.restoreLexeme.mockResolvedValue({ id: 4, text: 'look after', type: 'phrasal_verb', language: 'en', translation: 'присматривать', level: 'B1', status: 'new', matched_lexeme_id: null, example: null, example_translation: null, source: 'manual' });
+        api.permanentlyDeleteLexemes.mockResolvedValue([4]);
         const wrapper = await renderPage(LessonDetailPage, '/lessons/3');
         await flushPromises();
 
@@ -167,14 +174,12 @@ describe('chat page retry seams', () => {
         await flushPromises();
         expect(api.updateLexeme).toHaveBeenCalledWith(3, 4, expect.objectContaining({ translation: 'присматривать' }));
 
-        await button(wrapper, 'Remove').trigger('click');
+        await button(wrapper, 'Delete permanently').trigger('click');
+        const confirmDelete = Array.from(document.body.querySelectorAll('button')).find((node) => node.textContent?.includes('Delete permanently'))!;
+        await confirmDelete.click();
         await flushPromises();
-        expect(api.deleteLexeme).toHaveBeenCalledWith(3, 4);
+        expect(api.permanentlyDeleteLexemes).toHaveBeenCalledWith(3, [4]);
         expect(wrapper.text()).not.toContain('look after');
-        await button(wrapper, 'Undo').trigger('click');
-        await flushPromises();
-        expect(api.restoreLexeme).toHaveBeenCalledWith(3, 4);
-        expect(wrapper.text()).toContain('look after');
     });
 
     it('adds lesson grammar and corrections without AI', async () => {
@@ -256,7 +261,7 @@ describe('chat page retry seams', () => {
         expect(wrapper.text()).not.toContain('Add to My grammar');
     });
 
-    it('shows dictionary status and a compact add action on lesson word rows', async () => {
+    it('shows one queue action per lesson word and no per-word practice launcher', async () => {
         api.get.mockResolvedValue({ id: 3, title: 'Lesson', status: 'active', language: 'en', tags: [], notes: '', homework: '', grammar: [], corrections: [], lexemes: [{ id: 4, text: 'look after', type: 'phrasal_verb', language: 'en', translation: 'заботиться', status: 'matched', matched_lexeme_id: 42, in_my_words: false, in_review: false }] });
         api.listMessages.mockResolvedValue({ messages: [], is_waiting: false });
         api.addLexemeToMyWords.mockResolvedValue({ lexeme_id: 42, matched_lexeme_id: 42, lemma: 'look after', language: 'en', is_personal: false, in_my_words: true, in_review: true, status: 'matched' });
@@ -265,16 +270,40 @@ describe('chat page retry seams', () => {
         expect(wrapper.findAll('button[role="tab"]').find((node) => node.text() === 'Words')!.attributes('aria-selected')).toBe('true');
         expect(wrapper.get('button[aria-label="look after — заботиться. Show details"]').classes()).toContain('min-h-11');
         expect(wrapper.find('section.-mx-4').classes()).toContain('sm:rounded-xl');
-        expect(wrapper.text()).toContain('Match');
-        await wrapper.get('button[aria-label="Add look after to My words and practice"]').trigger('click');
+        await wrapper.get('button[aria-label="Add look after to practice"]').trigger('click');
         await flushPromises();
         expect(api.addLexemeToMyWords).toHaveBeenCalledWith(3, 4);
-        expect(wrapper.text()).toContain('In practice');
-        expect(wrapper.get('a[aria-label="Practice look after"]').attributes('href')).toContain('lexeme_ids=42');
-        expect(wrapper.get('a[href*="lexeme_ids=42"]').text()).toContain('Practice 1');
+        expect(wrapper.get('button[aria-label="Remove look after from practice"]').exists()).toBe(true);
+        expect(wrapper.find('a[aria-label="Practice look after"]').exists()).toBe(false);
+        expect(wrapper.text()).toContain('Practice 1');
         await wrapper.get('[role="group"][aria-label="Lesson word status"]').findAll('button')[2].trigger('click');
         await flushPromises();
         expect(wrapper.text()).toContain('look after');
+    });
+
+    it('requires confirmation before atomically deleting the selected lesson words', async () => {
+        api.get.mockResolvedValue({ id: 3, title: 'Lesson', status: 'active', language: 'en', tags: [], notes: '', homework: '', grammar: [], corrections: [], lexemes: [
+            { id: 4, text: 'first word', type: 'word', language: 'en', status: 'new', matched_lexeme_id: null, in_my_words: false, in_review: false },
+            { id: 5, text: 'second word', type: 'word', language: 'en', status: 'new', matched_lexeme_id: null, in_my_words: false, in_review: false },
+        ] });
+        api.listMessages.mockResolvedValue({ messages: [], is_waiting: false });
+        api.permanentlyDeleteLexemes.mockResolvedValue([4, 5]);
+        const wrapper = await renderPage(LessonDetailPage, '/lessons/3');
+        await flushPromises();
+
+        await wrapper.get('input[aria-label="Select first word"]').setValue(true);
+        await wrapper.get('input[aria-label="Select second word"]').setValue(true);
+        await wrapper.get('button[aria-label="Permanently delete selected words from this lesson"]').trigger('click');
+        expect(document.body.textContent).toContain('Delete 2 words permanently?');
+        expect(document.body.textContent).not.toContain('Delete 2 permanently');
+        expect(api.permanentlyDeleteLexemes).not.toHaveBeenCalled();
+        const confirmBulkDelete = Array.from(document.body.querySelectorAll('button')).find((node) => node.textContent?.includes('Delete permanently'))!;
+        await confirmBulkDelete.click();
+        await flushPromises();
+
+        expect(api.permanentlyDeleteLexemes).toHaveBeenCalledWith(3, [4, 5]);
+        expect(wrapper.text()).not.toContain('first word');
+        expect(wrapper.text()).not.toContain('second word');
     });
 
 });

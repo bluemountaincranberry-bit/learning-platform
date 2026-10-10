@@ -4,6 +4,9 @@ use App\Modules\Learning\Domain\Models\Lesson;
 use App\Modules\Learning\Domain\Models\LessonAnalysisRun;
 use App\Modules\Learning\Domain\Models\LessonGrammarCandidate;
 use App\Modules\Learning\Domain\Models\LessonLexemeCandidate;
+use App\Modules\Content\Domain\Models\Lexeme;
+use App\Modules\Srs\Domain\Models\SrsCard;
+use App\Modules\Srs\Domain\Models\SrsReview;
 use App\Modules\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +42,52 @@ test('lesson owner can add edit and recoverably delete a word without AI', funct
     test()->getJson("/api/lessons/{$lesson->id}")->assertOk()->assertJsonCount(0, 'lexemes');
     test()->postJson("/api/lessons/{$lesson->id}/lexemes/{$id}/restore")->assertOk();
     test()->getJson("/api/lessons/{$lesson->id}")->assertOk()->assertJsonPath('lexemes.0.text', 'look after');
+});
+
+test('lesson owner can permanently delete selected candidates atomically without deleting learner history', function () {
+    $user = lessonItemsStudent();
+    $lesson = lessonItemsLesson($user->id);
+    $candidates = collect(['first', 'second'])->map(fn (string $text) => LessonLexemeCandidate::query()->create([
+        'lesson_id' => $lesson->id, 'text' => $text, 'normalized_text' => $text, 'type' => 'word', 'status' => 'new', 'source' => 'manual',
+    ]));
+    $lexeme = Lexeme::query()->create([
+        'slug' => 'first-word', 'language' => 'en', 'lemma' => 'first', 'normalized_lemma' => 'first', 'status' => 'published',
+    ]);
+    $candidates[0]->update(['matched_lexeme_id' => $lexeme->id]);
+    DB::table('user_lexeme_sources')->insert([
+        ['user_id' => $user->id, 'lexeme_id' => $lexeme->id, 'source_kind' => 'lesson', 'lesson_lexeme_candidate_id' => $candidates[0]->id, 'source_text' => 'first', 'display_label_snapshot' => 'Lesson', 'created_at' => now(), 'updated_at' => now()],
+        ['user_id' => $user->id, 'lexeme_id' => $lexeme->id, 'source_kind' => 'manual', 'lesson_lexeme_candidate_id' => null, 'source_text' => 'first', 'display_label_snapshot' => 'My words', 'created_at' => now(), 'updated_at' => now()],
+    ]);
+    $card = SrsCard::query()->create([
+        'user_id' => $user->id, 'lexeme_id' => $lexeme->id, 'content_id' => null, 'item_key' => null,
+        'state' => 'learning', 'interval_days' => 4, 'ease_factor' => 2.5, 'next_review_at' => now()->addDays(4),
+    ]);
+    $review = SrsReview::query()->create(['srs_card_id' => $card->id, 'grade' => 2, 'prev_interval' => 1, 'new_interval' => 4, 'reviewed_at' => now()]);
+
+    test()->deleteJson("/api/lessons/{$lesson->id}/lexemes/permanently", ['ids' => $candidates->pluck('id')->all()])
+        ->assertOk()->assertJsonCount(2, 'deleted_ids');
+    expect(LessonLexemeCandidate::withTrashed()->whereIn('id', $candidates->pluck('id'))->count())->toBe(0);
+    expect(Lexeme::query()->whereKey($lexeme->id)->exists())->toBeTrue()
+        ->and(SrsCard::query()->whereKey($card->id)->exists())->toBeTrue()
+        ->and(SrsReview::query()->whereKey($review->id)->exists())->toBeTrue()
+        ->and(DB::table('user_lexeme_sources')->where('lexeme_id', $lexeme->id)->whereNull('lesson_lexeme_candidate_id')->exists())->toBeTrue()
+        ->and(DB::table('user_lexeme_sources')->where('lesson_lexeme_candidate_id', $candidates[0]->id)->exists())->toBeFalse();
+});
+
+test('bulk lesson deletion rejects mixed lesson ids without deleting any candidate', function () {
+    $user = lessonItemsStudent();
+    $lesson = lessonItemsLesson($user->id);
+    $otherLesson = lessonItemsLesson($user->id);
+    $selected = LessonLexemeCandidate::query()->create([
+        'lesson_id' => $lesson->id, 'text' => 'keep me', 'normalized_text' => 'keep me', 'type' => 'word', 'status' => 'new',
+    ]);
+    $foreign = LessonLexemeCandidate::query()->create([
+        'lesson_id' => $otherLesson->id, 'text' => 'foreign', 'normalized_text' => 'foreign', 'type' => 'word', 'status' => 'new',
+    ]);
+
+    test()->deleteJson("/api/lessons/{$lesson->id}/lexemes/permanently", ['ids' => [$selected->id, $foreign->id]])->assertNotFound();
+    expect(LessonLexemeCandidate::withTrashed()->whereKey($selected->id)->exists())->toBeTrue()
+        ->and(LessonLexemeCandidate::withTrashed()->whereKey($foreign->id)->exists())->toBeTrue();
 });
 
 test('lesson words can be added idempotently to My words with a practice link and lesson source', function () {
@@ -165,4 +214,11 @@ test('lesson item fields are validated', function () {
         ->assertUnprocessable()->assertJsonValidationErrors(['title']);
     test()->postJson("/api/lessons/{$lesson->id}/corrections", ['original_text' => 'only one side'])
         ->assertUnprocessable()->assertJsonValidationErrors(['corrected_text']);
+
+    $candidate = LessonLexemeCandidate::query()->create([
+        'lesson_id' => $lesson->id, 'text' => 'duplicate ids', 'normalized_text' => 'duplicate ids', 'type' => 'word', 'status' => 'new',
+    ]);
+    test()->deleteJson("/api/lessons/{$lesson->id}/lexemes/permanently", ['ids' => [$candidate->id, $candidate->id]])
+        ->assertUnprocessable()->assertJsonValidationErrors(['ids.1']);
+    expect(LessonLexemeCandidate::query()->whereKey($candidate->id)->exists())->toBeTrue();
 });

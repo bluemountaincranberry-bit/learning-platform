@@ -14,6 +14,7 @@ use App\Modules\Learning\Domain\Models\LessonLexemeCandidate;
 use App\Modules\Learning\Interfaces\Http\Requests\LessonCorrectionRequest;
 use App\Modules\Learning\Interfaces\Http\Requests\LessonGrammarRequest;
 use App\Modules\Learning\Interfaces\Http\Requests\LessonLexemeRequest;
+use App\Modules\Learning\Interfaces\Http\Requests\PermanentlyDeleteLessonLexemesRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -45,6 +46,22 @@ class LessonItemController extends Controller
         $this->items->deleteLexeme($lesson, $item);
 
         return response()->noContent();
+    }
+
+    public function permanentlyDeleteLexeme(Lesson $lesson, int $item): Response
+    {
+        $this->authorize('update', $lesson);
+        $this->items->permanentlyDeleteLexeme($lesson, $item);
+
+        return response()->noContent();
+    }
+
+    public function permanentlyDeleteLexemes(PermanentlyDeleteLessonLexemesRequest $request, Lesson $lesson): JsonResponse
+    {
+        $this->authorize('update', $lesson);
+        $deletedIds = $this->items->permanentlyDeleteLexemes($lesson, $request->validated('ids'));
+
+        return response()->json(['deleted_ids' => $deletedIds]);
     }
 
     public function restoreLexeme(Lesson $lesson, int $item): JsonResponse

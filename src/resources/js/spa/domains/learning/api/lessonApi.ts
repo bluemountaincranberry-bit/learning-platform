@@ -175,6 +175,15 @@ export const lessonApi = {
         return axios.delete(lessonItemPath(lessonId, 'lexemes', itemId)).then(() => undefined);
     },
 
+    permanentlyDeleteLexeme(lessonId: number, itemId: number): Promise<void> {
+        return axios.delete(`${lessonItemPath(lessonId, 'lexemes', itemId)}/permanently`).then(() => undefined);
+    },
+
+    permanentlyDeleteLexemes(lessonId: number, itemIds: number[]): Promise<number[]> {
+        return axios.delete(`${lessonItemPath(lessonId, 'lexemes')}/permanently`, { data: { ids: itemIds } })
+            .then((response) => response.data.deleted_ids);
+    },
+
     restoreLexeme(lessonId: number, itemId: number): Promise<LessonLexemeCandidate> {
         return axios.post(`${lessonItemPath(lessonId, 'lexemes', itemId)}/restore`).then((r) => r.data);
     },

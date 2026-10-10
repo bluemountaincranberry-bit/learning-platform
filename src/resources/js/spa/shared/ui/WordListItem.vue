@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { BookPlus, Check, Eye, EyeOff, Lightbulb, LoaderCircle, Minus, Plus, Undo2 } from 'lucide-vue-next';
+import { BookPlus, Eye, EyeOff, Lightbulb, LoaderCircle } from 'lucide-vue-next';
 import UiBadge from './UiBadge.vue';
 import UiButton from './UiButton.vue';
 import WordRow from './WordRow.vue';
+import PracticeQueueToggle from './PracticeQueueToggle.vue';
 import { formatGrammarFeatures } from '../grammarFeatures';
 import { groupAssociationsByType } from '../lexemeAssociations';
 import type { LexemeWithLearned } from '../../types';
@@ -50,55 +51,9 @@ const emit = defineEmits<{
         <template #row-actions>
             <UiBadge v-if="lexeme.learned" tone="success" class="shrink-0" title="You've marked this word as learned">Learned</UiBadge>
             <!-- 44px tap target, lighter 32px visual so a long list doesn't read as a wall of buttons. -->
-            <UiButton
-                v-if="lexeme.in_review"
-                variant="ghost"
-                size="icon-touch"
-                class="shrink-0"
-                :disabled="startingReview"
-                aria-label="Remove from your learning queue"
-                title="Remove from your spaced-repetition learning queue"
-                @click="emit('stopReview', lexeme)"
-            >
-                <span class="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-secondary text-secondary-foreground"><Minus :size="16" /></span>
-            </UiButton>
-            <UiButton
-                v-else
-                variant="ghost"
-                size="icon-touch"
-                class="shrink-0"
-                :disabled="startingReview"
-                aria-label="Add to your learning queue"
-                title="Add to your spaced-repetition learning queue, to practice it later on the Repetitions page"
-                @click="emit('startReview', lexeme)"
-            >
-                <span class="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground"><Plus :size="16" /></span>
-            </UiButton>
+            <PracticeQueueToggle :word="lexeme.text" :queued="lexeme.in_review" :disabled="startingReview" @toggle="lexeme.in_review ? emit('stopReview', lexeme) : emit('startReview', lexeme)" />
 
-            <UiButton
-                v-if="lexeme.learned"
-                variant="ghost"
-                size="icon-touch"
-                class="shrink-0"
-                :disabled="marking"
-                aria-label="Remove from learned words"
-                title="Remove from learned words"
-                @click="emit('unmarkLearned', lexeme)"
-            >
-                <Undo2 :size="18" />
-            </UiButton>
-            <UiButton
-                v-else
-                variant="ghost"
-                size="icon-touch"
-                class="shrink-0 text-success-fg"
-                :disabled="marking"
-                aria-label="I know this word — mark as learned"
-                title="I know this word — mark as learned"
-                @click="emit('markLearned', lexeme)"
-            >
-                <Check :size="18" />
-            </UiButton>
+            <slot name="row-actions" :lexeme="lexeme" />
         </template>
             <div class="flex flex-wrap items-center gap-1.5">
                 <UiBadge tone="neutral">{{ lexeme.type }}</UiBadge>
@@ -147,6 +102,7 @@ const emit = defineEmits<{
                 <UiButton v-if="!aiUnavailable && lexeme.lexeme_id" variant="ghost" size="touch" :disabled="fetchingExamples" @click="emit('moreExamples', lexeme)">
                     <BookPlus :size="16" :class="{ 'animate-pulse': fetchingExamples }" /> More examples
                 </UiButton>
+                <slot name="actions" :lexeme="lexeme" />
         </template>
     </WordRow>
 </template>

@@ -214,6 +214,12 @@ const filterSheetOpen = ref(false);
 const allFilteredSelected = computed(
     () => filteredLexemes.value.length > 0 && filteredLexemes.value.every((l) => props.selectedIds.has(l.id)),
 );
+const selectedFiltered = computed(() => filteredLexemes.value.filter((lexeme) => props.selectedIds.has(lexeme.id)));
+const selectedQueueAdd = computed(() => selectedFiltered.value.filter((lexeme) => !lexeme.in_review));
+const selectedQueueRemove = computed(() => selectedFiltered.value.filter((lexeme) => lexeme.in_review));
+const selectedUnknown = computed(() => selectedFiltered.value.filter((lexeme) => !lexeme.learned));
+
+watch([filterStatus, filterLevel, filterCategory, searchQuery], clearSelection);
 
 function toggleSelectAllFiltered() {
     if (allFilteredSelected.value) {
@@ -234,11 +240,11 @@ function clearSelection() {
 const bulkResultMessage = ref('');
 
 function practiceSelected() {
-    emit('practice-selected', [...props.selectedIds]);
+    emit('practice-selected', selectedFiltered.value.map((lexeme) => lexeme.id));
 }
 
 function practiceContext() {
-    emit('practice-context', [...props.selectedIds]);
+    emit('practice-context', selectedFiltered.value.map((lexeme) => lexeme.id));
 }
 
 // Marking words "known" in bulk skips any recall check entirely — a
@@ -254,28 +260,33 @@ watch(() => props.selectedIds, () => (confirmingBulkMark.value = false));
 
 async function bulkMark() {
     confirmingBulkMark.value = false;
-    const ids = [...props.selectedIds];
+    const ids = selectedUnknown.value.map((lexeme) => lexeme.id);
     const result = await props.bulkMarkLearned(ids);
     if (!result) return;
     bulkResultMessage.value = `Marked ${result.succeeded} of ${ids.length} as known${result.failed > 0 ? ` (${result.failed} failed)` : ''}.`;
-    clearSelection();
+    reconcileSelection(result);
 }
 
 async function bulkStart() {
-    const ids = [...props.selectedIds];
+    const ids = selectedQueueAdd.value.map((lexeme) => lexeme.id);
     const result = await props.bulkStartLearning(ids);
     if (!result) return;
-    bulkResultMessage.value = `Added ${result.succeeded} of ${ids.length} to learning${result.failed > 0 ? ` (${result.failed} failed)` : ''}.`;
-    clearSelection();
+    bulkResultMessage.value = `Added ${result.succeeded} of ${ids.length} to practice${result.failed > 0 ? ` (${result.failed} failed)` : ''}.`;
+    reconcileSelection(result);
 }
 
 async function bulkStop() {
     if (!props.bulkStopLearning) return;
-    const ids = [...props.selectedIds];
+    const ids = selectedQueueRemove.value.map((lexeme) => lexeme.id);
     const result = await props.bulkStopLearning(ids);
     if (!result) return;
-    bulkResultMessage.value = `Removed ${result.succeeded} of ${ids.length} from learning${result.failed > 0 ? ` (${result.failed} failed)` : ''}.`;
-    clearSelection();
+    bulkResultMessage.value = `Removed ${result.succeeded} of ${ids.length} from practice${result.failed > 0 ? ` (${result.failed} failed)` : ''}.`;
+    reconcileSelection(result);
+}
+
+function reconcileSelection(result: BulkLexemeActionResponse) {
+    const failedIds = result.results.filter((item) => !item.ok).map((item) => item.id);
+    emit('update:selectedIds', new Set(failedIds));
 }
 
 const menuItemClass =
@@ -344,19 +355,19 @@ const menuItemClass =
                     />
                     Select all {{ filteredLexemes.length }}
                 </label>
-                <span class="ml-auto font-medium text-fg">{{ selectedIds.size }} selected</span>
+                <span class="ml-auto font-medium text-fg">{{ selectedFiltered.length }} selected</span>
                 <UiButton variant="ghost" size="icon-touch" aria-label="Clear selection" @click="clearSelection">
                     <X :size="18" />
                 </UiButton>
             </div>
 
             <div v-if="confirmingBulkMark" class="flex flex-wrap items-center gap-2">
-                <span class="flex-1 text-sm text-warning">Mark all {{ selectedIds.size }} as already known?</span>
-                <UiButton variant="primary" size="touch" :disabled="bulkActionPending" @click="bulkMark">Confirm</UiButton>
+                <span class="flex-1 text-sm text-warning">Mark {{ selectedUnknown.length }} selected words as known?</span>
+                <UiButton variant="success" size="touch" :disabled="bulkActionPending || selectedUnknown.length === 0" @click="bulkMark">Confirm</UiButton>
                 <UiButton variant="ghost" size="touch" :disabled="bulkActionPending" @click="confirmingBulkMark = false">Cancel</UiButton>
             </div>
             <div v-else class="flex items-center gap-2">
-                <UiButton variant="primary" size="touch" class="flex-1" :disabled="bulkActionPending" @click="bulkStart">Add {{ selectedIds.size }} to learning</UiButton>
+                <UiButton variant="primary" size="touch" class="flex-1" :disabled="bulkActionPending || selectedQueueAdd.length === 0" aria-label="Add selected words to practice" @click="bulkStart">Add to practice</UiButton>
                 <UiButton variant="secondary" size="touch" :disabled="bulkActionPending" @click="practiceSelected">Practice</UiButton>
                 <DropdownMenuRoot>
                     <DropdownMenuTrigger
@@ -374,8 +385,8 @@ const menuItemClass =
                             :side-offset="6"
                         >
                             <DropdownMenuItem :class="menuItemClass" @select="practiceContext">Practice in sentences</DropdownMenuItem>
-                            <DropdownMenuItem v-if="bulkStopLearning" :class="menuItemClass" @select="bulkStop">Remove from learning</DropdownMenuItem>
-                            <DropdownMenuItem :class="menuItemClass" @select="confirmingBulkMark = true">Mark as known</DropdownMenuItem>
+                            <DropdownMenuItem v-if="bulkStopLearning" :class="menuItemClass" :disabled="selectedQueueRemove.length === 0" @select="bulkStop">Remove from practice</DropdownMenuItem>
+                            <DropdownMenuItem :class="menuItemClass" :disabled="selectedUnknown.length === 0" @select="confirmingBulkMark = true">Mark as known</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenuPortal>
                 </DropdownMenuRoot>

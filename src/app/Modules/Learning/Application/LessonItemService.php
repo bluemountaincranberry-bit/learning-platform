@@ -6,6 +6,8 @@ use App\Modules\Learning\Domain\Models\Lesson;
 use App\Modules\Learning\Domain\Models\LessonCorrection;
 use App\Modules\Learning\Domain\Models\LessonGrammarCandidate;
 use App\Modules\Learning\Domain\Models\LessonLexemeCandidate;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /** Owns editable, lesson-scoped words, grammar points, and corrections. */
@@ -35,6 +37,40 @@ class LessonItemService
     public function deleteLexeme(Lesson $lesson, int $id): void
     {
         $lesson->lexemeCandidates()->findOrFail($id)->delete();
+    }
+
+    public function permanentlyDeleteLexeme(Lesson $lesson, int $id): void
+    {
+        DB::transaction(function () use ($lesson, $id): void {
+            $candidate = $lesson->lexemeCandidates()->lockForUpdate()->findOrFail($id);
+            $this->permanentlyDeleteLexemeCandidates(collect([$candidate]));
+        });
+    }
+
+    /** @param list<int> $ids @return list<int> */
+    public function permanentlyDeleteLexemes(Lesson $lesson, array $ids): array
+    {
+        return DB::transaction(function () use ($lesson, $ids): array {
+            $candidates = $lesson->lexemeCandidates()->whereIn('id', $ids)->lockForUpdate()->get();
+            if ($candidates->count() !== count($ids)) {
+                abort(404);
+            }
+
+            return $this->permanentlyDeleteLexemeCandidates($candidates);
+        });
+    }
+
+    /** @param Collection<int, LessonLexemeCandidate> $candidates @return list<int> */
+    private function permanentlyDeleteLexemeCandidates(Collection $candidates): array
+    {
+        $candidateIds = $candidates->map(fn (LessonLexemeCandidate $candidate): int => (int) $candidate->getKey())->all();
+        DB::table('user_lexeme_sources')->whereIn('lesson_lexeme_candidate_id', $candidateIds)->delete();
+
+        foreach ($candidates as $candidate) {
+            $candidate->forceDelete();
+        }
+
+        return $candidateIds;
     }
 
     public function restoreLexeme(Lesson $lesson, int $id): LessonLexemeCandidate

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ArrowLeft, Eraser, MoreHorizontal, Paperclip, Settings2, Sparkles, Save, Plus, Undo2, Dumbbell } from 'lucide-vue-next';
+import { ArrowLeft, Eraser, MoreHorizontal, Paperclip, Settings2, Sparkles, Save, Plus, Undo2, Dumbbell, Trash2, Minus, Check } from 'lucide-vue-next';
 import { RouterLink } from 'vue-router';
 import PageState from '../components/ui/PageState.vue';
 import { useAuthStore } from '../domains/user';
@@ -22,6 +22,7 @@ import GrammarCard from '../shared/ui/GrammarCard.vue';
 import UiBadge from '../shared/ui/UiBadge.vue';
 import UiButton from '../shared/ui/UiButton.vue';
 import UiCard from '../shared/ui/UiCard.vue';
+import UiDialog from '../shared/ui/UiDialog.vue';
 import UiInput from '../shared/ui/UiInput.vue';
 import ChatComposerInput from '../shared/ui/ChatComposerInput.vue';
 import UiSectionHeader from '../shared/ui/UiSectionHeader.vue';
@@ -67,6 +68,8 @@ const archiving = ref(false);
 const tagsDraft = ref('');
 const undoItem = ref<{ collection: LessonItemCollection; id: number } | null>(null);
 const undoMessage = ref('');
+const confirmingLessonLexemeIds = ref<number[]>([]);
+const lessonActionNotice = ref('');
 const editingLexemeId = ref<number | null>(null);
 const editingGrammarId = ref<number | null>(null);
 const editingCorrectionId = ref<number | null>(null);
@@ -106,6 +109,8 @@ const lessonWordStatusSegments = computed(() => {
     ];
 });
 
+const confirmingLessonLexemes = computed(() => lesson.value?.lexemes.filter((word) => confirmingLessonLexemeIds.value.includes(word.id)) ?? []);
+
 const visibleLessonWords = computed(() => {
     const words = lesson.value?.lexemes ?? [];
     if (lessonWordFilter.value === 'not-in-practice') return words.filter((word) => !word.in_review);
@@ -120,6 +125,11 @@ const visibleLessonLexemes = computed(() => {
 
 const allVisibleLessonWordsSelected = computed(() => visibleLessonWords.value.length > 0
     && visibleLessonWords.value.every((word) => selectedLessonWordIds.value.has(word.id)));
+
+const selectedLessonWords = computed(() => visibleLessonWords.value.filter((word) => selectedLessonWordIds.value.has(word.id)));
+const selectedNotInPracticeIds = computed(() => selectedLessonWords.value.filter((word) => !word.in_review).map((word) => word.id));
+const selectedInPracticeIds = computed(() => selectedLessonWords.value.filter((word) => word.in_review).map((word) => word.id));
+const selectedUnknownIds = computed(() => selectedLessonWords.value.filter((word) => !word.learned).map((word) => word.id));
 
 const practiceWordIds = computed(() => {
     const ids = (lesson.value?.lexemes ?? []).flatMap((word) =>
@@ -309,18 +319,20 @@ function clearLessonWordSelection() {
 }
 
 async function bulkStartLessonWords(ids: number[]) {
-    await bulkLessonWordAction(ids, 'start');
-    clearLessonWordSelection();
+    reconcileLessonBulkSelection(await bulkLessonWordAction(ids, 'start'));
 }
 
 async function bulkStopLessonWords(ids: number[]) {
-    await bulkLessonWordAction(ids, 'stop');
-    clearLessonWordSelection();
+    reconcileLessonBulkSelection(await bulkLessonWordAction(ids, 'stop'));
 }
 
 async function bulkMarkLessonWordsKnown(ids: number[]) {
-    await bulkLessonWordAction(ids, 'known');
-    clearLessonWordSelection();
+    reconcileLessonBulkSelection(await bulkLessonWordAction(ids, 'known'));
+}
+
+function reconcileLessonBulkSelection(result: { results: { id: number; ok: boolean }[] }) {
+    selectedLessonWordIds.value = new Set(result.results.filter((item) => !item.ok).map((item) => item.id));
+    confirmingLessonKnown.value = false;
 }
 
 function addCorrection() {
@@ -362,14 +374,21 @@ async function saveCorrection() {
     }
 }
 
-async function deleteLessonItem(collection: LessonItemCollection, id: number) {
-    if (!lesson.value) return;
+async function deleteLessonItem(collection: LessonItemCollection, id: number): Promise<boolean> {
+    if (!lesson.value) return false;
     itemSaving.value = true;
     itemError.value = '';
+    lessonActionNotice.value = '';
     try {
         if (collection === 'lexemes') {
-            await lessonApi.deleteLexeme(lessonId.value, id);
+            await lessonApi.permanentlyDeleteLexeme(lessonId.value, id);
             lesson.value.lexemes = lesson.value.lexemes.filter((item) => item.id !== id);
+            const nextSelection = new Set(selectedLessonWordIds.value);
+            nextSelection.delete(id);
+            selectedLessonWordIds.value = nextSelection;
+            undoItem.value = null;
+            undoMessage.value = '';
+            lessonActionNotice.value = 'Word permanently deleted from this lesson.';
         } else if (collection === 'grammar') {
             await lessonApi.deleteGrammar(lessonId.value, id);
             lesson.value.grammar = lesson.value.grammar.filter((item) => item.id !== id);
@@ -377,13 +396,47 @@ async function deleteLessonItem(collection: LessonItemCollection, id: number) {
             await lessonApi.deleteCorrection(lessonId.value, id);
             lesson.value.corrections = lesson.value.corrections.filter((item) => item.id !== id);
         }
-        undoItem.value = { collection, id };
-        undoMessage.value = 'Removed from this lesson.';
+        if (collection !== 'lexemes') {
+            undoItem.value = { collection, id };
+            undoMessage.value = 'Removed from this lesson.';
+        }
+        return true;
     } catch {
         itemError.value = 'Failed to remove this item. Try again.';
+        return false;
     } finally {
         itemSaving.value = false;
     }
+}
+
+async function confirmPermanentLessonLexemeDelete() {
+    if (!lesson.value || confirmingLessonLexemeIds.value.length === 0) return;
+    itemSaving.value = true;
+    itemError.value = '';
+    const ids = [...confirmingLessonLexemeIds.value];
+    try {
+        const deletedIds = await lessonApi.permanentlyDeleteLexemes(lessonId.value, ids);
+        const deleted = new Set(deletedIds);
+        lesson.value.lexemes = lesson.value.lexemes.filter((word) => !deleted.has(word.id));
+        selectedLessonWordIds.value = new Set([...selectedLessonWordIds.value].filter((id) => !deleted.has(id)));
+        confirmingLessonLexemeIds.value = [];
+        lessonActionNotice.value = `${deletedIds.length} ${deletedIds.length === 1 ? 'word' : 'words'} permanently deleted from this lesson.`;
+        clearLessonWordSelection();
+    } catch {
+        itemError.value = 'Failed to permanently delete the selected words. Try again.';
+    } finally {
+        itemSaving.value = false;
+    }
+}
+
+function requestPermanentLessonLexemeDelete(id: number) {
+    itemError.value = '';
+    confirmingLessonLexemeIds.value = [id];
+}
+
+function requestPermanentSelectedLessonLexemesDelete() {
+    itemError.value = '';
+    confirmingLessonLexemeIds.value = selectedLessonWords.value.map((word) => word.id);
 }
 
 async function restoreLessonItem() {
@@ -784,6 +837,9 @@ onUnmounted(() => {
                 <div v-if="itemError" class="rounded-spa-lg border border-warning-border bg-warning-bg p-3 text-sm text-warning-fg" role="alert">
                     {{ itemError }}
                 </div>
+                <div v-if="lessonActionNotice" class="rounded-spa-lg border border-border bg-surface p-3 text-sm text-fg-secondary" role="status">
+                    {{ lessonActionNotice }}
+                </div>
 
                 <!-- Notes Tab -->
                 <div v-if="activeTab === 'notes'" class="space-y-4">
@@ -896,13 +952,10 @@ onUnmounted(() => {
                             @mark-learned="(word) => { const candidate = lessonWordById(word.id); if (candidate) void runLessonWordAction(candidate, 'known'); }"
                             @unmark-learned="(word) => { const candidate = lessonWordById(word.id); if (candidate) void runLessonWordAction(candidate, 'unknown'); }"
                         >
-                            <template #row-actions>
-                                <RouterLink v-if="w.in_review && w.lexeme_id" :to="{ name: 'repetitions', query: { lesson_id: String(lesson.id), lesson_lexeme_ids: String(w.lexeme_id), return_to: 'lessons' } }" class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" :aria-label="`Practice ${w.text}`" title="Practice word"><Dumbbell :size="18" /></RouterLink>
-                            </template>
                             <template #actions>
                                 <div class="flex flex-wrap gap-2">
                                     <UiButton variant="secondary" size="touch" :disabled="itemSaving" @click="lessonWordById(w.id) && editLexeme(lessonWordById(w.id)!)">Edit</UiButton>
-                                    <UiButton variant="danger" size="touch" :disabled="itemSaving" @click="deleteLessonItem('lexemes', w.id)">Remove</UiButton>
+                                    <UiButton variant="danger" size="touch" :disabled="itemSaving" @click="requestPermanentLessonLexemeDelete(w.id)"><Trash2 :size="16" /> Delete permanently</UiButton>
                                 </div>
                             </template>
                         </WordListItem>
@@ -916,16 +969,18 @@ onUnmounted(() => {
                             <span class="ml-auto font-medium text-fg">{{ selectedLessonWordIds.size }} selected</span>
                             <UiButton variant="ghost" size="icon-touch" aria-label="Clear selection" @click="clearLessonWordSelection">×</UiButton>
                         </div>
-                        <div v-if="confirmingLessonKnown" class="flex flex-wrap items-center gap-2">
-                            <span class="flex-1 text-sm text-warning">Mark {{ selectedLessonWordIds.size }} words as known?</span>
-                            <UiButton variant="primary" size="touch" :disabled="lessonBulkPending" @click="bulkMarkLessonWordsKnown([...selectedLessonWordIds])">Confirm</UiButton>
+                        <div v-if="confirmingLessonKnown" class="flex flex-wrap items-center gap-2 rounded-md bg-warning-bg p-2">
+                            <span class="min-w-0 flex-1 text-sm text-warning">Mark {{ selectedUnknownIds.length }} {{ selectedUnknownIds.length === 1 ? 'word' : 'words' }} as known?</span>
+                            <UiButton variant="success" size="touch" :disabled="lessonBulkPending || selectedUnknownIds.length === 0" @click="bulkMarkLessonWordsKnown(selectedUnknownIds)">Confirm</UiButton>
                             <UiButton variant="ghost" size="touch" :disabled="lessonBulkPending" @click="confirmingLessonKnown = false">Cancel</UiButton>
                         </div>
-                        <div v-else class="flex flex-wrap gap-2">
-                            <UiButton variant="primary" size="touch" class="flex-1" :disabled="lessonBulkPending" @click="bulkStartLessonWords([...selectedLessonWordIds])">Add to practice</UiButton>
-                            <UiButton variant="secondary" size="touch" :disabled="lessonBulkPending" @click="bulkStopLessonWords([...selectedLessonWordIds])">Remove from practice</UiButton>
-                            <UiButton variant="secondary" size="touch" :disabled="lessonBulkPending" @click="confirmingLessonKnown = true">Mark as known</UiButton>
+                        <div v-else class="grid grid-cols-4 gap-1.5">
+                            <UiButton variant="primary" size="touch" class="min-w-0 gap-1 px-1 text-xs" :disabled="lessonBulkPending || selectedNotInPracticeIds.length === 0" aria-label="Add selected words to practice" title="Add selected words to practice" @click="bulkStartLessonWords(selectedNotInPracticeIds)"><Plus :size="14" class="shrink-0" /><span class="truncate">Add</span></UiButton>
+                            <UiButton variant="secondary" size="touch" class="min-w-0 gap-1 px-1 text-xs" :disabled="lessonBulkPending || selectedInPracticeIds.length === 0" aria-label="Remove selected words from practice" title="Remove selected words from practice" @click="bulkStopLessonWords(selectedInPracticeIds)"><Minus :size="14" class="shrink-0" /><span class="truncate">Remove</span></UiButton>
+                            <UiButton variant="secondary" size="touch" class="min-w-0 gap-1 px-1 text-xs" :disabled="lessonBulkPending || selectedUnknownIds.length === 0" aria-label="Mark selected words as known" title="Mark selected words as known" @click="confirmingLessonKnown = true"><Check :size="14" class="shrink-0 text-success-fg" /><span class="truncate">Known</span></UiButton>
+                            <UiButton variant="danger" size="touch" class="min-w-0 gap-1 px-1 text-xs" :disabled="lessonBulkPending || itemSaving" aria-label="Permanently delete selected words from this lesson" title="Permanently delete selected words from this lesson" @click="requestPermanentSelectedLessonLexemesDelete"><Trash2 :size="14" class="shrink-0" /><span class="truncate">Delete</span></UiButton>
                         </div>
+                        <p v-if="lessonBulkPending" class="flex items-center gap-2 text-xs text-muted-foreground" role="status"><span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent" /> Updating selected words…</p>
                     </div>
                 </section>
 
@@ -1026,5 +1081,15 @@ onUnmounted(() => {
                 </template>
             </template>
         </PageState>
+        <UiDialog :open="confirmingLessonLexemeIds.length > 0" :title="`Delete ${confirmingLessonLexemeIds.length} ${confirmingLessonLexemeIds.length === 1 ? 'word' : 'words'} permanently?`" :busy="itemSaving" sheet @close="confirmingLessonLexemeIds = []">
+            <p class="text-sm leading-6 text-muted-foreground">
+                {{ confirmingLessonLexemeIds.length === 1 ? `“${confirmingLessonLexemes[0]?.text ?? 'This word'}” and its lesson details will be` : `${confirmingLessonLexemeIds.length} selected words and their lesson details will be` }} permanently deleted from this lesson. Entries in My words and practice history, if any, will remain.
+            </p>
+            <p v-if="itemError" class="mt-3 text-sm text-warning-fg" role="alert">{{ itemError }}</p>
+            <template #footer>
+                <UiButton variant="secondary" size="touch" :disabled="itemSaving" @click="confirmingLessonLexemeIds = []">Cancel</UiButton>
+                <UiButton variant="danger" size="touch" :disabled="itemSaving" @click="confirmPermanentLessonLexemeDelete">{{ itemSaving ? 'Deleting…' : 'Delete permanently' }}</UiButton>
+            </template>
+        </UiDialog>
     </div>
 </template>
