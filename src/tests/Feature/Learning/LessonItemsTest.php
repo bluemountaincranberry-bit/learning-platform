@@ -123,6 +123,38 @@ test('lesson words can be added idempotently to My words with a practice link an
         ->assertJsonPath('lexemes.0.matched_lexeme_id', $lexemeId);
 });
 
+test('My words displays both video and lesson sources for one canonical word', function () {
+    $user = lessonItemsStudent();
+    $lesson = lessonItemsLesson($user->id);
+    $lesson->update(['title' => 'Tuesday class', 'language' => 'en']);
+    $lexeme = \App\Modules\Content\Domain\Models\Lexeme::query()->create([
+        'slug' => 'lesson-video-source-'.uniqid(), 'language' => 'en', 'lemma' => 'sharedword',
+        'normalized_lemma' => 'sharedword', 'status' => 'published',
+    ]);
+    $content = \App\Modules\Content\Domain\Models\Content::query()->create([
+        'type' => 'youtube', 'title' => 'A video lesson', 'language' => 'en', 'origin' => 'curated', 'status' => 'ready',
+    ]);
+    $contentLexemeId = DB::table('content_lexemes')->insertGetId([
+        'content_id' => $content->id, 'type' => 'word', 'text' => 'sharedword', 'lexeme_id' => $lexeme->id,
+        'sort_order' => 1, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    DB::table('user_lexeme_sources')->insert([
+        'user_id' => $user->id, 'lexeme_id' => $lexeme->id, 'source_kind' => 'content',
+        'content_lexeme_id' => $contentLexemeId, 'lesson_lexeme_candidate_id' => null,
+        'source_text' => 'sharedword', 'display_label_snapshot' => 'A video lesson', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $candidate = $lesson->lexemeCandidates()->create([
+        'text' => 'sharedword', 'normalized_text' => 'sharedword', 'type' => 'word', 'status' => 'new', 'source' => 'manual',
+    ]);
+
+    $this->actingAs($user)->postJson("/api/lessons/{$lesson->id}/lexemes/{$candidate->id}/add-to-my-words")->assertOk();
+    $response = $this->actingAs($user)->getJson('/api/me/words')->assertOk();
+
+    expect($response->json('data'))->toHaveCount(1)
+        ->and($response->json('data.0.contexts.0.content_title'))->toBe('A video lesson')
+        ->and($response->json('data.0.lesson_sources.0.lesson_title'))->toBe('Tuesday class');
+});
+
 test('lesson owner can add edit and recoverably delete grammar points', function () {
     $user = lessonItemsStudent();
     $lesson = lessonItemsLesson($user->id);

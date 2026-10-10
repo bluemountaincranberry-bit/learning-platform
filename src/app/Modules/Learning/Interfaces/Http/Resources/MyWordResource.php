@@ -33,6 +33,7 @@ class MyWordResource extends JsonResource
             'examples' => $presentation['examples'],
             'associations' => $presentation['associations'],
             'contexts' => $presentation['contexts'],
+            'lesson_sources' => $this->lesson_sources ?? [],
         ];
     }
 }

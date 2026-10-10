@@ -395,7 +395,15 @@ watch([activeStatus, filterLevel, search], () => {
                                     <span v-else class="text-xs text-muted-foreground">{{ context.content_title || 'Content' }}</span>
                                 </template>
                                 <span v-if="row.contexts.length > 3" class="text-xs text-muted-foreground">+{{ row.contexts.length - 3 }} more</span>
-                                <span v-if="!primaryContext(row)" class="text-xs text-muted-foreground">No content context</span>
+                                <RouterLink
+                                    v-for="source in row.lesson_sources ?? []"
+                                    :key="source.candidate_id"
+                                    :to="{ name: 'lesson.details', params: { id: source.lesson_id } }"
+                                    class="inline-flex min-h-11 items-center text-xs text-primary underline"
+                                >
+                                    {{ source.lesson_title }}
+                                </RouterLink>
+                                <span v-if="!primaryContext(row) && !(row.lesson_sources?.length)" class="text-xs text-muted-foreground">No content context</span>
                             </div>
                         </template>
                         <template #actions>

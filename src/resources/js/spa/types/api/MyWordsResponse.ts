@@ -10,6 +10,12 @@ export interface MyWordContext {
     level: string | null;
 }
 
+export interface MyWordLessonSource {
+    lesson_id: number;
+    lesson_title: string;
+    candidate_id: number;
+}
+
 export interface MyWordItem {
     id: number;
     lexeme_id: number;
@@ -25,6 +31,7 @@ export interface MyWordItem {
     examples?: LexemeExampleItem[];
     associations?: LexemeAssociationItem[];
     contexts: MyWordContext[];
+    lesson_sources?: MyWordLessonSource[];
 }
 
 export interface MyWordsParams {
