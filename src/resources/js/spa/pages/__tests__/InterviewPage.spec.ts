@@ -34,6 +34,7 @@ describe('InterviewPage', () => {
 
         expect(wrapper.text()).toContain('What is an API?');
         expect(wrapper.find('input[placeholder="Search in English or Russian"]').exists()).toBe(true);
+        expect(wrapper.find('h2.text-xl').element.parentElement?.parentElement?.className).toContain('flex-col');
         expect(wrapper.text()).not.toContain('Что такое API?');
         await wrapper.findAll('button').find((button) => button.text().includes('Show Russian'))!.trigger('click');
         expect(wrapper.text()).toContain('Что такое API?');

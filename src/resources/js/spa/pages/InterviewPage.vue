@@ -414,7 +414,7 @@ async function reopenPractice(sessionId: number) {
 
             <section class="min-w-0 rounded-spa-lg border border-border bg-surface p-4 sm:p-5" aria-label="Question details">
                 <div v-if="selected" class="space-y-5">
-                    <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div class="min-w-0 flex-1">
                             <template v-if="editingQuestion">
                                 <label class="block text-xs text-muted-foreground">Question in English<textarea v-model="draftPromptEn" rows="2" class="mt-1 w-full rounded-spa border border-border bg-surface-alt p-2 text-base text-fg" /></label>
@@ -424,7 +424,7 @@ async function reopenPractice(sessionId: number) {
                             </template>
                             <template v-else><h2 class="break-words text-xl font-semibold text-fg">{{ selected.promptEn }}</h2><p v-if="russian && selected.promptRu" class="mt-2 break-words text-muted-foreground">{{ selected.promptRu }}</p></template>
                         </div>
-                        <div class="flex shrink-0 gap-2"><button v-if="!editingQuestion" class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" @click="startQuestionEdit">Edit question</button><button class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" @click="russian = !russian">{{ russian ? 'Hide Russian' : 'Show Russian' }}</button></div>
+                        <div class="flex flex-wrap gap-2"><button v-if="!editingQuestion" class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" @click="startQuestionEdit">Edit question</button><button class="min-h-11 rounded-spa border border-border px-3 text-sm text-fg" @click="russian = !russian">{{ russian ? 'Hide Russian' : 'Show Russian' }}</button></div>
                     </div>
                     <div class="flex flex-wrap gap-2"><span v-for="tag in selected.tags" :key="tag" class="rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">{{ tag }}</span></div>
                     <label class="block max-w-xs text-xs text-muted-foreground">Preparation state<select v-model="selected.preparationState" class="mt-1 w-full rounded-spa border border-border bg-surface-alt px-3 py-2 text-sm text-fg" @change="savePreparationState"><option value="unpracticed">Unpracticed</option><option value="needs_practice">Needs practice</option><option value="confident">Confident</option></select></label>
