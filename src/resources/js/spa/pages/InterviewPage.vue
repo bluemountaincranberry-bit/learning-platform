@@ -231,6 +231,15 @@ async function refreshPractice() {
     practiceSession.value = await interviewApi.getSession(practiceSession.value.id);
 }
 
+async function retryPracticeRefresh() {
+    try {
+        await refreshPractice();
+        error.value = '';
+    } catch {
+        error.value = 'The practice session is still unavailable. Your submitted answer remains saved; try refreshing again.';
+    }
+}
+
 async function sendPracticeMessage() {
     if (!practiceSession.value || !practiceMessage.value.trim()) return;
     const sessionId = practiceSession.value.id;
@@ -239,17 +248,29 @@ async function sendPracticeMessage() {
     sendingPractice.value = true;
     practiceMessage.value = '';
     error.value = '';
+    let submitted = false;
     try {
         await interviewApi.sendSessionMessage(sessionId, content, practiceVoice.value ?? undefined);
+        submitted = true;
         practiceVoice.value = null;
+        let receivedReply = false;
         for (let attempt = 0; attempt < 15; attempt += 1) {
             await new Promise((resolve) => setTimeout(resolve, 1000));
             const updated = await interviewApi.getSession(sessionId);
             practiceSession.value = updated;
-            if (updated.messages.some((message) => message.role === 'assistant' && message.id > previousAssistantId)) break;
+            if (updated.messages.some((message) => message.role === 'assistant' && message.id > previousAssistantId)) {
+                receivedReply = true;
+                break;
+            }
         }
+        if (!receivedReply) error.value = 'Your answer was saved, but the Interview Agent has not replied yet. Refresh the session to check again.';
         await refreshAiDrafts();
-    } catch { error.value = 'The Interview Agent is unavailable right now. You can retry or continue editing your question bank.'; }
+    } catch {
+        if (!submitted) practiceMessage.value = content;
+        error.value = submitted
+            ? 'Your answer was sent, but the Interview Agent is unavailable. Refresh the session to check for a reply.'
+            : 'Your answer is still here, but could not be sent. Check your connection and try again.';
+    }
     finally { sendingPractice.value = false; }
 }
 
@@ -462,6 +483,6 @@ async function pinInterviewVoice(messageId: number, pinned: boolean) {
                 <p v-else class="py-8 text-center text-sm text-muted-foreground">Choose a question to review its answers.</p>
             </section>
         </div>
-        <p v-if="error" class="rounded-spa border border-warning/40 bg-warning/10 p-3 text-sm text-warning" role="alert">{{ error }} <button class="underline" @click="() => load()">Retry</button></p>
+        <p v-if="error" class="rounded-spa border border-warning/40 bg-warning/10 p-3 text-sm text-warning" role="alert">{{ error }} <button class="underline" @click="practiceSession ? retryPracticeRefresh() : load()">{{ practiceSession ? 'Refresh session' : 'Retry' }}</button></p>
     </main>
 </template>

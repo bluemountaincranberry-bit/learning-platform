@@ -141,6 +141,25 @@ test('learner can create and reopen a private coached or mock practice session',
     test()->postJson('/api/interview/sessions/'.$session['id'].'/complete')->assertNotFound();
 });
 
+test('disabled Interview Agent reports a provider failure and preserves the question bank', function () {
+    config(['ai.agent.enabled' => false]);
+    $learner = interviewLearner();
+    $question = test()->postJson('/api/interview/questions', [
+        'prompt_en' => 'Explain an API timeout.',
+    ])->assertCreated()->json('data');
+    $session = test()->postJson('/api/interview/sessions', [
+        'mode' => 'coached', 'question_ids' => [$question['id']],
+    ])->assertCreated()->json('data');
+
+    test()->postJson('/api/interview/sessions/'.$session['id'].'/messages', [
+        'content' => 'I would retry the request.',
+    ])->assertStatus(503)
+        ->assertJsonPath('message', 'AI practice is currently unavailable. Your interview bank is still available.');
+    test()->getJson('/api/interview/sessions/'.$session['id'])->assertOk()
+        ->assertJsonCount(0, 'data.messages')
+        ->assertJsonPath('data.questions.0.prompt_en', 'Explain an API timeout.');
+});
+
 test('mock practice selects the requested count from the chosen topic subtree', function () {
     interviewLearner();
     $parent = test()->postJson('/api/interview/topics', ['name' => 'Technical'])->assertCreated()->json('data');

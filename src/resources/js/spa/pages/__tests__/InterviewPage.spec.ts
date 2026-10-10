@@ -95,6 +95,49 @@ describe('InterviewPage', () => {
         expect(wrapper.find('#interview-practice-message').exists()).toBe(true);
     });
 
+    it('keeps the learner answer available when the message provider rejects the send', async () => {
+        api.startSession.mockResolvedValue({ id: 9, conversationId: 11, mode: 'coached', status: 'active', questionCount: 1, focus: null, questions: [structuredClone(question)], messages: [] });
+        api.sendSessionMessage.mockRejectedValue(new Error('provider unavailable'));
+        const wrapper = mount(InterviewPage);
+        await flushPromises();
+        await wrapper.findAll('button').find((button) => button.text().includes('Start coached practice'))!.trigger('click');
+        await flushPromises();
+        const answer = wrapper.find('#interview-practice-message');
+        await answer.setValue('I built a small API.');
+        await wrapper.find('form').trigger('submit');
+        await flushPromises();
+
+        expect(wrapper.findAll('[role="alert"]').some((alert) => alert.text().includes('Your answer is still here'))).toBe(true);
+        expect((wrapper.find('#interview-practice-message').element as HTMLTextAreaElement).value).toBe('I built a small API.');
+    });
+
+    it('explains when an accepted answer gets no agent reply and allows a session refresh', async () => {
+        vi.useFakeTimers();
+        try {
+            const session = { id: 9, conversationId: 11, mode: 'coached', status: 'active', questionCount: 1, focus: null, questions: [structuredClone(question)], messages: [] };
+            api.startSession.mockResolvedValue(session);
+            api.sendSessionMessage.mockResolvedValue(undefined);
+            api.getSession.mockResolvedValue(session);
+            const wrapper = mount(InterviewPage);
+            await flushPromises();
+            await wrapper.findAll('button').find((button) => button.text().includes('Start coached practice'))!.trigger('click');
+            await flushPromises();
+            await wrapper.find('#interview-practice-message').setValue('I built an API for a class project.');
+            await wrapper.find('form').trigger('submit');
+            await flushPromises();
+            await vi.advanceTimersByTimeAsync(15_000);
+            await flushPromises();
+
+            expect(wrapper.findAll('[role="alert"]').some((alert) => alert.text().includes('Your answer was saved, but the Interview Agent has not replied yet'))).toBe(true);
+            expect(wrapper.findAll('button').some((button) => button.text() === 'Refresh session')).toBe(true);
+            await wrapper.findAll('button').find((button) => button.text() === 'Refresh session')!.trigger('click');
+            await flushPromises();
+            expect(api.getSession).toHaveBeenCalledWith(9);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('lets a learner edit the transcribed answer before attaching the recording', async () => {
         const session = { id: 9, conversationId: 11, mode: 'coached', status: 'active', questionCount: 1, focus: null, questions: [structuredClone(question)], messages: [] };
         api.startSession.mockResolvedValue(session);

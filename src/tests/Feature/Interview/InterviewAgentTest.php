@@ -232,6 +232,41 @@ test('Interview Agent gives dimension-specific Russian feedback grounded in the 
         ->assertJsonPath('data.messages.1.content', "**Содержание:** Вы назвали API и тесты для таймаутов; расскажите, какую задачу решал API.\n\n**English improvement:** ‘I built a small API and added tests for timeout handling.’");
 });
 
+test('Interview Agent asks for missing experience details without inventing a behavioral story', function () {
+    $learner = User::factory()->create();
+    $question = test()->actingAs($learner)->postJson('/api/interview/questions', [
+        'prompt_en' => 'Tell me about a project you built.',
+    ])->assertCreated()->json('data');
+    $session = test()->postJson('/api/interview/sessions', [
+        'mode' => 'coached', 'question_ids' => [$question['id']],
+    ])->assertCreated()->json('data');
+    $conversation = AgentConversation::query()->findOrFail($session['conversation_id']);
+    $conversation->messages()->create(['role' => 'user', 'content' => 'I built a small project for school.']);
+
+    $toolClient = Mockery::mock(AiToolCallingClient::class);
+    $callCount = 0;
+    $toolClient->shouldReceive('chat')->twice()->andReturnUsing(function (array $messages) use (&$callCount) {
+        if ($callCount++ === 0) {
+            $systemPrompt = $messages[0]['content'];
+            expect(str_contains($systemPrompt, 'Never invent personal history'))->toBeTrue('Missing no-invention instruction in agent system prompt.');
+            expect(str_contains($systemPrompt, 'Ask concise clarifying questions whenever a factual detail is missing'))->toBeTrue('Missing clarification instruction in agent system prompt.');
+            expect(str_contains($systemPrompt, 'Only propose profile changes from facts explicitly shared by the'))->toBeTrue('Missing grounded-profile proposal instruction in agent system prompt.')
+                ->and(str_contains($systemPrompt, 'never turn suggestions or assumptions into facts'))->toBeTrue();
+
+            return new AgentChatResponse(null, [new AgentToolCall('context_1', 'get_interview_practice_context', [])]);
+        }
+
+        return new AgentChatResponse('You said you built a small school project. What problem did it solve, and what part did you personally build?');
+    });
+    app()->instance(AiToolCallingClient::class, $toolClient);
+
+    (new RunAgentTurnJob($conversation->id))->handle();
+
+    test()->getJson('/api/interview/sessions/'.$session['id'])->assertOk()
+        ->assertJsonPath('data.messages.1.content', 'You said you built a small school project. What problem did it solve, and what part did you personally build?');
+    test()->getJson('/api/interview/drafts')->assertOk()->assertJsonCount(0, 'data');
+});
+
 test('Interview Agent proposes evidence-backed question state changes for review before applying them', function () {
     $learner = User::factory()->create();
     $firstQuestion = test()->actingAs($learner)->postJson('/api/interview/questions', [
