@@ -98,6 +98,7 @@ describe('InterviewPage', () => {
         api.drafts.mockResolvedValue([{ id: 42, kind: 'profile', changes: [
             { label: 'Career goal', value: 'Junior developer' },
             { label: 'Experience stories', value: 'I built a study project.' },
+            { label: 'Skills', value: '(empty — clears this list)' },
         ] }]);
         api.decideDraft.mockResolvedValue(undefined);
         const wrapper = mount(InterviewPage);
@@ -105,6 +106,7 @@ describe('InterviewPage', () => {
 
         expect(wrapper.text()).toContain('Junior developer');
         expect(wrapper.text()).toContain('I built a study project.');
+        expect(wrapper.text()).toContain('(empty — clears this list)');
         expect(wrapper.text()).toContain('Save profile updates');
         await wrapper.findAll('button').find((button) => button.text() === 'Save profile updates')!.trigger('click');
         await flushPromises();

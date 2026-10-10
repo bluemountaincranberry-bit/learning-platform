@@ -34,8 +34,9 @@ const mapSession = (session: WireSession): InterviewPracticeSession => ({
 
 const draftLabels: Record<string, string> = { career_goal: 'Career goal', skills: 'Skills', experience_level: 'Experience level', projects: 'Projects', experience_stories: 'Experience stories', milestones: 'Milestones' };
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
-const formatDraftValues = (value: unknown): string[] => {
-    if (!Array.isArray(value)) return [typeof value === 'string' ? value : '—'];
+const formatDraftValues = (key: string, value: unknown): string[] => {
+    if (!Array.isArray(value)) return [value === null || value === '' ? '(empty — clears this value)' : typeof value === 'string' ? value : '—'];
+    if (value.length === 0) return [key === 'milestones' ? '(no milestone changes)' : '(empty — clears this list)'];
     return value.flatMap((item) => {
         if (typeof item === 'string') return [item];
         if (!isRecord(item) || typeof item.title !== 'string') return [];
@@ -48,7 +49,7 @@ export const interviewApi = {
         const data = (await axios.get('/api/interview/drafts')).data.data as WireDraft[];
         return data.map((draft) => draft.kind === 'question'
             ? ({ id: draft.id, kind: 'question', promptEn: typeof draft.payload.prompt_en === 'string' ? draft.payload.prompt_en : '', promptRu: typeof draft.payload.prompt_ru === 'string' ? draft.payload.prompt_ru : null, topicId: typeof draft.payload.topic_id === 'number' ? draft.payload.topic_id : null, tags: Array.isArray(draft.payload.tags) ? draft.payload.tags.filter((tag): tag is string => typeof tag === 'string') : [] })
-            : ({ id: draft.id, kind: 'profile', changes: Object.entries(draft.payload).flatMap(([key, value]) => formatDraftValues(value).map((entry) => ({ label: draftLabels[key] ?? key, value: entry }))) }));
+            : ({ id: draft.id, kind: 'profile', changes: Object.entries(draft.payload).flatMap(([key, value]) => formatDraftValues(key, value).map((entry) => ({ label: draftLabels[key] ?? key, value: entry }))) }));
     },
     async decideDraft(id: number, decision: 'confirm' | 'reject'): Promise<void> {
         await axios.post(`/api/interview/drafts/${id}/${decision}`);
